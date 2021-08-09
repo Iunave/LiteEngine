@@ -14,16 +14,6 @@ namespace Glfw
 }
 #undef GLFW_INCLUDE_NONE
 
-void InitializeGlobals()
-{
-    Thread::MainThreadId = pthread_self();
-}
-
-void BindShutDowns()
-{
-    GOnEngineShutdown.Bind(&Vk::ShutDownVulkan);
-}
-
 void MainEngineLoop()
 {
     while(!GRenderWindow.ShouldClose() && !GIsEngineExitRequested)

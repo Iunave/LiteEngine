@@ -3,8 +3,6 @@
 #include "String.hpp"
 #include "Function.hpp"
 
-Thread::FMutex Thread::GLogMutex{};
-
 #if DEBUG
 
 inline const char8* CreateResultToString(int32 Value)
@@ -15,8 +13,8 @@ inline const char8* CreateResultToString(int32 Value)
         case EAGAIN: return "ERROR: insufficient resources or system does not allow this many threads";
         case EINVAL: return "ERROR: invalid settings in attr";
         case EPERM: return "ERROR: No permission to set the scheduling policy and parameters specified in attr";
+        default: return "ERROR: unknown";
     }
-    return "ERROR: unknown";
 }
 
 inline const char8* JoinResultToString(int32 Value)
@@ -27,8 +25,8 @@ inline const char8* JoinResultToString(int32 Value)
         case EDEADLOCK: return "ERROR: detected deadlock";
         case EINVAL: return "ERROR: thread is not joinable or another thread is already waiting to join";
         case ESRCH: return "ERROR: thread not found";
+        default: return "ERROR: unknown";
     }
-    return "ERROR: unknown";
 }
 
 inline const char8* TryJoinResultToString(int32 Value)
@@ -39,8 +37,8 @@ inline const char8* TryJoinResultToString(int32 Value)
         case EBUSY: return "fail: thread is still running";
         case ETIMEDOUT: return "fail: time out";
         case EINVAL: return "ERROR: invalid timeout value";
+        default: return "ERROR: unknown";
     }
-    return "ERROR: unknown";
 }
 
 inline const char8* DetachResultToString(int32 Value)
@@ -50,8 +48,8 @@ inline const char8* DetachResultToString(int32 Value)
         case 0: return "success";
         case EINVAL: return "ERROR: thread is already detached";
         case ESRCH: return "ERROR: thread not found";
+        default: return "ERROR: unknown";
     }
-    return "ERROR: unknown";
 }
 
 #endif //DEBUG
@@ -65,7 +63,7 @@ namespace Thread
 
     const int64 NumRealThreads{::sysconf(_SC_NPROCESSORS_CONF)};
 
-    bool IsMainThread()
+    bool IsInMainThread()
     {
         return pthread_self() == MainThreadId;
     }

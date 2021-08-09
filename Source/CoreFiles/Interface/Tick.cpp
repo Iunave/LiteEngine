@@ -19,12 +19,12 @@ void FTickManager::Tick(float64 DeltaTime)
     }
 }
 
-int64 FTickManager::AddObject(OTickable* ObjectToAdd NONNULL)
+int64 FTickManager::AddTickable(OTickable* ObjectToAdd NONNULL)
 {
     return TickingObjects.Append(ObjectToAdd);
 }
 
-void FTickManager::RemoveObject(const int64 ObjectPosition)
+void FTickManager::RemoveTickable(const int64 ObjectPosition)
 {
     const int64 MovedObjectIndex{TickingObjects.RemoveAtSwap(ObjectPosition, 1)};
 
@@ -48,7 +48,7 @@ OTickable::OTickable(const bool bRegisterTickOnConstruction)
 {
     if(bRegisterTickOnConstruction)
     {
-        TickPosition = FTickManager::Instance().AddObject(this);
+        TickPosition = FTickManager::Instance().AddTickable(this);
     }
     else
     {
@@ -65,7 +65,7 @@ void OTickable::RegisterTick()
 {
     if(!IsTickRegistered())
     {
-        TickPosition = FTickManager::Instance().AddObject(this);
+        TickPosition = FTickManager::Instance().AddTickable(this);
     }
 }
 
@@ -73,7 +73,7 @@ void OTickable::UnRegisterTick()
 {
     if(IsTickRegistered())
     {
-        FTickManager::Instance().RemoveObject(TickPosition);
+        FTickManager::Instance().RemoveTickable(TickPosition);
     }
 }
 

@@ -29,9 +29,9 @@ public:
 
     void Tick(float64 DeltaTime);
 
-    NODISCARD int64 AddObject(OTickable* ObjectToAdd NONNULL);
+    NODISCARD int64 AddTickable(OTickable* ObjectToAdd NONNULL);
 
-    void RemoveObject(const int64 ObjectPosition);
+    void RemoveTickable(const int64 ObjectPosition);
 
     void RemoveAll();
 

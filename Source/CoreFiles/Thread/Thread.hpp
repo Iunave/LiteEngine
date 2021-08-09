@@ -20,13 +20,11 @@ static_assert(sizeof(EThreadPriority) == sizeof(sched_param));
 
 namespace Thread
 {
-    extern class FMutex GLogMutex;
-
-    inline ThreadType MainThreadId{0xFFFFFFFF};
-
     extern const int64 NumRealThreads;
 
-    bool IsMainThread();
+    inline const ThreadType MainThreadId{pthread_self()};
+
+    bool IsInMainThread();
 
     class FMutex final
     {
@@ -61,6 +59,8 @@ namespace Thread
 
         pthread_mutex_t MutexHandle;
     };
+
+    inline FMutex GLogMutex{};
 
     class FBarrier final
     {
