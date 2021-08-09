@@ -182,28 +182,9 @@ public:
     float64 C{3};
 };
 
-void AwaitIDInitialization()
-{
-    LOG(LogProgram, "waiting for object ID initialization");
-
-    for(Thread::FThread& Thread : Rtti::IDInitializationThreads)
-    {
-        Thread.Join();
-    }
-
-    Rtti::IDInitializationThreads.Empty<true>();
-
-    LOG(LogProgram, "completed object ID initialization");
-}
-
 int32 main(const int32 NumProgramOptions, const char8** ProgramOptions)
 {
     LOG(LogProgram, "entered main with thread-ID: {}", StrUtil::IntToHex(pthread_self()));
-
-    InitializeGlobals();
-    BindShutDowns();
-
-    AwaitIDInitialization();
 
     OObject1* Object1{new OObject3};
     OObject2* Object2{ObjectCast<OObject2*>(Object1)};

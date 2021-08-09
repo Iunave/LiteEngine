@@ -111,7 +111,7 @@ namespace Rtti
 
     INLINE uint32 GenerateTypeID()
     {
-        static constinit TAtomic<uint32> TypeID{0};
+        static constinit uint32 TypeID{0};
         return ++TypeID;
     }
 
@@ -165,59 +165,13 @@ namespace Rtti
         }
     }
 
-    inline TDynamicArray<Thread::FThread> IDInitializationThreads{512, EChooseConstructor{}};
-
     template<typename Class>
-    class TIDArray
-    {
-    private:
-
-        static void* ThreadInitializeIDArray(void* ArrayContainer)
-        {
-            static_cast<TIDArray*>(ArrayContainer)->InitializeIDArray();
-            pthread_exit(nullptr);
-        }
-
-    public:
-
-        TIDArray()
-        {
-            Thread::FThread InitializationThread{};
-            InitializationThread.Create(&ThreadInitializeIDArray, this);
-
-            IDInitializationThreads.Append(InitializationThread);
-        }
-
-        const IDArrayType<Class>& GetArray() const
-        {
-            return Array;
-        }
-
-    private:
-
-        void InitializeIDArray()
-        {
-        #if DEBUG
-            const FString LogString{FString{"building ID-Array for "} += GetObjectName<Class>()};
-
-            LOG(LogThread, "started task: {}", LogString);
-            Array = MakeTypeIDArray<Class, Class>();
-            LOG(LogThread, "completed task: {}", LogString);
-        #else
-            Array = MakeTypeIDArray<Class, Class>();
-        #endif
-        }
-
-        IDArrayType<Class> Array;
-    };
-
-    template<typename Class>
-    inline const TIDArray<Class> GlobalIDArray{};
+    inline const IDArrayType<Class> GlobalIDArray{MakeTypeIDArray<Class, Class>()}; //we have this global so all are initialized before main
 
     template<typename Class>
     inline int64 OffsetFromID(const int64 SourcePtr, const uint32 TargetID)
     {
-        const IDArrayType<Class>& IDArray{GlobalIDArray<Class>.GetArray()};
+        const IDArrayType<Class>& IDArray{GlobalIDArray<Class>};
 
         constexpr uint64 NumRegisterElements{Simd::NumElements<RegisterTypeId>()};
         constexpr uint64 NumComparisons{CalculateNumComparisons<IDArrayType<Class>::Num(), 1>()};
