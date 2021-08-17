@@ -104,9 +104,9 @@ namespace Rtti
 #if defined(AVX512)
     using VectorIDType = Vector64<uint32>;
 #elif defined(AVX256)
-    using RegisterIDType = Register32<uint32>;
+    using VectorIDType = Vector32<uint32>;
 #elif defined(AVX128)
-    using RegisterIDType = Register16<uint32>;
+    using VectorIDType = Vector16<uint32>;
 #endif
 
     INLINE uint32 GenerateTypeID()
