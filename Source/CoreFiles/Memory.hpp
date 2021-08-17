@@ -53,7 +53,7 @@ inline constexpr EMapFlags operator|(const EMapFlags Lhs, const EMapFlags Rhs)
 
 enum class EReMapFlags : int32
 {
-    DontUnmap = MREMAP_DONTUNMAP,
+    //DontUnmap = MREMAP_DONTUNMAP,
     Fixed = MREMAP_FIXED,
     MayMove = MREMAP_MAYMOVE
 };

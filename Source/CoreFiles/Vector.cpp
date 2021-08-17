@@ -17,7 +17,6 @@ void FVector::Set(const float64 X, const float64 Y, const float64 Z)
 bool FVector::ExactEquals(FVector Other) const
 {
     const int32 ComparisonResult{Simd::MoveMask(Register == Other.Register)};
-
     return ComparisonResult == MaskXYZ() || ComparisonResult == MaskXYZW();
 }
 

@@ -77,7 +77,7 @@ namespace Thread
     {
     public:
 
-        FThreadPool(const uint64 NumThreadsToStart = ::sysconf(_SC_NPROCESSORS_CONF));
+        FThreadPool();
 
         ~FThreadPool();
 

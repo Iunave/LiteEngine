@@ -102,11 +102,11 @@ namespace Rtti
     using BaseClassType = TypeTrait::RemovePointer<TypeTrait::RemoveReference<decltype(std::get<Index>(DerivedClass::GetDirectBaseClasses()))>>;
 
 #if defined(AVX512)
-    using TypeIdTRegister = Register64<uint32>;
+    using VectorIDType = Vector64<uint32>;
 #elif defined(AVX256)
-    using RegisterTypeId = Register32<uint32>;
+    using RegisterIDType = Register32<uint32>;
 #elif defined(AVX128)
-    using TypeIdTRegister = Register16<uint32>;
+    using RegisterIDType = Register16<uint32>;
 #endif
 
     INLINE uint32 GenerateTypeID()
@@ -155,7 +155,7 @@ namespace Rtti
     template<uint64 NumIds, uint64 Index>
     inline consteval uint64 CalculateNumComparisons()
     {
-        if constexpr(NumIds <= (Simd::NumElements<RegisterTypeId>() * Index))
+        if constexpr(NumIds <= (Simd::NumElements<VectorIDType>() * Index))
         {
             return Index;
         }
@@ -173,27 +173,29 @@ namespace Rtti
     {
         const IDArrayType<Class>& IDArray{GlobalIDArray<Class>};
 
-        constexpr uint64 NumRegisterElements{Simd::NumElements<RegisterTypeId>()};
+        constexpr uint64 NumRegisterElements{Simd::NumElements<VectorIDType>()};
         constexpr uint64 NumComparisons{CalculateNumComparisons<IDArrayType<Class>::Num(), 1>()};
         constexpr uint64 NumElementIterations{NumRegisterElements * NumComparisons};
-        constexpr int32 ValidMask{Simd::Mask<RegisterTypeId>() >> (NumElementIterations - IDArrayType<Class>::Num())}; //mask out the garbage results with this
+        constexpr auto ValidMask{Simd::Mask<VectorIDType>() >> (NumElementIterations - IDArrayType<Class>::Num())}; //mask out the garbage results with this
+
+        const VectorIDType TargetIDVector{Simd::SetAll<VectorIDType>(TargetID)};
 
         int64 ResultPtr{0};
 
         #pragma unroll NumComparisons
         for(uint64 Index{0}; Index < NumElementIterations; Index += NumRegisterElements)
         {
-            RegisterTypeId StoredIDs{Simd::LoadUnaligned<RegisterTypeId>(IDArray + Index)};
+            VectorIDType StoredIDs{Simd::LoadUnaligned<VectorIDType>(IDArray + Index)};
             StoredIDs &= 0x0000FFFF; //mask out the offset part
 
-            int32 ComparisonMask{Simd::MoveMask(TargetID == StoredIDs)};
+            auto ComparisonMask{Simd::MoveMask(TargetIDVector == StoredIDs)};
 
             if(Index == (NumElementIterations - NumRegisterElements)) //this should be optimized out
             {
                 ComparisonMask &= ValidMask;
             }
 
-            const int32 MatchIndex{Math::FindFirstSet(ComparisonMask)};
+            const auto MatchIndex{Math::FindFirstSet(ComparisonMask)};
             const bool bIsMatch{MatchIndex != 0};
 
             const uint32 MatchedElement{IDArray[((MatchIndex - 1) + Index) + !bIsMatch]}; //FindFirstSet returns index + 1, we need index

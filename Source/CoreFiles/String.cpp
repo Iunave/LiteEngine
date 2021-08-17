@@ -38,7 +38,7 @@ namespace StrUtil
         {
             const CharRegisterType StringRegister{Simd::LoadUnaligned<CharRegisterType>((String + Length) - NumCharElements)};
 
-            const int32 Mask{Simd::MoveMask(StringRegister == NullCheckRegister)};
+            const auto Mask{Simd::MoveMask(StringRegister == NullCheckRegister)};
 
             if(Mask > 0)
             {

@@ -88,7 +88,7 @@ namespace Memory
 #ifdef __AVX2__
 #define AVX256 __AVX2__
 #endif
-#ifdef __AVX512__
+#ifdef __AVX512F__
 #define AVX512 __AVX512__ //not yet implemented
 #endif
 
@@ -110,155 +110,155 @@ namespace Memory
 
 
 template<typename T>
-using Register16 = T __attribute__((vector_size(16), aligned(16)));
+using Vector16 = T __attribute__((vector_size(16), aligned(16)));
 
 template<typename T>
-using Register32 = T __attribute__((vector_size(32), aligned(32)));
+using Vector32 = T __attribute__((vector_size(32), aligned(32)));
 
 template<typename T>
-using Register64 = T __attribute__((vector_size(64), aligned(64)));
+using Vector64 = T __attribute__((vector_size(64), aligned(64)));
 
 #ifdef AVX128
 
-using char8_16 = Register16<char8>;
+using char8_16 = Vector16<char8>;
 static_assert(alignof(char8_16) == 16);
 
-using char16_8 = Register16<char16>;
+using char16_8 = Vector16<char16>;
 static_assert(alignof(char16_8) == 16);
 
-using char32_4 = Register16<char32>;
+using char32_4 = Vector16<char32>;
 static_assert(alignof(char32_4) == 16);
 
-using uint8_16 = Register16<uint8>;
+using uint8_16 = Vector16<uint8>;
 static_assert(alignof(uint8_16) == 16);
 
-using int8_16 = Register16<int8>;
+using int8_16 = Vector16<int8>;
 static_assert(alignof(int8_16) == 16);
 
-using uint16_8 = Register16<uint16>;
+using uint16_8 = Vector16<uint16>;
 static_assert(alignof(uint16_8) == 16);
 
-using int16_8 = Register16<int16>;
+using int16_8 = Vector16<int16>;
 static_assert(alignof(int16_8) == 16);
 
-using uint32_4 = Register16<uint32>;
+using uint32_4 = Vector16<uint32>;
 static_assert(alignof(uint32_4) == 16);
 
-using int32_4 = Register16<int32>;
+using int32_4 = Vector16<int32>;
 static_assert(alignof(int32_4) == 16);
 
-using uint64_2 = Register16<uint64>;
+using uint64_2 = Vector16<uint64>;
 static_assert(alignof(uint64_2) == 16);
 
-using int64_2 = Register16<int64>;
+using int64_2 = Vector16<int64>;
 static_assert(alignof(int64_2) == 16);
 
-using float32_4 = Register16<float32>;
+using float32_4 = Vector16<float32>;
 static_assert(alignof(float32_4) == 16);
 
-using float64_2 = Register16<float64>;
+using float64_2 = Vector16<float64>;
 static_assert(alignof(float64_2) == 16);
 
 #endif //AVX128
 #ifdef AVX256
 
-using char8_32 = Register32<char8>;
+using char8_32 = Vector32<char8>;
 static_assert(alignof(char8_32) == 32);
 
-using char16_16 = Register32<char16>;
+using char16_16 = Vector32<char16>;
 static_assert(alignof(char16_16) == 32);
 
-using char32_8 = Register32<char32>;
+using char32_8 = Vector32<char32>;
 static_assert(alignof(char32_8) == 32);
 
-using uint8_32 = Register32<uint8>;
+using uint8_32 = Vector32<uint8>;
 static_assert(alignof(uint8_32) == 32);
 
-using int8_32 = Register32<int8>;
+using int8_32 = Vector32<int8>;
 static_assert(alignof(int8_32) == 32);
 
-using uint16_16 = Register32<uint16>;
+using uint16_16 = Vector32<uint16>;
 static_assert(alignof(uint16_16) == 32);
 
-using int16_16 = Register32<int16>;
+using int16_16 = Vector32<int16>;
 static_assert(alignof(int16_16) == 32);
 
-using uint32_8 = Register32<uint32>;
+using uint32_8 = Vector32<uint32>;
 static_assert(alignof(uint32_8) == 32);
 
-using int32_8 = Register32<int32>;
+using int32_8 = Vector32<int32>;
 static_assert(alignof(int32_8) == 32);
 
-using uint64_4 = Register32<uint64>;
+using uint64_4 = Vector32<uint64>;
 static_assert(alignof(uint64_4) == 32);
 
-using int64_4 = Register32<int64>;
+using int64_4 = Vector32<int64>;
 static_assert(alignof(int64_4) == 32);
 
-using uint128_2 = Register32<uint128>;
+using uint128_2 = Vector32<uint128>;
 static_assert(alignof(uint128_2) == 32);
 
-using int128_2 = Register32<int128>;
+using int128_2 = Vector32<int128>;
 static_assert(alignof(int128_2) == 32);
 
-using float32_8 = Register32<float32>;
+using float32_8 = Vector32<float32>;
 static_assert(alignof(float32_8) == 32);
 
-using float64_4 = Register32<float64>;
+using float64_4 = Vector32<float64>;
 static_assert(alignof(float64_4) == 32);
 
-using float128_2 = Register32<float128>;
+using float128_2 = Vector32<float128>;
 static_assert(alignof(float128_2) == 32);
 
 #endif //AVX256
 #ifdef AVX512
 
-using char8_64 = Register64<char8>;
+using char8_64 = Vector64<char8>;
 static_assert(alignof(char8_64) == 64);
 
-using char16_32 = Register64<char16>;
+using char16_32 = Vector64<char16>;
 static_assert(alignof(char16_32) == 64);
 
-using char32_16 = Register64<char32>;
+using char32_16 = Vector64<char32>;
 static_assert(alignof(char32_16) == 64);
 
-using uint8_64 = Register64<uint8>;
+using uint8_64 = Vector64<uint8>;
 static_assert(alignof(uint8_64) == 64);
 
-using int8_64 = Register64<int8>;
+using int8_64 = Vector64<int8>;
 static_assert(alignof(int8_64) == 64);
 
-using uint16_32 = Register64<uint16>;
+using uint16_32 = Vector64<uint16>;
 static_assert(alignof(uint16_32) == 64);
 
-using int16_32 = Register64<int16>;
+using int16_32 = Vector64<int16>;
 static_assert(alignof(int16_32) == 64);
 
-using uint32_16 = Register64<uint32>;
+using uint32_16 = Vector64<uint32>;
 static_assert(alignof(uint32_16) == 64);
 
-using int32_16 = Register64<int32>;
+using int32_16 = Vector64<int32>;
 static_assert(alignof(int32_16) == 64);
 
-using uint64_8 = Register64<uint64>;
+using uint64_8 = Vector64<uint64>;
 static_assert(alignof(uint64_8) == 64);
 
-using int64_8 = Register64<int64>;
+using int64_8 = Vector64<int64>;
 static_assert(alignof(int64_8) == 64);
 
-using uint128_4 = Register64<uint128>;
-static_assert(alignof(uint128_8) == 64);
+using uint128_4 = Vector64<uint128>;
+static_assert(alignof(uint128_4) == 64);
 
-using int128_4 = Register64<int128>;
+using int128_4 = Vector64<int128>;
 static_assert(alignof(int128_4) == 64);
 
-using float32_16 = Register64<float32>;
+using float32_16 = Vector64<float32>;
 static_assert(alignof(float32_16) == 64);
 
-using float64_8 = Register64<float64>;
+using float64_8 = Vector64<float64>;
 static_assert(alignof(float64_8) == 64);
 
-using float128_4 = Register64<float128>;
+using float128_4 = Vector64<float128>;
 static_assert(alignof(float128_4) == 64);
 
 #endif //AVX512
@@ -327,12 +327,17 @@ namespace Simd
     template<typename RegisterType> requires(alignof(RegisterType) == 16)
     inline consteval int32 Mask()
     {
-        switch(NumElements<RegisterType>())
+        if constexpr(NumElements<RegisterType>() == 16)
         {
-            case 16: return static_cast<int32>(0b00000000000000001111111111111111);
-            case 8:  return static_cast<int32>(0b00000000000000000000000011111111);
-            case 4:  return static_cast<int32>(0b00000000000000000000000000001111);
-            case 2:  return static_cast<int32>(0b00000000000000000000000000000011);
+            return static_cast<int32>(0b00000000000000001111111111111111);
+        }
+        else if constexpr(NumElements<RegisterType>() == 8)
+        {
+            return static_cast<int32>(0b00000000000000000000000011111111);
+        }
+        else if constexpr(NumElements<RegisterType>() == 4)
+        {
+            return static_cast<int32>(0b00000000000000000000000000001111);
         }
     }
 
@@ -342,21 +347,53 @@ namespace Simd
     template<typename RegisterType> requires(alignof(RegisterType) == 32)
     inline consteval int32 Mask()
     {
-        switch(NumElements<RegisterType>())
+        if constexpr(NumElements<RegisterType>() == 32)
         {
-            case 32: return static_cast<int32>(0b11111111111111111111111111111111);
-            case 16: return static_cast<int32>(0b11111111111111111111111111111111);
-            case 8:  return static_cast<int32>(0b00000000000000000000000011111111);
-            case 4:  return static_cast<int32>(0b00000000000000000000000000001111);
-            case 2:  return static_cast<int32>(0b00000000000000000000000000000011);
+            return static_cast<int32>(0b11111111111111111111111111111111);
+        }
+        else if constexpr(NumElements<RegisterType>() == 16)
+        {
+            return static_cast<int32>(0b11111111111111111111111111111111);
+        }
+        else if constexpr(NumElements<RegisterType>() == 8)
+        {
+            return static_cast<int32>(0b00000000000000000000000011111111);
+        }
+        else if constexpr(NumElements<RegisterType>() == 4)
+        {
+            return static_cast<int32>(0b00000000000000000000000000001111);
         }
     }
 
 #endif //AVX256
+#ifdef AVX512
+
+    template<typename RegisterType> requires(alignof(RegisterType) == 64)
+    inline consteval auto Mask()
+    {
+        if constexpr(NumElements<RegisterType>() == 64)
+        {
+            return static_cast<uint64>(~0ULL);
+        }
+        else if constexpr(NumElements<RegisterType>() == 32)
+        {
+            return static_cast<uint32>(~0U);
+        }
+        else if constexpr(NumElements<RegisterType>() == 16)
+        {
+            return static_cast<uint16>(~0U);
+        }
+        else if constexpr(NumElements<RegisterType>() == 8)
+        {
+            return static_cast<uint8>(~0U);
+        }
+    }
+
+#endif //AVX512
 #ifdef AVX128
 
     template<typename T>
-    INLINE constexpr int32 MoveMask(Register16<T> VectorMask) MIN_VECTOR_WIDTH(128)
+    INLINE constexpr int32 MoveMask(Vector16<T> VectorMask) MIN_VECTOR_WIDTH(128)
     {
         if constexpr(sizeof(T) <= 2)
         {
@@ -376,7 +413,7 @@ namespace Simd
 #ifdef AVX256
 
     template<typename T>
-    INLINE constexpr int32 MoveMask(Register32<T> VectorMask) MIN_VECTOR_WIDTH(256)
+    INLINE constexpr int32 MoveMask(Vector32<T> VectorMask) MIN_VECTOR_WIDTH(256)
     {
         if constexpr(sizeof(T) <= 2)
         {
@@ -393,6 +430,30 @@ namespace Simd
     }
 
 #endif //AVX256
+#ifdef AVX512
+
+    template<typename T>
+    INLINE constexpr auto MoveMask(Vector64<T> VectorMask) MIN_VECTOR_WIDTH(512)
+    {
+        if constexpr(sizeof(T) == 1)
+        {
+            return BUILTIN(cvtb2mask512)(VectorMask);
+        }
+        else if constexpr(sizeof(T) == 2)
+        {
+            return BUILTIN(cvtw2mask512)(VectorMask);
+        }
+        else if constexpr(sizeof(T) == 4)
+        {
+            return BUILTIN(cvtd2mask512)(VectorMask);
+        }
+        else if constexpr(sizeof(T) == 8)
+        {
+            return BUILTIN(cvtq2mask512)(VectorMask);
+        }
+    }
+
+#endif //AVX512
 
     template<typename RegisterType>
     INLINE RegisterType MoveRegister(const int32 IntegerMask) //todo
@@ -432,7 +493,7 @@ namespace Simd
 #ifdef AVX128
 
     template<typename T> requires(sizeof(T) >= 4)
-    INLINE constexpr Register16<T> MaskLoad(const Register16<T>* const Value, Register16<T> Mask) MIN_VECTOR_WIDTH(128)
+    INLINE constexpr Vector16<T> MaskLoad(const Vector16<T>* const Value, Vector16<T> Mask) MIN_VECTOR_WIDTH(128)
     {
         if constexpr(TypeTrait::IsFloatingPoint<T>)
         {
@@ -462,7 +523,7 @@ namespace Simd
 #ifdef AVX256
 
     template<typename T> requires(sizeof(T) >= 4)
-    INLINE constexpr Register32<T> MaskLoad(const Register32<T>* const Value, Register32<T> Mask) MIN_VECTOR_WIDTH(256)
+    INLINE constexpr Vector32<T> MaskLoad(const Vector32<T>* const Value, Vector32<T> Mask) MIN_VECTOR_WIDTH(256)
     {
         if constexpr(TypeTrait::IsFloatingPoint<T>)
         {
@@ -511,7 +572,7 @@ namespace Simd
 #ifdef AVX256
 
     template<typename T, uint8 Control>
-    INLINE constexpr Register16<T> Extract(Register32<T> Source)
+    INLINE constexpr Vector16<T> Extract(Vector32<T> Source)
     {
         if constexpr(TypeTrait::IsFloatingPoint<T> && sizeof(T) == 4)
         {
@@ -532,7 +593,7 @@ namespace Simd
 
     /// LeftToMul * RightToMul + ToAdd
     template<typename T> requires(sizeof(T) >= 4)
-    INLINE constexpr Register16<T> FusedMultiplyAdd(Register16<T> LeftToMul, Register16<T> RightToMul, Register16<T> ToAdd) MIN_VECTOR_WIDTH(128)
+    INLINE constexpr Vector16<T> FusedMultiplyAdd(Vector16<T> LeftToMul, Vector16<T> RightToMul, Vector16<T> ToAdd) MIN_VECTOR_WIDTH(128)
     {
         if constexpr(sizeof(T) == 4)
         {
@@ -549,7 +610,7 @@ namespace Simd
 
     /// LeftToMul * RightToMul + ToAdd
     template<typename T> requires(sizeof(T) >= 4)
-    INLINE constexpr Register32<T> FusedMultiplyAdd(Register32<T> LeftToMul, Register32<T> RightToMul, Register32<T> ToAdd) MIN_VECTOR_WIDTH(256)
+    INLINE constexpr Vector32<T> FusedMultiplyAdd(Vector32<T> LeftToMul, Vector32<T> RightToMul, Vector32<T> ToAdd) MIN_VECTOR_WIDTH(256)
     {
         if constexpr(sizeof(T) == 4)
         {
@@ -563,16 +624,16 @@ namespace Simd
 
     /// LeftToMul * RightToMul - ToSub
     template<typename T> requires(TypeTrait::IsSigned<T>)
-    INLINE constexpr Register32<T> FusedMultiplySubtract(Register32<T> LeftToMul, Register32<T> RightToMul, Register32<T> ToSub) MIN_VECTOR_WIDTH(256)
+    INLINE constexpr Vector32<T> FusedMultiplySubtract(Vector32<T> LeftToMul, Vector32<T> RightToMul, Vector32<T> ToSub) MIN_VECTOR_WIDTH(256)
     {
-        return FusedMultiplyAdd(LeftToMul, RightToMul, ToSub * SetAll<Register32<T>>(-1));
+        return FusedMultiplyAdd(LeftToMul, RightToMul, ToSub * SetAll<Vector32<T>>(-1));
     }
 
 #endif //AVX256
 #ifdef AVX128
 
     template<typename T>
-    INLINE constexpr Register16<T> MakeFromGreater(Register16<T> Left, Register16<T> Right) MIN_VECTOR_WIDTH(128)
+    INLINE constexpr Vector16<T> MakeFromGreater(Vector16<T> Left, Vector16<T> Right) MIN_VECTOR_WIDTH(128)
     {
         if constexpr(TypeTrait::IsSigned<T>)
         {
@@ -650,7 +711,7 @@ namespace Simd
 #ifdef AVX256
 
     template<typename T>
-    INLINE constexpr Register32<T> MakeFromGreater(Register32<T> Left, Register32<T> Right) MIN_VECTOR_WIDTH(256)
+    INLINE constexpr Vector32<T> MakeFromGreater(Vector32<T> Left, Vector32<T> Right) MIN_VECTOR_WIDTH(256)
     {
         if constexpr(TypeTrait::IsSigned<T>)
         {
@@ -728,7 +789,7 @@ namespace Simd
 #ifdef AVX128
 
     template<typename T>
-    INLINE constexpr Register16<T> MakeFromLesser(Register16<T> Left, Register16<T> Right) MIN_VECTOR_WIDTH(128)
+    INLINE constexpr Vector16<T> MakeFromLesser(Vector16<T> Left, Vector16<T> Right) MIN_VECTOR_WIDTH(128)
     {
         if constexpr(TypeTrait::IsSigned<T>)
         {
@@ -806,7 +867,7 @@ namespace Simd
 #ifdef AVX256
 
     template<typename T>
-    INLINE constexpr Register32<T> MakeFromLesser(Register32<T> Left, Register32<T> Right) MIN_VECTOR_WIDTH(256)
+    INLINE constexpr Vector32<T> MakeFromLesser(Vector32<T> Left, Vector32<T> Right) MIN_VECTOR_WIDTH(256)
     {
         if constexpr(TypeTrait::IsSigned<T>)
         {
@@ -884,7 +945,7 @@ namespace Simd
 #ifdef AVX128
 
     template<typename T>
-    INLINE constexpr void Clamp(Register16<T>& Source, Register16<T> Min, Register16<T> Max) MIN_VECTOR_WIDTH(128)
+    INLINE constexpr void Clamp(Vector16<T>& Source, Vector16<T> Min, Vector16<T> Max) MIN_VECTOR_WIDTH(128)
     {
         Source = MakeFromGreater(Source, Min);
         Source = MakeFromLesser(Source, Max);
@@ -894,7 +955,7 @@ namespace Simd
 #ifdef AVX256
 
     template<typename T>
-    INLINE constexpr void Clamp(Register32<T>& Source, Register32<T> Min, Register32<T> Max) MIN_VECTOR_WIDTH(256)
+    INLINE constexpr void Clamp(Vector32<T>& Source, Vector32<T> Min, Vector32<T> Max) MIN_VECTOR_WIDTH(256)
     {
         Source = MakeFromGreater(Source, Min);
         Source = MakeFromLesser(Source, Max);
@@ -904,7 +965,7 @@ namespace Simd
 #ifdef AVX128
 
     template<typename T> requires(TypeTrait::IsSigned<T> && TypeTrait::IsInteger<T>)
-    INLINE constexpr Register16<T> Absolute(Register16<T> Source) MIN_VECTOR_WIDTH(128)
+    INLINE constexpr Vector16<T> Absolute(Vector16<T> Source) MIN_VECTOR_WIDTH(128)
     {
         if constexpr(sizeof(T) == 1)
         {
@@ -921,7 +982,7 @@ namespace Simd
         else if constexpr(sizeof(T) == 8)
         {
 #ifdef AVX512
-            return BUILTIN(pabsq128)(Left, Right);
+            return BUILTIN(pabsq128)(Source);
 #endif
         }
     }
@@ -930,7 +991,7 @@ namespace Simd
 #ifdef AVX256
 
     template<typename T> requires(TypeTrait::IsSigned<T> && TypeTrait::IsInteger<T>)
-    INLINE constexpr Register32<T> Absolute(Register32<T> Source) MIN_VECTOR_WIDTH(256)
+    INLINE constexpr Vector32<T> Absolute(Vector32<T> Source) MIN_VECTOR_WIDTH(256)
     {
         if constexpr(sizeof(T) == 1)
         {
@@ -947,7 +1008,7 @@ namespace Simd
         else if constexpr(sizeof(T) == 8)
         {
 #ifdef AVX512
-            return BUILTIN(pabsq256)(Left, Right);
+            return BUILTIN(pabsq256)(Source);
 #endif
         }
     }
@@ -956,7 +1017,7 @@ namespace Simd
 #ifdef AVX128
 
     template<typename T> requires(sizeof(T) >= 4)
-    INLINE Register16<T> MaskLoad(const T* Source NONNULL, Register16<T> Mask) MIN_VECTOR_WIDTH(128)
+    INLINE Vector16<T> MaskLoad(const T* Source NONNULL, Vector16<T> Mask) MIN_VECTOR_WIDTH(128)
     {
         if constexpr(TypeTrait::IsInteger<T>)
         {
@@ -986,7 +1047,7 @@ namespace Simd
 #ifdef AVX256
 
     template<typename T> requires(sizeof(T) >= 4)
-    INLINE Register32<T> MaskLoad(const T* Source NONNULL, Register32<T> Mask) MIN_VECTOR_WIDTH(256)
+    INLINE Vector32<T> MaskLoad(const T* Source NONNULL, Vector32<T> Mask) MIN_VECTOR_WIDTH(256)
     {
         if constexpr(TypeTrait::IsInteger<T>)
         {
@@ -1051,7 +1112,7 @@ namespace Simd
 #ifdef AVX128
 
     template<typename T> requires(sizeof(T) == 4 || sizeof(T) == 8)
-    INLINE constexpr void MaskStore(Register16<T>* Target, const Register16<T> Mask, const Register16<T> Data) MIN_VECTOR_WIDTH(128)
+    INLINE constexpr void MaskStore(Vector16<T>* Target, const Vector16<T> Mask, const Vector16<T> Data) MIN_VECTOR_WIDTH(128)
     {
         if constexpr(TypeTrait::IsInteger<T>)
         {
@@ -1081,7 +1142,7 @@ namespace Simd
 #ifdef AVX256
 
     template<typename T> requires(sizeof(T) == 4 || sizeof(T) == 8)
-    INLINE constexpr void MaskStore(Register32<T>* Target, const Register32<T> Mask, const Register32<T> Data) MIN_VECTOR_WIDTH(256)
+    INLINE constexpr void MaskStore(Vector32<T>* Target, const Vector32<T> Mask, const Vector32<T> Data) MIN_VECTOR_WIDTH(256)
     {
         if constexpr(TypeTrait::IsInteger<T>)
         {
@@ -1111,7 +1172,7 @@ namespace Simd
 #ifdef AVX128
 
     template<typename T> requires(sizeof(T) == 4 || sizeof(T) == 8)
-    NODISCARD INLINE constexpr Register16<T> MaskLoad(const Register16<T>* Source, const Register16<T> Mask) MIN_VECTOR_WIDTH(128)
+    NODISCARD INLINE constexpr Vector16<T> MaskLoad(const Vector16<T>* Source, const Vector16<T> Mask) MIN_VECTOR_WIDTH(128)
     {
         if constexpr(TypeTrait::IsInteger<T>)
         {
@@ -1141,7 +1202,7 @@ namespace Simd
 #ifdef AVX256
 
     template<typename T> requires(sizeof(T) == 4 || sizeof(T) == 8)
-    NODISCARD INLINE constexpr Register32<T> MaskLoad(const Register32<T>* Source, const Register32<T> Mask) MIN_VECTOR_WIDTH(256)
+    NODISCARD INLINE constexpr Vector32<T> MaskLoad(const Vector32<T>* Source, const Vector32<T> Mask) MIN_VECTOR_WIDTH(256)
     {
         if constexpr(TypeTrait::IsInteger<T>)
         {
@@ -1197,37 +1258,37 @@ namespace Simd
     }
 
     template<typename T>
-    INLINE T* ToPtr(Register16<T>* Source)
+    INLINE T* ToPtr(Vector16<T>* Source)
     {
         return reinterpret_cast<T*>(ASSUME_ALIGNED(Source, 16));
     }
 
     template<typename T>
-    INLINE T* ToPtr(Register32<T>* Source)
+    INLINE T* ToPtr(Vector32<T>* Source)
     {
         return reinterpret_cast<T*>(ASSUME_ALIGNED(Source, 32));
     }
 
     template<typename T>
-    INLINE T* ToPtr(Register64<T>* Source)
+    INLINE T* ToPtr(Vector64<T>* Source)
     {
         return reinterpret_cast<T*>(ASSUME_ALIGNED(Source, 64));
     }
 
     template<typename T>
-    INLINE const T* ToPtr(const Register16<T>* Source)
+    INLINE const T* ToPtr(const Vector16<T>* Source)
     {
         return reinterpret_cast<const T*>(ASSUME_ALIGNED(Source, 16));
     }
 
     template<typename T>
-    INLINE const T* ToPtr(const Register32<T>* Source)
+    INLINE const T* ToPtr(const Vector32<T>* Source)
     {
         return reinterpret_cast<const T*>(ASSUME_ALIGNED(Source, 32));
     }
 
     template<typename T>
-    INLINE const T* ToPtr(const Register64<T>* Source)
+    INLINE const T* ToPtr(const Vector64<T>* Source)
     {
         return reinterpret_cast<const T*>(ASSUME_ALIGNED(Source, 64));
     }
@@ -1299,11 +1360,6 @@ inline consteval char8_32 operator""_char8_32(uint64 Value) MIN_VECTOR_WIDTH(256
     return Simd::SetAll<char8_32>(Value);
 }
 
-inline consteval char8_32 operator""_char8_32(char8 Value) MIN_VECTOR_WIDTH(256)
-{
-    return Simd::SetAll<char8_32>(Value);
-}
-
 inline consteval int8_32 operator""_int8_32(uint64 Value) MIN_VECTOR_WIDTH(256)
 {
     return Simd::SetAll<int8_32>(Value);
@@ -1355,6 +1411,64 @@ inline consteval float64_4 operator""_float64_4(float128 Value) MIN_VECTOR_WIDTH
 }
 
 #endif //AVX256
+#ifdef AVX512
+
+inline consteval char8_64 operator""_char8_64(uint64 Value) MIN_VECTOR_WIDTH(512)
+{
+    return Simd::SetAll<char8_64>(Value);
+}
+
+inline consteval int8_64 operator""_int8_64(uint64 Value) MIN_VECTOR_WIDTH(512)
+{
+    return Simd::SetAll<int8_64>(Value);
+}
+
+inline consteval uint8_64 operator""_uint8_64(uint64 Value) MIN_VECTOR_WIDTH(512)
+{
+    return Simd::SetAll<uint8_64>(Value);
+}
+
+inline consteval int16_32 operator""_int16_32(uint64 Value) MIN_VECTOR_WIDTH(512)
+{
+    return Simd::SetAll<int16_32>(Value);
+}
+
+inline consteval uint16_32 operator""_uint16_32(uint64 Value) MIN_VECTOR_WIDTH(512)
+{
+    return Simd::SetAll<uint16_32>(Value);
+}
+
+inline consteval int32_16 operator""_int32_16(uint64 Value) MIN_VECTOR_WIDTH(512)
+{
+    return Simd::SetAll<int32_16>(Value);
+}
+
+inline consteval uint32_16 operator""_uint32_16(uint64 Value) MIN_VECTOR_WIDTH(512)
+{
+    return Simd::SetAll<uint32_16>(Value);
+}
+
+inline consteval int64_8 operator""_int64_8(uint64 Value) MIN_VECTOR_WIDTH(512)
+{
+    return Simd::SetAll<int64_8>(Value);
+}
+
+inline consteval uint64_8 operator""_uint64_8(uint64 Value) MIN_VECTOR_WIDTH(512)
+{
+    return Simd::SetAll<uint64_8>(Value);
+}
+
+inline consteval float32_16 operator""_float32_16(float128 Value) MIN_VECTOR_WIDTH(512)
+{
+    return Simd::SetAll<float32_16>(Value);
+}
+
+inline consteval float64_8 operator""_float64_8(float128 Value) MIN_VECTOR_WIDTH(512)
+{
+    return Simd::SetAll<float64_8>(Value);
+}
+
+#endif //AVX512
 
 namespace Avx = Simd; //use whatever looks best
 

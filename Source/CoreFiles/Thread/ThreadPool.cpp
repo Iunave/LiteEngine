@@ -2,6 +2,8 @@
 #include "Memory.hpp"
 #include "Log.hpp"
 
+#include <unistd.h>
+
 #if DEBUG
 FRunnable::FRunnable()
     : TaskName{StrUtil::IntToHex(reinterpret_cast<int64>(this)).Data(), (sizeof(int64) * 2) + 1}
@@ -17,7 +19,7 @@ FRunnable::FRunnable()
 
 #if DEBUG
 FRunnable::FRunnable(FString InTaskName)
-    : TaskName{InTaskName}
+    : TaskName{Move(InTaskName)}
     , TaskProgress{Idle}
 {
 }
@@ -102,8 +104,8 @@ Thread::FThreadPool::~FThreadPool()
     }
 }
 
-Thread::FThreadPool::FThreadPool(const uint64 NumThreadsToStart)
-    : NumUsedThreads{NumThreadsToStart}
+Thread::FThreadPool::FThreadPool()
+    : NumUsedThreads{static_cast<uint64>(::sysconf(_SC_NPROCESSORS_CONF))}
 {
     LOG(LogThread, "creating thread pool with {} threads", NumUsedThreads);
 

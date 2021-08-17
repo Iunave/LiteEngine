@@ -3,6 +3,8 @@
 #include "String.hpp"
 #include "Function.hpp"
 
+#include <unistd.h>
+
 #if DEBUG
 
 inline const char8* CreateResultToString(int32 Value)
