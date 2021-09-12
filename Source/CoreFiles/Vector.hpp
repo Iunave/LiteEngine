@@ -1,104 +1,117 @@
 #pragma once
 
 #include "Simd.hpp"
+#include "Assert.hpp"
+#include "TypeTraits.hpp"
 
 class alignas(32) FVector final
 {
 public:
 
-    static const constinit FVector ZeroVector;
-    static const constinit FVector UpVector;
-    static const constinit FVector DownVector;
-    static const constinit FVector ForwardVector;
-    static const constinit FVector BackwardVector;
-    static const constinit FVector LeftVector;
-    static const constinit FVector RightVector;
+    static const constinit FVector Zero;
+    static const constinit FVector Up;
+    static const constinit FVector Down;
+    static const constinit FVector Forward;
+    static const constinit FVector Backward;
+    static const constinit FVector Left;
+    static const constinit FVector Right;
+
+    static inline constexpr int32 MaskXYZ{0b00000000000000000000000000000111};
+    static inline constexpr int32 MaskXYZW{0b00000000000000000000000000001111};
 
 public:
 
-    static consteval int32 MaskXYZ()
-    {
-        return static_cast<int32>(0b00000000000000000000000000000111);
-    }
-
-    static consteval int32 MaskXYZW()
-    {
-        return static_cast<int32>(0b00000000000000000000000000001111);
-    }
-
-    inline explicit constexpr FVector(ENoInit)
+    explicit constexpr FVector(ENoInit)
     {
     }
 
-    inline constexpr explicit FVector(float64 X, float64 Y = 0.0, float64 Z = 0.0)
-        : Register{X, Y, Z, 1.0}
+    explicit constexpr FVector(float64 X = 0.0, float64 Y = 0.0, float64 Z = 0.0)
+        : Vector{X, Y, Z, 1.0}
     {
     }
 
-    inline constexpr FVector(const FVector& Other)
-        : Register(Other.Register)
+    constexpr FVector(const FVector& Other)
+        : Vector(Other.Vector)
     {
     }
 
-    inline constexpr FVector(FVector&& Other)
-        : Register(Move(Other.Register))
+    constexpr FVector(FVector&& Other)
+        : Vector(Other.Vector)
     {
     }
 
-    inline explicit constexpr FVector(float64_4 OtherVector)
-        : Register(Move(OtherVector))
+    explicit constexpr FVector(float64_4 OtherVector)
+        : Vector(OtherVector)
     {
     }
 
-    inline FVector& operator=(FVector Other)
+    FVector& operator=(FVector Other)
     {
-        Register = Move(Other.Register);
+        Vector = Other.Vector;
         return *this;
     }
 
-    inline FVector& operator=(float64_4 Other)
+    FVector& operator=(float64_4 Other)
     {
-        Register = Move(Other);
+        Vector = Other;
         return *this;
     }
 
-    inline FVector& operator=(const float64 Value)
+    FVector& operator=(const float64 Value)
     {
-        Register = Simd::SetAll<float64_4>(Value);
+        Vector = Simd::SetAll<float64_4>(Value);
         return *this;
     }
 
-    inline float64 X() const
+    float64 X() const
     {
-        return Register[0];
+        return Vector[0];
     }
 
-    inline float64& X()
+    float64& X()
     {
-        return Simd::ToPtr(&Register)[0];
+        return Simd::ToPtr(&Vector)[0];
     }
 
-    inline float64 Y() const
+    float64 Y() const
     {
-        return Register[1];
+        return Vector[1];
     }
 
-    inline float64& Y()
+    float64& Y()
     {
-        return Simd::ToPtr(&Register)[1];
+        return Simd::ToPtr(&Vector)[1];
     }
 
-    inline float64 Z() const
+    float64 Z() const
     {
-        return Register[2];
+        return Vector[2];
     }
 
-    inline float64& Z()
+    float64& Z()
     {
-        return Simd::ToPtr(&Register)[2];
+        return Simd::ToPtr(&Vector)[2];
     }
 
-    UINLINE void Set(const float64 X, const float64 Y, const float64 Z);
+    float64 W() const
+    {
+        return Vector[3];
+    }
+
+    float64& W()
+    {
+        return Simd::ToPtr(&Vector)[3];
+    }
+
+    float64_4 Data() const
+    {
+        return Vector;
+    }
+
+    float64_4& Data()
+    {
+        return Vector;
+    }
 
     bool ExactEquals(FVector Other) const;
 
@@ -119,78 +132,170 @@ public:
     //calculates the angle in radians between two vectors
     float64 AngleBetween(FVector Other) const;
 
+    float64 operator[](TypeTrait::IsInteger auto Index) const
+    {
+        ASSERT(Index >= 0 && Index <= 3);
+        return Vector[Index];
+    }
+
+    float64& operator[](TypeTrait::IsInteger auto Index)
+    {
+        ASSERT(Index >= 0 && Index <= 3);
+        return Simd::ToPtr(&Vector)[Index];
+    }
+
     //calculates the angle in radians between two vectors
-    FLATTEN float64 operator%(FVector Other) const;
+    INLINE float64 operator%(FVector Other) const
+    {
+        return AngleBetween(Other);
+    }
 
     //calculate the dot-product
-    FLATTEN float64 operator&(FVector Other) const;
+    INLINE float64 operator&(FVector Other) const
+    {
+        return DotProduct(Other);
+    }
 
     //calculate the cross-product
-    FLATTEN FVector operator^(FVector Other) const;
+    INLINE FVector operator^(FVector Other) const
+    {
+        return CrossProduct(Other);
+    }
 
     //checks if two vectors are almost equal with tolerance = 0.0001
     bool operator==(FVector Other) const;
 
-    //checks if two vectors are almost not equal with tolerance < 0.0001
-    bool operator!=(FVector Other) const;
+    bool operator!=(FVector Other) const
+    {
+        return !(*this == Other);
+    }
 
-    //compare the magnitude of 2 vectors
-    bool operator==(const float64 OtherLength) const;
-    bool operator!=(const float64 OtherLength) const;
-    bool operator<=(FVector Other) const;
-    bool operator<(FVector Other) const;
-    bool operator>=(FVector Other) const;
-    bool operator>(FVector Other) const;
+    bool operator==(const float64 OtherLength) const
+    {
+        return this->Length() == OtherLength;
+    }
+
+    bool operator!=(const float64 OtherLength) const
+    {
+        return this->Length() != OtherLength;
+    }
+
+    bool operator<=(FVector Other) const
+    {
+        return this->Length() <= Other.Length();
+    }
+
+    bool operator<(FVector Other) const
+    {
+        return this->Length() < Other.Length();
+    }
+
+    bool operator>=(FVector Other) const
+    {
+        return this->Length() >= Other.Length();
+    }
+
+    bool operator>(FVector Other) const
+    {
+        return this->Length() > Other.Length();
+    }
 
     //flip vector
-    UINLINE FVector& operator~();
+    INLINE FVector& operator~()
+    {
+        Vector *= -1.0;
+        return *this;
+    }
 
     INLINE FVector operator+(FVector Other) const
     {
-        return FVector{Register + Other.Register};
+        return FVector{Vector + Other.Vector};
+    }
+
+    INLINE FVector operator+(float64 Value) const
+    {
+        return FVector{Vector + Value};
     }
 
     INLINE FVector& operator+=(FVector Other)
     {
-        Register += Other.Register;
+        Vector += Other.Vector;
+        return *this;
+    }
+
+    INLINE FVector& operator+=(float64 Value)
+    {
+        Vector += Value;
         return *this;
     }
 
     INLINE FVector operator-(FVector Other) const
     {
-        return FVector{Register - Other.Register};
+        return FVector{Vector - Other.Vector};
+    }
+
+    INLINE FVector operator-(float64 Value) const
+    {
+        return FVector{Vector - Value};
     }
 
     INLINE FVector& operator-=(FVector Other)
     {
-        Register -= Other.Register;
+        Vector -= Other.Vector;
+        return *this;
+    }
+
+    INLINE FVector& operator-=(float64 Value)
+    {
+        Vector -= Value;
         return *this;
     }
 
     INLINE FVector operator*(FVector Other) const
     {
-        return FVector{Register * Other.Register};
+        return FVector{Vector * Other.Vector};
+    }
+
+    INLINE FVector operator*(float64 Value) const
+    {
+        return FVector{Vector * Value};
     }
 
     INLINE FVector& operator*=(FVector Other)
     {
-        Register *= Other.Register;
+        Vector *= Other.Vector;
+        return *this;
+    }
+
+    INLINE FVector& operator*=(float64 Value)
+    {
+        Vector *= Value;
         return *this;
     }
 
     INLINE FVector operator/(FVector Other) const
     {
-        return FVector{Register / Other.Register};
+        return FVector{Vector / Other.Vector};
+    }
+
+    INLINE FVector operator/(float64 Value) const
+    {
+        return FVector{Vector / Value};
     }
 
     INLINE FVector& operator/=(FVector Other)
     {
-        Register /= Other.Register;
+        Vector /= Other.Vector;
+        return *this;
+    }
+
+    INLINE FVector& operator/=(float64 Value)
+    {
+        Vector /= Value;
         return *this;
     }
 
 private:
 
-    float64_4 Register;
-
+    float64_4 Vector;
 };

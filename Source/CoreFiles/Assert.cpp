@@ -1,7 +1,7 @@
 #include "Assert.hpp"
 #include <csignal>
 
-#ifdef __unix__
+#if defined(__unix__) && DEBUG
 
 #include "Array.hpp"
 #include "Memory.hpp"
@@ -76,9 +76,7 @@ void PrintStackTrace()
 
 void AssertInternal::Crash()
 {
-#ifdef __unix__
-    PrintStackTrace();
-#endif
+
     std::raise(SIGTERM);
 }
 

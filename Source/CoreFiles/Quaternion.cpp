@@ -1,32 +1,97 @@
 #include "Quaternion.hpp"
 #include "Vector.hpp"
 #include "Math.hpp"
-/*
-bool FQuaternion::operator==(const FQuaternion& Other) const
+#include "String.hpp"
+
+const constinit FQuaternion FQuaternion::Identity{0, 0, 0, 1};
+const constinit FQuaternion FQuaternion::Up{0, 0, 1, 0};
+const constinit FQuaternion FQuaternion::Down{0, 0, -1, 0};
+const constinit FQuaternion FQuaternion::Left{0, 1, 0, 0};
+const constinit FQuaternion FQuaternion::Right{0, -1, 0, 0};
+const constinit FQuaternion FQuaternion::Front{1, 0, 0, 0};
+const constinit FQuaternion FQuaternion::Back{-1, 0, 0, 0};
+
+bool FQuaternion::ExactEquals(FQuaternion Other) const
 {
-    return (Register == Other.Register) == ComparisonMask();
+    const int32 ComparisonResult{Simd::MoveMask(Quaternion == Other.Quaternion)};
+    return ComparisonResult == Mask;
 }
 
-bool FQuaternion::operator!=(const FQuaternion& Other) const
+bool FQuaternion::operator==(FQuaternion Other) const
 {
-    return (Register != Other.Register) == ComparisonMask();
+    const float64_4 SubResult{static_cast<int64_4>(Quaternion - Other.Quaternion) & Math::SignMask<int64>()};
+    const int32 ComparisonResult{Simd::MoveMask(SubResult <= 0.0001)};
+
+    return ComparisonResult == Mask;
+}
+
+FQuaternion FQuaternion::operator*(FQuaternion Other) const
+{
+    float64_4 VectorX{Simd::SetAll<float64_4>(X())};
+    float64_4 VectorY{Simd::SetAll<float64_4>(Y())};
+    float64_4 VectorZ{Simd::SetAll<float64_4>(Z())};
+    float64_4 VectorW{Simd::SetAll<float64_4>(W())};
+
+    const float64_4 ShuffledOtherX{Simd::Shuffle<3, 2, 1, 0>(Other.Quaternion)};
+    const float64_4 ShuffledOtherY{Simd::Shuffle<2, 3, 0, 1>(Other.Quaternion)};
+    const float64_4 ShuffledOtherZ{Simd::Shuffle<1, 0, 3, 2>(Other.Quaternion)};
+    const float64_4 ShuffledOtherW{Simd::Shuffle<0, 1, 2, 3>(Other.Quaternion)};
+
+    VectorX *= ShuffledOtherX;
+    VectorY *= ShuffledOtherY;
+    VectorZ *= ShuffledOtherZ;
+    VectorW *= ShuffledOtherW;
+
+    constexpr float64_4 SignMaskX{1.0, -1.0, 1.0, -1.0};
+    constexpr float64_4 SignMaskY{1.0, 1.0, -1.0, -1.0};
+    constexpr float64_4 SignMaskZ{-1.0, 1.0, 1.0, -1.0};
+
+    float64_4 ResultVector{VectorW};
+    ResultVector = Simd::FusedMultiplyAdd(VectorX, SignMaskX, ResultVector);
+    ResultVector = Simd::FusedMultiplyAdd(VectorY, SignMaskY, ResultVector);
+    ResultVector = Simd::FusedMultiplyAdd(VectorZ, SignMaskZ, ResultVector);
+
+    return FQuaternion{ResultVector};
 }
 
 float64 FQuaternion::Length() const
 {
-    const Simd::float64_4 VectorSquared{Register * Register};
+    const float64_4 VectorSquared{Quaternion * Quaternion};
 
-    return Math::SquareRoot(VectorSquared[0] + VectorSquared[1] + VectorSquared[2]);
+    float64_2 Lower{Simd::Extract<0>(VectorSquared)};
+    float64_2 Upper{Simd::Extract<1>(VectorSquared)};
+
+    Lower += Upper;
+
+    return Math::SquareRoot(Lower[0] + Lower[1]);
 }
 
-FVector FQuaternion::RotateVector(FVector Vector) const
+FQuaternion& FQuaternion::Normalize()
 {
-    const FVector QuatVector{Register};
-
-    const FVector CrossProduct{(QuatVector ^ Vector) * 2.0};
-
-    Vector += (CrossProduct * W()) + (QuatVector ^ CrossProduct);
-
-    return Vector;
+    Quaternion /= Length();
+    return *this;
 }
-*/
+
+FQuaternion FQuaternion::GetNormal() const
+{
+    return FQuaternion{Quaternion / Length()};
+}
+
+float64 FQuaternion::Angle() const
+{
+    return Math::ArchCosine(W()) * 2.0;
+}
+
+FString<ss124> StrUtil::ToString(FQuaternion Source)
+{
+    FString<ss124> String{};
+
+    const char8* End{fmt::format_to(String.Data(), "X={:+f} Y={:+f} Z={:+f} W={:+f}", Source.X(), Source.Y(), Source.Z(), Source.W())};
+
+    String.TerminatorIndex = static_cast<uint32>(End - String.CharacterArray.Stack);
+    String[String.TerminatorIndex] = NULL_CHAR;
+
+    ASSERT(String.TerminatorIndex < ss124);
+
+    return String;
+}

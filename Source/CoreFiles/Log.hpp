@@ -16,7 +16,7 @@ struct TLogCategory
     }
 
     const fmt::color MessageColor;
-    const FString PreMessageString;
+    const FString<ss60> PreMessageString;
 };
 
 F2DCoordinate<int32> GetTerminalCursorPosition(); //todo does not even work
@@ -26,7 +26,8 @@ F2DCoordinate<int32> GetTerminalCursorPosition(); //todo does not even work
 inline constexpr TLogCategory LogTemp{fmt::color::dark_gray, "Temp: "};
 inline constexpr TLogCategory LogProgram{fmt::color::chocolate, "Program: "};
 inline constexpr TLogCategory LogThread{fmt::color::dark_olive_green, "Thread: "};
-inline constexpr TLogCategory LogGLFW{fmt::color::brown, ":GLFW "};
+inline constexpr TLogCategory LogMemory{fmt::color::golden_rod, "Memory: "};
+inline constexpr TLogCategory LogGLFW{fmt::color::brown, "GLFW: "};
 inline constexpr TLogCategory LogVulkan{fmt::color::medium_violet_red, "Vulkan: "};
 inline constexpr TLogCategory LogVulkanVL{fmt::color::orange_red, "Vulkan_VL: "};
 

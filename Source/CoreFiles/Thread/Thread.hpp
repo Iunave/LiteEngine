@@ -90,6 +90,26 @@ namespace Thread
         pthread_barrier_t BarrierHandle;
     };
 
+    class FScopedLock final
+    {
+    public:
+
+        explicit FScopedLock(FMutex& InMutex)
+            : Mutex{&InMutex}
+        {
+            Mutex->Lock();
+        }
+
+        ~FScopedLock()
+        {
+            Mutex->Unlock();
+        }
+
+    private:
+
+        FMutex* Mutex;
+    };
+
     class FSemaphore final
     {
     public:

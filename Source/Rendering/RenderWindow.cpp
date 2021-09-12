@@ -3,10 +3,7 @@
 #include "Log.hpp"
 
 #define GLFW_INCLUDE_NONE
-namespace Glfw
-{
 #include "GLFW/glfw3.h"
-}
 
 FRenderWindow::FRenderWindow()
     : CoordinateWidth{0}
@@ -18,24 +15,24 @@ FRenderWindow::FRenderWindow()
 {
 }
 
-void FRenderWindow::CreateWindow(int32 Width, int32 Height, FString WindowName, const bool bFullScreen)
+void FRenderWindow::CreateWindow(int32 Width, int32 Height, FString<ss60> WindowName, const bool bFullScreen)
 {
     CoordinateWidth = Width;
     CoordinateHeight = Height;
     Name = Move(WindowName);
 
-    if(Glfw::glfwInit())
+    if(glfwInit())
     {
-        Glfw::glfwWindowHint(GLFW_CLIENT_API, false);
-        Glfw::glfwWindowHint(GLFW_RESIZABLE, false);
-        Glfw::glfwWindowHint(GLFW_FOCUSED, false);
-        Glfw::glfwWindowHint(GLFW_FOCUS_ON_SHOW, true);
+        glfwWindowHint(GLFW_CLIENT_API, false);
+        glfwWindowHint(GLFW_RESIZABLE, false);
+        glfwWindowHint(GLFW_FOCUSED, false);
+        glfwWindowHint(GLFW_FOCUS_ON_SHOW, true);
 
-        Glfw::GLFWmonitor* Monitor{nullptr};
+        GLFWmonitor* Monitor{nullptr};
 
         if(bFullScreen)
         {
-            Monitor = Glfw::glfwGetPrimaryMonitor();
+            Monitor = glfwGetPrimaryMonitor();
             ASSERT(Monitor);
         }
 
@@ -43,30 +40,29 @@ void FRenderWindow::CreateWindow(int32 Width, int32 Height, FString WindowName, 
 
         if(bFullScreen)
         {
-            Glfw::glfwGetWindowSize(Window, &CoordinateWidth, &CoordinateHeight);
+            glfwGetWindowSize(Window, &CoordinateWidth, &CoordinateHeight);
         }
 
-        Glfw::glfwGetFramebufferSize(Window, &PixelWidth, &PixelHeight);
+        glfwGetFramebufferSize(Window, &PixelWidth, &PixelHeight);
     }
 
     ASSERT(Window);
-    LOG(LogGLFW, "created window. width: {} height: {}", CoordinateWidth, CoordinateHeight);
-    LOG(LogGLFW, "fullscreen: {}", bFullScreen ? "true" : "false");
+    LOG(LogGLFW, "created window with width: {} height: {} fullscreen: {}", CoordinateWidth, CoordinateHeight, Math::ChooseVar<const char8*>(bFullScreen, "true", "false"));
 }
 
 void FRenderWindow::CloseWindow()
 {
     if(Window)
     {
-        Glfw::glfwDestroyWindow(Window);
+        glfwDestroyWindow(Window);
     }
 
-    Glfw::glfwTerminate();
+    glfwTerminate();
 }
 
 bool FRenderWindow::ShouldClose() const
 {
-    return Glfw::glfwWindowShouldClose(Window);
+    return glfwWindowShouldClose(Window);
 }
 
 int32 FRenderWindow::GetCoordinateWidth() const
@@ -94,7 +90,7 @@ Vk::Extent2D FRenderWindow::GetImageExtent() const
     return Vk::Extent2D{static_cast<uint32>(PixelHeight), static_cast<uint32>(PixelWidth)};
 }
 
-const FString& FRenderWindow::GetName() const
+const FString<ss60>& FRenderWindow::GetWindowName() const
 {
     return Name;
 }

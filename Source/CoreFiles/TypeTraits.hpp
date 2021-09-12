@@ -162,10 +162,7 @@ namespace TypeTrait
     inline const constinit bool IsAllOf = (AreTypesEqual<T, Types> && ...);
 
     template<typename T>
-    concept IsFloatingPoint = requires()
-    {
-        std::is_floating_point_v<T>;
-    };
+    concept IsFloatingPoint = std::is_floating_point_v<T>;
 
     template<bool Condition, typename TrueType, typename FalseType>
     struct ConditionalImpl;
@@ -219,6 +216,15 @@ namespace TypeTrait
         lhs == rhs;
     };
 
+    template<typename To, typename From>
+    concept IsStaticCastable = requires(From Source)
+    {
+        static_cast<To>(Source);
+    };
+
+    template<typename T>
+    concept IsMoveConstructible = std::is_move_constructible_v<T>;
+
     template<typename T>
     concept IsTriviallyConstructible = std::is_trivial<T>::value || std::is_trivially_copy_constructible<T>::value;
 
@@ -253,16 +259,6 @@ namespace TypeTrait
 
     template<typename Class>
     concept IsObjectClass = TIsObjectClass<TypeTrait::RemoveCV<Class>>::Value;
-
-    template<typename Class>
-    struct TIsInterfaceClass
-    {
-        inline static constexpr bool Value{false};
-    };
-
-    template<typename Class>
-    concept IsInterfaceClass = TIsInterfaceClass<TypeTrait::RemoveCV<Class>>::Value;
-
 }
 
 template<typename T>

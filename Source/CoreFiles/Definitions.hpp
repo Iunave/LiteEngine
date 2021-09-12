@@ -3,13 +3,11 @@
 namespace vk
 {
 }
-
 namespace Vk = vk;
 
 namespace SoLoud
 {
 }
-
 namespace Sld = SoLoud;
 
 using char8 = char;
@@ -47,26 +45,17 @@ static_assert(sizeof(float32) == 4);
 static_assert(sizeof(float64) == 8);
 static_assert(sizeof(float128) == 16);
 
-#ifndef DEBUG
-#define DEBUG false
-#endif
-
-#ifndef UNITY_BUILD
-#define UNITY_BUILD false
-#endif
-
-#ifndef USE_VULKAN_VALIDATION_LAYERS
-#define USE_VULKAN_VALIDATION_LAYERS false
-#endif
-
 #if UNITY_BUILD
 #define UINLINE __attribute__((always_inline)) //when in unity mode we can force-inline functions defined in the translation unit
 #else
 #define UINLINE //does nothing when not in unity mode
 #endif
 
+#define COMMA ,
+#define ATTRIBUTE(...) __attribute__((__VA_ARGS__))
 #define implicit //be explicit about implicit
 #define INDEX_NONE (-1)
+#define OFFSET_NONE static_cast<uint32>(~0)
 #define PACKED __attribute__((__packed__))
 #define MAY_ALIAS __attribute__((__may_alias__))
 #define HAS_BUILTIN(builtin) __has_builtin(builtin)
@@ -109,6 +98,8 @@ static_assert(sizeof(float128) == 16);
 #define STRINGIFY(arg) #arg
 
 #define FIRST_ARG(first, ...) first
+#define ALL_EXCEPT_FIRST_ARG(first, ...) __VA_ARGS__
+
 #define STRINGIFY_FIRST_ARG(first, ...) #first
 
 #define NUM_ARGS(...) __VA_OPT__(PP_NARG_(__VA_ARGS__,PP_RSEQ_N())) 0
@@ -149,7 +140,7 @@ template<typename... T>
 extern void __SideEffect__(T...);
 
 template<typename T>
-INLINE void DoNotOptimize(T& value)
+inline void DoNotOptimize(T& value)
 {
     asm volatile("" : "+r,m"(value) : : "memory");
 }
@@ -197,6 +188,11 @@ public:
     }
 
 };
+
+INLINE bool ExclusiveOr(const bool LHS, const bool RHS)
+{
+    return LHS != RHS;
+}
 
 template<typename CoordinateType>
 struct F2DCoordinate

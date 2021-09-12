@@ -167,7 +167,7 @@ development environment, move on to @ref compile_compile.
 
 If you are using the GUI version, choose the root of the GLFW source tree as
 source location and the same directory or another, empty directory as the
-destination for binaries.  Choose _Configure_, change any options you wish to,
+destination for binaries.  ChooseVar _Configure_, change any options you wish to,
 _Configure_ again to let the changes take effect and then _Generate_.
 
 Once you have generated the project files or makefiles for your chosen

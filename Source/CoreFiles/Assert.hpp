@@ -1,15 +1,17 @@
 #pragma once
 
+namespace AssertInternal
+{
+    void Crash();
+}
+
+#if DEBUG
+
 #include "Definitions.hpp"
 #include "Thread/Thread.hpp"
 
 #include <fmt/core.h>
 #include <fmt/color.h>
-
-namespace AssertInternal
-{
-    void Crash();
-}
 
 #define PRINT_ASSERTION(reason)\
 Thread::GLogMutex.Lock();\
@@ -20,7 +22,6 @@ Thread::GLogMutex.Unlock()
 Thread::GLogMutex.Lock();\
 fmt::print(fmt::fg(fmt::color::dark_red), "\nassertion failed: {}\n" message "\n\n{}\nin file: {}\nin line: {}\n", reason __VA_OPT__(,) __VA_ARGS__, __PRETTY_FUNCTION__, __FILE__, __LINE__);\
 Thread::GLogMutex.Unlock()
-#if DEBUG
 
 //fatal assertion, evaluates expr in release builds
 #define CHECK(expr, ...) \

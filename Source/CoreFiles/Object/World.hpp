@@ -3,12 +3,12 @@
 #include "Definitions.hpp"
 #include "Array.hpp"
 #include "Object/Object.hpp"
+#include "SmartPointer.hpp"
+#include "Level.hpp"
 
-class OLevel;
-/*
 OBJECT_CLASS(OWorld) final : public OObject
 {
-    OBJECT_BODY(OObject)
+    OBJECT_BASES(OObject)
 public:
 
 private:
@@ -16,4 +16,4 @@ private:
     TDynamicArray<TSharedPtr<OLevel>> WorldLevels;
 
 };
-*/
+

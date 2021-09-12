@@ -90,6 +90,11 @@ public:
         return *this;
     }
 
+    auto operator<=>(Type Value) const
+    {
+        return Read() <=> Value;
+    }
+
     bool operator!()
     {
         return !Read();

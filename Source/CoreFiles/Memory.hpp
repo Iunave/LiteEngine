@@ -114,7 +114,7 @@ namespace Memory
     }
 
     template<typename PointerType = void>
-    NODISCARD INLINE int64 AllocatedSize(PointerType* Source)
+    NODISCARD INLINE uint64 AllocatedSize(PointerType* Source)
     {
         return ::malloc_usable_size(Source);
     }
@@ -222,7 +222,7 @@ namespace Memory
 
     INLINE bool StringCompare(const char8* Right, const char8* Left)
     {
-        return __builtin_strcmp(Right, Left);
+        return __builtin_strcmp(Right, Left) == 0;
     }
 
 }

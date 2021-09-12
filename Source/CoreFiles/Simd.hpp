@@ -18,7 +18,15 @@ using int128 = __int128_t;
 using uint128 = __uint128_t;
 using float32 = float;
 using float64 = double;
-using float128 = long double;
+
+#ifndef INLINE
+#define INLINE __attribute__((always_inline))
+#endif
+
+#ifndef ASSUME_ALIGNED
+#define ASSUME_ALIGNED(address, alignment) __builtin_assume_aligned(address, alignment)
+#endif
+
 #endif
 
 #if __has_include("TypeTraits.hpp")
@@ -28,22 +36,13 @@ using float128 = long double;
 namespace TypeTrait
 {
     template<typename T>
-    concept IsInteger = requires()
-    {
-        std::is_integral<T>::value;
-    };
+    concept IsInteger = std::is_integral<T>::value;
 
     template<typename T>
-    concept IsFloatingPoint = requires()
-    {
-        std::is_floating_point_v<T>;
-    };
+    concept IsFloatingPoint = std::is_floating_point_v<T>;
 
     template<typename T>
-    concept IsSigned = requires()
-    {
-        std::is_signed<T>::value;
-    };
+    concept IsSigned = std::is_signed<T>::value;
 
     template<uint64... Ns>
     struct IndexSequence{};
@@ -82,16 +81,6 @@ namespace Memory
 }
 #endif
 
-#ifdef __AVX__
-#define AVX128 __AVX__
-#endif
-#ifdef __AVX2__
-#define AVX256 __AVX2__
-#endif
-#ifdef __AVX512F__
-#define AVX512 __AVX512__ //not yet implemented
-#endif
-
 #ifndef BUILTIN
 #define BUILTIN(name) __builtin_ia32_##name
 #endif
@@ -100,25 +89,66 @@ namespace Memory
 #define MIN_VECTOR_WIDTH(width) __attribute__((min_vector_width(width)))
 #endif
 
-#ifndef INLINE
-#define INLINE __attribute__((always_inline))
+#ifdef __AVX__
+#define AVX128 __AVX__
+#pragma message "AVX128 supported"
+#endif
+#ifdef __AVX2__
+#define AVX256 __AVX2__
+#pragma message "AVX256 supported"
+#endif
+#ifdef __AVX512F__
+#define AVX512 __AVX512__
+#pragma message "AVX512 supported"
 #endif
 
-#ifndef ASSUME_ALIGNED
-#define ASSUME_ALIGNED(address, alignment) __builtin_assume_aligned(address, alignment)
-#endif
+template<typename T>
+using Vector4 = T __attribute__((vector_size(4), aligned(4)));
 
+using char8_4 = Vector4<char8>;
+static_assert(alignof(char8_4) == 4);
+
+using uint8_4 = Vector4<uint8>;
+static_assert(alignof(uint8_4) == 4);
+
+using int8_4 = Vector4<int8>;
+static_assert(alignof(int8_4) == 4);
+
+using uint16_2 = Vector4<uint16>;
+static_assert(alignof(uint16_2) == 4);
+
+using int16_2 = Vector4<int16>;
+static_assert(alignof(int16_2) == 4);
+
+template<typename T>
+using Vector8 = T __attribute__((vector_size(8), aligned(8)));
+
+using char8_8 = Vector8<char8>;
+static_assert(alignof(char8_8) == 8);
+
+using uint8_8 = Vector8<uint8>;
+static_assert(alignof(uint8_8) == 8);
+
+using int8_8 = Vector8<int8>;
+static_assert(alignof(int8_8) == 8);
+
+using uint16_4 = Vector8<uint16>;
+static_assert(alignof(uint16_4) == 8);
+
+using int16_4 = Vector8<int16>;
+static_assert(alignof(int16_4) == 8);
+
+using uint32_2 = Vector8<uint32>;
+static_assert(alignof(uint32_2) == 8);
+
+using int32_2 = Vector8<int32>;
+static_assert(alignof(int32_2) == 8);
+
+using float32_2 = Vector8<float32>;
+static_assert(alignof(float32_2) == 8);
 
 template<typename T>
 using Vector16 = T __attribute__((vector_size(16), aligned(16)));
-
-template<typename T>
-using Vector32 = T __attribute__((vector_size(32), aligned(32)));
-
-template<typename T>
-using Vector64 = T __attribute__((vector_size(64), aligned(64)));
-
-#ifdef AVX128
 
 using char8_16 = Vector16<char8>;
 static_assert(alignof(char8_16) == 16);
@@ -159,8 +189,8 @@ static_assert(alignof(float32_4) == 16);
 using float64_2 = Vector16<float64>;
 static_assert(alignof(float64_2) == 16);
 
-#endif //AVX128
-#ifdef AVX256
+template<typename T>
+using Vector32 = T __attribute__((vector_size(32), aligned(32)));
 
 using char8_32 = Vector32<char8>;
 static_assert(alignof(char8_32) == 32);
@@ -195,23 +225,14 @@ static_assert(alignof(uint64_4) == 32);
 using int64_4 = Vector32<int64>;
 static_assert(alignof(int64_4) == 32);
 
-using uint128_2 = Vector32<uint128>;
-static_assert(alignof(uint128_2) == 32);
-
-using int128_2 = Vector32<int128>;
-static_assert(alignof(int128_2) == 32);
-
 using float32_8 = Vector32<float32>;
 static_assert(alignof(float32_8) == 32);
 
 using float64_4 = Vector32<float64>;
 static_assert(alignof(float64_4) == 32);
 
-using float128_2 = Vector32<float128>;
-static_assert(alignof(float128_2) == 32);
-
-#endif //AVX256
-#ifdef AVX512
+template<typename T>
+using Vector64 = T __attribute__((vector_size(64), aligned(64)));
 
 using char8_64 = Vector64<char8>;
 static_assert(alignof(char8_64) == 64);
@@ -246,22 +267,12 @@ static_assert(alignof(uint64_8) == 64);
 using int64_8 = Vector64<int64>;
 static_assert(alignof(int64_8) == 64);
 
-using uint128_4 = Vector64<uint128>;
-static_assert(alignof(uint128_4) == 64);
-
-using int128_4 = Vector64<int128>;
-static_assert(alignof(int128_4) == 64);
-
 using float32_16 = Vector64<float32>;
 static_assert(alignof(float32_16) == 64);
 
 using float64_8 = Vector64<float64>;
 static_assert(alignof(float64_8) == 64);
 
-using float128_4 = Vector64<float128>;
-static_assert(alignof(float128_4) == 64);
-
-#endif //AVX512
 
 namespace Simd
 {
@@ -325,7 +336,7 @@ namespace Simd
 #ifdef AVX128
 
     template<typename RegisterType> requires(alignof(RegisterType) == 16)
-    inline consteval int32 Mask()
+    inline constexpr int32 Mask()
     {
         if constexpr(NumElements<RegisterType>() == 16)
         {
@@ -345,7 +356,7 @@ namespace Simd
 #ifdef AVX256
 
     template<typename RegisterType> requires(alignof(RegisterType) == 32)
-    inline consteval int32 Mask()
+    inline constexpr int32 Mask()
     {
         if constexpr(NumElements<RegisterType>() == 32)
         {
@@ -369,7 +380,7 @@ namespace Simd
 #ifdef AVX512
 
     template<typename RegisterType> requires(alignof(RegisterType) == 64)
-    inline consteval auto Mask()
+    inline constexpr auto Mask()
     {
         if constexpr(NumElements<RegisterType>() == 64)
         {
@@ -390,6 +401,10 @@ namespace Simd
     }
 
 #endif //AVX512
+
+    template<typename T>
+    using MaskType = decltype(Simd::Mask<T>());
+
 #ifdef AVX128
 
     template<typename T>
@@ -433,7 +448,7 @@ namespace Simd
 #ifdef AVX512
 
     template<typename T>
-    INLINE constexpr auto MoveMask(Vector64<T> VectorMask) MIN_VECTOR_WIDTH(512)
+    INLINE constexpr decltype(Mask<Vector64<T>>()) MoveMask(Vector64<T> VectorMask) MIN_VECTOR_WIDTH(512)
     {
         if constexpr(sizeof(T) == 1)
         {
@@ -454,42 +469,6 @@ namespace Simd
     }
 
 #endif //AVX512
-
-    template<typename RegisterType>
-    INLINE RegisterType MoveRegister(const int32 IntegerMask) //todo
-    {
-        if constexpr(alignof(RegisterType) == 16)
-        {
-            if constexpr(sizeof(ElementSize<RegisterType>()) == 1)
-            {
-                const int64_2 Shuffle{0x0101010101010101, 0x0000000000000000};
-                const int64_2 BitMask{Simd::SetAll<int64_2>(0x7fbfdfeff7fbfdfe)};
-
-                int32_4 VectorMask{Simd::SetAll<int32_4>(IntegerMask)};
-
-                VectorMask = CopyOrZero(VectorMask, Shuffle);
-                VectorMask |= BitMask;
-
-                return VectorMask == Simd::SetAll<int32_4>(-1);
-            }
-        }
-        else if constexpr(alignof(RegisterType) == 32)
-        {
-            if constexpr(ElementSize<RegisterType>())
-            {
-                const int64_4 ShuffleVector{0x0303030303030303, 0x0202020202020202, 0x0101010101010101, 0x0000000000000000};
-                const int64_4 BitMask{Simd::SetAll<int64_4>(0x7fbfdfeff7fbfdfe)};
-
-                int32_8 VectorMask{Simd::SetAll<int32_8>(IntegerMask)};
-
-                VectorMask = CopyOrZero(VectorMask, ShuffleVector);
-                VectorMask |= BitMask;
-
-                return VectorMask == Simd::SetAll<int32_8>(-1);
-            }
-        }
-    }
-
 #ifdef AVX128
 
     template<typename T> requires(sizeof(T) >= 4)
@@ -550,18 +529,63 @@ namespace Simd
     }
 
 #endif //AVX256
+#ifdef AVX512
 
-    template<int32... Control, typename RegisterType>
-    INLINE constexpr RegisterType ShuffleVector(RegisterType Source)
+    template<typename T> requires(sizeof(T) >= 4)
+    INLINE constexpr Vector64<T> MaskLoadAligned(T* const Address, const decltype(Mask<Vector64<T>>()) Mask, const Vector64<T> ReplacementValues = Simd::SetAll<Vector64<T>>(0)) MIN_VECTOR_WIDTH(512)
     {
-        return RegisterType{__builtin_shufflevector(Source, Source, Control...)};
+        if constexpr(TypeTrait::IsFloatingPoint<T>)
+        {
+            if constexpr(sizeof(T) == 4)
+            {
+                return BUILTIN(loadaps512_mask)(Address, ReplacementValues, Mask);
+            }
+            else if constexpr(sizeof(T) == 8)
+            {
+                return BUILTIN(loadapd512_mask)(Address, ReplacementValues, Mask);
+            }
+        }
+        else if constexpr(TypeTrait::IsInteger<T>)
+        {
+            if constexpr(sizeof(T) == 4)
+            {
+                return BUILTIN(movdqa32load512_mask)(Address, ReplacementValues, Mask);
+            }
+            else if constexpr(sizeof(T) == 8)
+            {
+                return BUILTIN(movdqa64load512_mask)(Address, ReplacementValues, Mask);
+            }
+        }
     }
 
-    template<int32... Control, typename RegisterType, typename TargetType = RegisterType>
-    INLINE constexpr TargetType ShuffleVector(RegisterType SourceOne, RegisterType SourceTwo)
+    template<typename T> requires(sizeof(T) >= 4)
+    INLINE constexpr Vector64<T> MaskLoadUnaligned(T* const Address, const decltype(Mask<Vector64<T>>()) Mask, const Vector64<T> ReplacementValues = Simd::SetAll<Vector64<T>>(0)) MIN_VECTOR_WIDTH(512)
     {
-        return TargetType{__builtin_shufflevector(SourceOne, SourceTwo, Control...)};
+        if constexpr(TypeTrait::IsFloatingPoint<T>)
+        {
+            if constexpr(sizeof(T) == 4)
+            {
+                return BUILTIN(loadups512_mask)(Address, ReplacementValues, Mask);
+            }
+            else if constexpr(sizeof(T) == 8)
+            {
+                return BUILTIN(loadupd512_mask)(Address, ReplacementValues, Mask);
+            }
+        }
+        else if constexpr(TypeTrait::IsInteger<T>)
+        {
+            if constexpr(sizeof(T) == 4)
+            {
+                return BUILTIN(loaddqusi512_mask)(Address, ReplacementValues, Mask);
+            }
+            else if constexpr(sizeof(T) == 8)
+            {
+                return BUILTIN(loaddqudi512_mask)(Address, ReplacementValues, Mask);
+            }
+        }
     }
+
+#endif //AVX512
 
     template<typename TargetType, typename RegisterType> requires(NumElements<TargetType>() == NumElements<RegisterType>())
     INLINE constexpr TargetType ConvertVector(RegisterType Source)
@@ -569,9 +593,50 @@ namespace Simd
         return TargetType{__builtin_convertvector(Source, TargetType)};
     }
 
+
+    template<int32 I1, int32 I2, int32 I3, int32 I4>
+    INLINE consteval int32 MakePermuteMask()
+    {
+        return (I1 << 0) | (I2 << 2) | (I3 << 4) | (I4 << 6);
+    }
+
+#ifdef AVX128
+
+        //shuffle elements in Source across lanes using Index
+        template<int32... Index, typename T> requires(sizeof(T) == 4 && sizeof...(Index) == 4)
+        INLINE constexpr Vector16<T> Shuffle(Vector16<T> Source) MIN_VECTOR_WIDTH(128)
+        {
+            if constexpr(TypeTrait::IsFloatingPoint<T>)
+            {
+                return BUILTIN(vpermilps)(Source, MakePermuteMask<Index...>());
+            }
+            else if constexpr(TypeTrait::IsInteger<T>)
+            {
+                return BUILTIN(pshufd)(Source, MakePermuteMask<Index...>());
+            }
+        }
+
+#endif //AVX128
 #ifdef AVX256
 
-    template<typename T, uint8 Control>
+    //shuffle elements in Source across lanes using Index
+    template<int32... Index, typename T> requires(sizeof(T) == 8 && sizeof...(Index) == 4)
+    INLINE constexpr Vector32<T> Shuffle(Vector32<T> Source) MIN_VECTOR_WIDTH(256)
+    {
+        if constexpr(TypeTrait::IsFloatingPoint<T>)
+        {
+            return BUILTIN(permdf256)(Source, MakePermuteMask<Index...>());
+        }
+        else if constexpr(TypeTrait::IsInteger<T>)
+        {
+            return BUILTIN(permdi256)(Source, MakePermuteMask<Index...>());
+        }
+    }
+
+#endif //AVX256
+#ifdef AVX256
+
+    template<uint8 Control, typename T>
     INLINE constexpr Vector16<T> Extract(Vector32<T> Source)
     {
         if constexpr(TypeTrait::IsFloatingPoint<T> && sizeof(T) == 4)
@@ -1014,66 +1079,6 @@ namespace Simd
     }
 
 #endif //AVX256
-#ifdef AVX128
-
-    template<typename T> requires(sizeof(T) >= 4)
-    INLINE Vector16<T> MaskLoad(const T* Source NONNULL, Vector16<T> Mask) MIN_VECTOR_WIDTH(128)
-    {
-        if constexpr(TypeTrait::IsInteger<T>)
-        {
-            if constexpr(sizeof(T) == 4)
-            {
-                return BUILTIN(maskloadd)(Source, Mask);
-            }
-            else if constexpr(sizeof(T) == 8)
-            {
-                return BUILTIN(maskloadq)(Source, Mask);
-            }
-        }
-        else if constexpr(TypeTrait::IsFloatingPoint<T>)
-        {
-            if constexpr(sizeof(T) == 4)
-            {
-                return BUILTIN(maskloadps)(Source, Mask);
-            }
-            else if constexpr(sizeof(T) == 8)
-            {
-                return BUILTIN(maskloadpd)(Source, Mask);
-            }
-        }
-    }
-
-#endif //AVX128
-#ifdef AVX256
-
-    template<typename T> requires(sizeof(T) >= 4)
-    INLINE Vector32<T> MaskLoad(const T* Source NONNULL, Vector32<T> Mask) MIN_VECTOR_WIDTH(256)
-    {
-        if constexpr(TypeTrait::IsInteger<T>)
-        {
-            if constexpr(sizeof(T) == 4)
-            {
-                return BUILTIN(maskloadd256)(Source, Mask);
-            }
-            else if constexpr(sizeof(T) == 8)
-            {
-                return BUILTIN(maskloadq256)(Source, Mask);
-            }
-        }
-        else if constexpr(TypeTrait::IsFloatingPoint<T>)
-        {
-            if constexpr(sizeof(T) == 4)
-            {
-                return BUILTIN(maskloadps256)(Source, Mask);
-            }
-            else if constexpr(sizeof(T) == 8)
-            {
-                return BUILTIN(maskloadpd256)(Source, Mask);
-            }
-        }
-    }
-
-#endif //AVX256
 
     template<typename RegisterType>
     NODISCARD INLINE constexpr RegisterType LoadUnaligned(const ElementType<RegisterType>* RESTRICT NONNULL Data)
@@ -1107,6 +1112,12 @@ namespace Simd
     INLINE constexpr void StoreAligned(ElementType<RegisterType>* Target, const RegisterType Data)
     {
         *reinterpret_cast<RegisterType*>(Target) = Data;
+    }
+
+    template<typename RegisterType>
+    INLINE constexpr void StoreAligned(RegisterType* Target, const RegisterType Data)
+    {
+        *Target = Data;
     }
 
 #ifdef AVX128
@@ -1169,66 +1180,73 @@ namespace Simd
     }
 
 #endif //AVX256
-#ifdef AVX128
+#ifdef AVX512
 
-    template<typename T> requires(sizeof(T) == 4 || sizeof(T) == 8)
-    NODISCARD INLINE constexpr Vector16<T> MaskLoad(const Vector16<T>* Source, const Vector16<T> Mask) MIN_VECTOR_WIDTH(128)
-    {
-        if constexpr(TypeTrait::IsInteger<T>)
+        template<typename T> requires(sizeof(T) == 4 || sizeof(T) == 8)
+        INLINE constexpr void MaskStoreAligned(Vector64<T>* Target, const decltype(Mask<Vector64<T>>()) Mask, const Vector64<T> Data) MIN_VECTOR_WIDTH(512)
         {
-            if constexpr(sizeof(T) == 4)
+            //for some reason Data and Mask has swapped argument positions
+            if constexpr(TypeTrait::IsInteger<T>)
             {
-                return BUILTIN(maskloadd)(Source, Mask);
+                if constexpr(sizeof(T) == 4)
+                {
+                    BUILTIN(movdqa32store512_mask)(Target, Data, Mask);
+                }
+                else if constexpr(sizeof(T) == 8)
+                {
+                    BUILTIN(movdqa64store512_mask)(Target, Data, Mask);
+                }
             }
-            else if constexpr(sizeof(T) == 8)
+            else if constexpr(TypeTrait::IsFloatingPoint<T>)
             {
-                return BUILTIN(maskloadq)(Source, Mask);
+                if constexpr(sizeof(T) == 4)
+                {
+                    BUILTIN(storeaps512_mask)(Target, Data, Mask);
+                }
+                else if constexpr(sizeof(T) == 8)
+                {
+                    BUILTIN(storeapd512_mask)(Target, Data, Mask);
+                }
             }
         }
-        else if constexpr(TypeTrait::IsFloatingPoint<T>)
+
+        template<typename T>
+        INLINE constexpr void MaskStoreUnaligned(T* Target, const decltype(Mask<Vector64<T>>()) Mask, const Vector64<T> Data) MIN_VECTOR_WIDTH(512)
         {
-            if constexpr(sizeof(T) == 4)
+            //for some reason Data and Mask has swapped argument positions
+            if constexpr(TypeTrait::IsInteger<T>)
             {
-                return BUILTIN(maskloadps)(Source, Mask);
+                if constexpr(sizeof(T) == 1)
+                {
+                    BUILTIN(storedquqi512_mask)(Target, Data, Mask);
+                }
+                if constexpr(sizeof(T) == 2)
+                {
+                    BUILTIN(storedquhi512_mask)(Target, Data, Mask);
+                }
+                else if constexpr(sizeof(T) == 4)
+                {
+                    BUILTIN(storedqusi512_mask)(Target, Data, Mask);
+                }
+                else if constexpr(sizeof(T) == 8)
+                {
+                    BUILTIN(storedqudi512_mask)(Target, Data, Mask);
+                }
             }
-            else if constexpr(sizeof(T) == 8)
+            else if constexpr(TypeTrait::IsFloatingPoint<T>)
             {
-                return BUILTIN(maskloadpd)(Source, Mask);
+                if constexpr(sizeof(T) == 4)
+                {
+                    BUILTIN(storeups512_mask)(Target, Data, Mask);
+                }
+                else if constexpr(sizeof(T) == 8)
+                {
+                    BUILTIN(storeupd512_mask)(Target, Data, Mask);
+                }
             }
         }
-    }
 
-#endif //AVX128
-#ifdef AVX256
-
-    template<typename T> requires(sizeof(T) == 4 || sizeof(T) == 8)
-    NODISCARD INLINE constexpr Vector32<T> MaskLoad(const Vector32<T>* Source, const Vector32<T> Mask) MIN_VECTOR_WIDTH(256)
-    {
-        if constexpr(TypeTrait::IsInteger<T>)
-        {
-            if constexpr(sizeof(T) == 4)
-            {
-                return BUILTIN(maskstored256)(Source, Mask);
-            }
-            else if constexpr(sizeof(T) == 8)
-            {
-                return BUILTIN(maskstoreq256)(Source, Mask);
-            }
-        }
-        else if constexpr(TypeTrait::IsFloatingPoint<T>)
-        {
-            if constexpr(sizeof(T) == 4)
-            {
-                return BUILTIN(maskstoreps256)(Source, Mask);
-            }
-            else if constexpr(sizeof(T) == 8)
-            {
-                return BUILTIN(maskstorepd256)(Source, Mask);
-            }
-        }
-    }
-
-#endif //AVX256
+#endif //AVX512
 
     /*
      * copies and moves the elements  in the Source by ShuffleAmount to the left
@@ -1292,8 +1310,7 @@ namespace Simd
     {
         return reinterpret_cast<const T*>(ASSUME_ALIGNED(Source, 64));
     }
-
-}
+} //namespace Simd
 
 #ifdef AVX128
 

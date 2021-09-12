@@ -23,22 +23,19 @@ namespace StrUtil
 
     CONST int64 Length(const char8* NONNULL String)
     {
-        #if defined(AVX512)
-            using CharRegisterType = char8_64;
-        #elif defined(AVX256)
-            using CharRegisterType = char8_32;
-        #elif defined(AVX128)
-            using CharRegisterType = char8_16;
-        #endif
-
-        static constexpr CharRegisterType NullCheckRegister{Simd::SetAll<CharRegisterType>(NULL_CHAR)};
-        static constexpr int32 NumCharElements{static_cast<int64>(Simd::NumElements<CharRegisterType>())};
+#if defined(AVX512)
+        using CharVectorType = char8_64;
+#elif defined(AVX256)
+        using CharVectorType = char8_32;
+#endif
+        constexpr CharVectorType NullCheckRegister{Simd::SetAll<CharVectorType>(NULL_CHAR)};
+        constexpr int32 NumCharElements{static_cast<int32>(Simd::NumElements<CharVectorType>())};
 
         for(int32 Length{NumCharElements}; true; Length += NumCharElements)
         {
-            const CharRegisterType StringRegister{Simd::LoadUnaligned<CharRegisterType>((String + Length) - NumCharElements)};
+            const CharVectorType StringVector{Simd::LoadUnaligned<CharVectorType>((String + Length) - NumCharElements)};
 
-            const auto Mask{Simd::MoveMask(StringRegister == NullCheckRegister)};
+            const Simd::MaskType<CharVectorType> Mask{Simd::MoveMask(StringVector == NullCheckRegister)};
 
             if(Mask > 0)
             {
@@ -72,6 +69,90 @@ namespace StrUtil
 
 #pragma clang diagnostic pop
 
+    CONST char8* FindSubString(char8* SourceString, const uint32 NumSourceChars, const char8* SubString, const uint32 NumSubChars)
+    {
+        ASSERT(NumSubChars <= 32, "no implementation is made for larger sub-strings");
+#ifdef AVX512
+        using VectorType = Vector64<char8>;
+#elif defined(AVX256)
+        using VectorType = Vector32<char8>;
+#endif
+        VectorType SubCharVector{Simd::SetAll<VectorType>(SubString[0])};
+
+        for(uint32 SourceIndex{0}; SourceIndex < NumSourceChars; SourceIndex += Simd::NumElements<VectorType>())
+        {
+            VectorType SourceVector{Simd::LoadUnaligned<VectorType>(SourceString + SourceIndex)};
+
+            Simd::MaskType<VectorType> Mask{Simd::MoveMask(SubCharVector == SourceVector)};
+
+            if(Mask > 0)
+            {
+                const int32 MatchIndex{Math::FindFirstSet(Mask) - 1};
+
+                SourceVector = Simd::LoadUnaligned<VectorType>(SourceString + SourceIndex + MatchIndex);
+                const VectorType SubVector{Simd::LoadUnaligned<VectorType>(SubString)};
+
+                Mask = Simd::MoveMask(SourceVector == SubVector);
+                const uint32 NumActiveBits{static_cast<uint32>(Math::NumActiveBits(Mask))};
+
+                if EXPECT(NumActiveBits == (NumSubChars - 1), false)
+                {
+                    const bool bIsInValidRange{(SourceIndex + NumActiveBits) <= NumSourceChars};
+                    const uint64 AddressAsInt{reinterpret_cast<uint64>(SourceString) + SourceIndex + MatchIndex};
+                    return reinterpret_cast<char8*>(AddressAsInt * bIsInValidRange);
+                }
+            }
+        }
+
+        return nullptr;
+    }
+
+    CONST const char8* FindSubString(const char8* SourceString, const uint32 NumSourceChars, const char8* SubString, const uint32 NumSubChars)
+    {
+        ASSERT(NumSubChars <= 32, "no implementation is made for larger sub-strings");
+#ifdef AVX512
+        using VectorType = Vector64<char8>;
+#elif defined(AVX256)
+        using VectorType = Vector32<char8>;
+#endif
+        VectorType SubCharVector{Simd::SetAll<VectorType>(SubString[0])};
+
+        for(uint32 SourceIndex{0}; SourceIndex < NumSourceChars; SourceIndex += Simd::NumElements<VectorType>())
+        {
+            VectorType SourceVector{Simd::LoadUnaligned<VectorType>(SourceString + SourceIndex)};
+
+            Simd::MaskType<VectorType> Mask{Simd::MoveMask(SubCharVector == SourceVector)};
+
+            if(Mask > 0)
+            {
+                const int32 MatchIndex{Math::FindFirstSet(Mask) - 1};
+
+                SourceVector = Simd::LoadUnaligned<VectorType>(SourceString + SourceIndex + MatchIndex);
+                const VectorType SubVector{Simd::LoadUnaligned<VectorType>(SubString)};
+
+                Mask = Simd::MoveMask(SourceVector == SubVector);
+                const uint32 NumActiveBits{static_cast<uint32>(Math::NumActiveBits(Mask))};
+
+                if EXPECT(NumActiveBits == (NumSubChars - 1), false)
+                {
+                    const bool bIsInValidRange{(SourceIndex + NumActiveBits) <= NumSourceChars};
+                    const uint64 AddressAsInt{reinterpret_cast<uint64>(SourceString) + SourceIndex + MatchIndex};
+                    return reinterpret_cast<char8*>(AddressAsInt * bIsInValidRange);
+                }
+            }
+        }
+
+        return nullptr;
+    }
+
+#ifdef AVX512
+    template<typename T>
+    using StackStringVector = Vector64<T>;
+#elif defined(AVX256)
+    template<typename T>
+    using StackStringVector = Vector32<T>;
+#endif
+
     template<typename T>
     INLINE T LowerCaseMask(const T Character)
     {
@@ -91,29 +172,40 @@ namespace StrUtil
         {
             String[StringEnd] -= (32 * LowerCaseMask(String[StringEnd]));
         }
-
         return String;
     }
 
-    FString& ToUpperCase(FString& String LIFETIME_BOUND)
+    template<EStackSize InStackSize>
+    FString<InStackSize>& ToUpperCase(FString<InStackSize>& String LIFETIME_BOUND)
     {
-        if(String.ActiveArray() == FString::EActiveArray::Stack)
+        if(String.ActiveArray() == FString<InStackSize>::EActiveArray::Stack)
         {
-            char8_32 CharacterRegister{Simd::LoadUnaligned<char8_32>(String.CharacterArray.Stack)};
-            char8_32 Mask{LowerCaseMask(CharacterRegister) & 32};
+#if defined(AVX512)
+            char8_64 CharacterVector{Simd::LoadUnaligned<char8_64>(String.CharacterArray.Stack)};
+            const char8_64 Mask{LowerCaseMask(CharacterVector) & 32};
 
-            CharacterRegister -= Mask;
+            CharacterVector -= Mask;
 
-            Simd::StoreUnaligned(String.CharacterArray.Stack, CharacterRegister);
+            int32* StackPointer{reinterpret_cast<int32*>(String.CharacterArray.Stack)};
 
-            CharacterRegister = Simd::LoadUnaligned<char8_32>(&String.CharacterArray.Stack[32]);
-            Mask = LowerCaseMask(CharacterRegister) & 32;
+            Simd::MaskStoreUnaligned(StackPointer, FString<InStackSize>::MaskStoreMask, static_cast<const int32_16>(CharacterVector));
+#elif defined(AVX256)
+            char8_32 CharacterVector{Simd::LoadUnaligned<char8_32>(String.CharacterArray.Stack)};
+            char8_32 Mask{LowerCaseMask(CharacterVector) & 32};
 
-            CharacterRegister -= Mask;
+            CharacterVector -= Mask;
+
+            Simd::StoreUnaligned(String.CharacterArray.Stack, CharacterVector);
+
+            CharacterVector = Simd::LoadUnaligned<char8_32>(&String.CharacterArray.Stack[32]);
+            Mask = LowerCaseMask(CharacterVector) & 32;
+
+            CharacterVector -= Mask;
 
             int32_8* StackPointer{reinterpret_cast<int32_8*>(&String.CharacterArray.Stack[32])};
 
-            Simd::MaskStore(StackPointer, FString::MaskStoreMask, static_cast<int32_8>(CharacterRegister));
+            Simd::MaskStore(StackPointer, FString<InStackSize>::MaskStoreMask, static_cast<const int32_8>(CharacterVector));
+#endif
         }
         else
         {
@@ -128,7 +220,7 @@ namespace StrUtil
 
     FStaticString& ToUpperCase(FStaticString& String LIFETIME_BOUND)
     {
-        String.Characters -= LowerCaseMask(String.Characters) & 32;
+        String.Characters -= (LowerCaseMask(String.Characters) & 32);
         return String;
     }
 
@@ -143,25 +235,37 @@ namespace StrUtil
         return String;
     }
 
-    FString& ToLowerCase(FString& String LIFETIME_BOUND)
+    template<EStackSize InStackSize>
+    FString<InStackSize>& ToLowerCase(FString<InStackSize>& String LIFETIME_BOUND)
     {
-        if(String.ActiveArray() == FString::EActiveArray::Stack)
+        if(String.ActiveArray() == FString<InStackSize>::EActiveArray::Stack)
         {
-            char8_32 CharacterRegister{Simd::LoadUnaligned<char8_32>(String.CharacterArray.Stack)};
-            char8_32 Mask{UpperCaseMask(CharacterRegister) & 32};
+#if defined(AVX512)
+            char8_64 CharacterVector{Simd::LoadUnaligned<char8_64>(String.CharacterArray.Stack)};
+            const char8_64 Mask{UpperCaseMask(CharacterVector) & 32};
 
-            CharacterRegister += Mask;
+            CharacterVector += Mask;
 
-            Simd::StoreUnaligned(String.CharacterArray.Stack, CharacterRegister);
+            int32* StackPointer{reinterpret_cast<int32*>(String.CharacterArray.Stack)};
 
-            CharacterRegister = Simd::LoadUnaligned<char8_32>(&String.CharacterArray.Stack[32]);
-            Mask = UpperCaseMask(CharacterRegister) & 32;
+            Simd::MaskStoreUnaligned(StackPointer, FString<InStackSize>::MaskStoreMask, static_cast<const int32_16>(CharacterVector));
+#elif defined(AVX256)
+            char8_32 CharacterVector{Simd::LoadUnaligned<char8_32>(String.CharacterArray.Stack)};
+            char8_32 Mask{UpperCaseMask(CharacterVector) & 32};
 
-            CharacterRegister += Mask;
+            CharacterVector += Mask;
+
+            Simd::StoreUnaligned(String.CharacterArray.Stack, CharacterVector);
+
+            CharacterVector = Simd::LoadUnaligned<char8_32>(&String.CharacterArray.Stack[32]);
+            Mask = UpperCaseMask(CharacterVector) & 32;
+
+            CharacterVector += Mask;
 
             int32_8* StackPointer{reinterpret_cast<int32_8*>(&String.CharacterArray.Stack[32])};
 
-            Simd::MaskStore(StackPointer, FString::MaskStoreMask, static_cast<int32_8>(CharacterRegister));
+            Simd::MaskStore(StackPointer, FString<InStackSize>::MaskStoreMask, static_cast<const int32_8>(CharacterVector));
+#endif
         }
         else
         {
@@ -195,29 +299,63 @@ template TStaticArray<char8, 17> StrUtil::IntToHex(int64);
 template TStaticArray<char8, 33> StrUtil::IntToHex(uint128);
 template TStaticArray<char8, 33> StrUtil::IntToHex(int128);
 
-void FString::CopyToStack(const char8* Source)
+template<uint64 VectorSize, EStackSize StackSize, uint64 OriginalVectorSize = VectorSize, uint64 Iterations = 1>
+consteval uint64 CalculateNumIterations()
+{
+    if constexpr(VectorSize >= StackSize)
+    {
+        return Iterations;
+    }
+    else
+    {
+        return CalculateNumIterations<VectorSize + OriginalVectorSize, StackSize, OriginalVectorSize, Iterations + 1>();
+    }
+}
+
+template<EStackSize InStackSize>
+void FString<InStackSize>::CopyToStack(const char8* Source)
 {
     ASSERT(ActiveArray() == EActiveArray::Stack);
+
+#if defined(AVX512)
+    using VectorType = Vector64<int32>;
+    constexpr uint64 NumCharElements = 64;
+#elif defined(AVX256)
+    using VectorType = Vector32<int32>;
+    constexpr uint64 NumCharElements = 32;
+#endif
 
     int32* ThisCharacterArrayData{reinterpret_cast<int32*>(this->CharacterArray.Stack)};
     const int32* OtherCharacterArrayData{reinterpret_cast<const int32*>(Source)};
 
-    int32_8 OtherCharacterRegister{Simd::LoadUnaligned<int32_8>(OtherCharacterArrayData)};
+    #pragma unroll
+    for(uint64 Iteration{0}; Iteration < CalculateNumIterations<NumCharElements, InStackSize>(); ++Iteration)
+    {
+        VectorType OtherCharacterRegister{Simd::LoadUnaligned<VectorType>(OtherCharacterArrayData)};
 
-    Simd::StoreUnaligned(ThisCharacterArrayData, OtherCharacterRegister);
+        if(Iteration == (CalculateNumIterations<NumCharElements, InStackSize>() - 1)) //should be optimized out
+        {
+#if defined(AVX512)
+            Simd::MaskStoreUnaligned(ThisCharacterArrayData, MaskStoreMask, OtherCharacterRegister);
+#elif defined(AVX256)
+            Simd::MaskStore(reinterpret_cast<int32_8*>(ThisCharacterArrayData), MaskStoreMask, OtherCharacterRegister);
+#endif
+        }
+        else
+        {
+            Simd::StoreUnaligned(ThisCharacterArrayData, OtherCharacterRegister);
+        }
 
-    ThisCharacterArrayData += (32 / sizeof(int32));
-    OtherCharacterArrayData += (32 / sizeof(int32));
-
-    OtherCharacterRegister = Simd::LoadUnaligned<int32_8>(OtherCharacterArrayData);
-
-    Simd::MaskStore(reinterpret_cast<int32_8*>(ThisCharacterArrayData), MaskStoreMask, OtherCharacterRegister);
+        ThisCharacterArrayData += (NumCharElements / sizeof(int32));
+        OtherCharacterArrayData += (NumCharElements / sizeof(int32));
+    }
 }
 
-FString::FString(const FString& Other)
+template<EStackSize InStackSize>
+FString<InStackSize>::FString(const FString& Other)
     : TerminatorIndex{Other.TerminatorIndex}
 {
-    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, false)
+    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == ss0)
     {
         CharacterArray.Heap = Memory::Allocate<char8>(Num());
         Memory::Copy(CharacterArray.Heap, Other.CharacterArray.Heap, Num());
@@ -228,10 +366,11 @@ FString::FString(const FString& Other)
     }
 }
 
-FString::FString(FString&& Other)
+template<EStackSize InStackSize>
+FString<InStackSize>::FString(FString&& Other)
     : TerminatorIndex{Other.TerminatorIndex}
 {
-    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, false)
+    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == ss0)
     {
         CharacterArray.Heap = Other.CharacterArray.Heap;
         Other.TerminatorIndex = 0;
@@ -242,11 +381,12 @@ FString::FString(FString&& Other)
     }
 }
 
-FString& FString::operator=(const FString& Other)
+template<EStackSize InStackSize>
+FString<InStackSize>& FString<InStackSize>::operator=(const FString& Other)
 {
-    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, false)
+    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == ss0)
     {
-        if EXPECT(this->ActiveArray() == EActiveArray::Heap,false)
+        if EXPECT(this->ActiveArray() == EActiveArray::Heap,StackSize == ss0)
         {
             if(Other.Num() > Memory::AllocatedSize(CharacterArray.Heap))
             {
@@ -274,9 +414,10 @@ FString& FString::operator=(const FString& Other)
     return *this;
 }
 
-FString& FString::operator=(FString&& Other)
+template<EStackSize InStackSize>
+FString<InStackSize>& FString<InStackSize>::operator=(FString&& Other)
 {
-    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, false)
+    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == ss0)
     {
         TerminatorIndex = Other.TerminatorIndex;
         CharacterArray.Heap = Other.CharacterArray.Heap;
@@ -297,7 +438,66 @@ FString& FString::operator=(FString&& Other)
     return *this;
 }
 
-FString& FString::Assign_Stack(const char8* RESTRICT String, const uint32 NumChars)
+template<EStackSize InStackSize>
+bool FString<InStackSize>::CompareEqual(const char8* String, const uint32 NumChars) const
+{
+#if defined(AVX512)
+    using VectorType = Vector64<int32>;
+    constexpr uint64 NumCharElements = 64;
+#elif defined(AVX256)
+    using VectorType = Vector32<int32>;
+    constexpr uint64 NumCharElements = 32;
+#endif
+
+    if EXPECT(this->Num() == NumChars, false)
+    {
+        if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
+        {
+            return Memory::Compare(this->RawString(), String, Num()) == 0;
+        }
+        else //todo is it important that all the stack not in use is zeroed, but dont do it here
+        {
+            VectorType ComparisonVector{Simd::SetAll<VectorType>(Math::Largest<int32>())};
+
+            const int32* ThisCharacterArrayData{reinterpret_cast<const int32*>(this->CharacterArray.Stack)};
+            const int32* OtherCharacterArrayData{reinterpret_cast<const int32*>(String)};
+
+            VectorType ThisCharacterVector;
+            VectorType OtherCharacterVector;
+
+            #pragma unroll
+            for(uint64 Iteration{0}; Iteration < CalculateNumIterations<NumCharElements, InStackSize>(); ++Iteration)
+            {
+                if(Iteration == (CalculateNumIterations<NumCharElements, InStackSize>() - 1)) //should be optimized out
+                {
+#if defined(AVX512)
+                    ThisCharacterVector = Simd::MaskLoadUnaligned(ThisCharacterArrayData, MaskStoreMask);
+                    OtherCharacterVector = Simd::MaskLoadUnaligned(OtherCharacterArrayData, MaskStoreMask);
+#elif defined(AVX256)
+                    ThisCharacterVector = Simd::MaskLoad(reinterpret_cast<const int32_8*>(ThisCharacterArrayData), MaskStoreMask);
+                    OtherCharacterVector = Simd::MaskLoad(reinterpret_cast<const int32_8*>(OtherCharacterArrayData), MaskStoreMask);
+#endif
+                }
+                else
+                {
+                    ThisCharacterVector = Simd::LoadUnaligned<VectorType>(ThisCharacterArrayData);
+                    OtherCharacterVector = Simd::LoadUnaligned<VectorType>(OtherCharacterArrayData);
+                }
+
+                ComparisonVector &= (ThisCharacterVector == OtherCharacterVector);
+
+                ThisCharacterArrayData += (NumCharElements / sizeof(int32));
+                OtherCharacterArrayData += (NumCharElements / sizeof(int32));
+            }
+
+            return Simd::MoveMask(ComparisonVector) == Simd::Mask<VectorType>();
+        }
+    }
+    return false;
+}
+
+template<EStackSize InStackSize>
+FString<InStackSize>& FString<InStackSize>::Assign_Stack(const char8* String, const uint32 NumChars)
 {
     if EXPECT(ActiveArray() == EActiveArray::Heap, false)
     {
@@ -311,9 +511,10 @@ FString& FString::Assign_Stack(const char8* RESTRICT String, const uint32 NumCha
     return *this;
 }
 
-FString& FString::Assign_Heap(const char8* RESTRICT String, const uint32 NumChars)
+template<EStackSize InStackSize>
+FString<InStackSize>& FString<InStackSize>::Assign_Heap(const char8* String, const uint32 NumChars)
 {
-    if EXPECT(ActiveArray() == EActiveArray::Heap, false)
+    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
     {
         if(NumChars > Memory::AllocatedSize(CharacterArray.Heap))
         {
@@ -327,16 +528,17 @@ FString& FString::Assign_Heap(const char8* RESTRICT String, const uint32 NumChar
 
     Memory::Copy(CharacterArray.Heap, String, NumChars);
 
-    TerminatorIndex = (NumChars - 1);
+    TerminatorIndex = NumChars - 1;
 
     return *this;
 }
 
-FString& FString::Concat_Assign(const char8* RESTRICT String, const uint32 NumChars)
+template<EStackSize InStackSize>
+FString<InStackSize>& FString<InStackSize>::Concat_Assign(const char8* String, const uint32 NumChars)
 {
     const uint32 NewSize{(Num() - 1) + NumChars};
 
-    if EXPECT(ActiveArray() == EActiveArray::Heap, false)
+    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
     {
         if(NewSize > Memory::AllocatedSize(CharacterArray.Heap))
         {
@@ -345,7 +547,7 @@ FString& FString::Concat_Assign(const char8* RESTRICT String, const uint32 NumCh
 
         Memory::Copy(&CharacterArray.Heap[TerminatorIndex], String, NumChars);
     }
-    else if EXPECT(NewSize > 60, false)
+    else if EXPECT(NewSize > StackSize, false)
     {
         char8* Buffer{Memory::Allocate<char8>(NewSize + ReserveSize)};
 
@@ -359,12 +561,13 @@ FString& FString::Concat_Assign(const char8* RESTRICT String, const uint32 NumCh
         Memory::Copy(&CharacterArray.Stack[TerminatorIndex], String, NumChars);
     }
 
-    TerminatorIndex += (NumChars - 1);
+    TerminatorIndex += NumChars - 1;
 
     return *this;
 }
 
-FString FString::Concat_New(const char8* RESTRICT String, const uint32 NumChars) const
+template<EStackSize InStackSize>
+FString<InStackSize> FString<InStackSize>::Concat_New(const char8* String, const uint32 NumChars) const
 {
     const uint32 NewSize{TerminatorIndex + NumChars};
 
@@ -378,12 +581,13 @@ FString FString::Concat_New(const char8* RESTRICT String, const uint32 NumChars)
     return ResultString;
 }
 
-FString& FString::Concat_Assign(const FStaticString& String)
+template<EStackSize InStackSize>
+FString<InStackSize>& FString<InStackSize>::Concat_Assign(const FStaticString& String)
 {
     const uint32 NumChars{String.Num()};
     const uint32 NewSize{(Num() - 1) + NumChars};
 
-    if EXPECT(ActiveArray() == EActiveArray::Heap, false)
+    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
     {
         if(NewSize > Memory::AllocatedSize(CharacterArray.Heap))
         {
@@ -392,7 +596,7 @@ FString& FString::Concat_Assign(const FStaticString& String)
 
         Memory::Copy(&CharacterArray.Heap[TerminatorIndex], String.RawString(), NumChars);
     }
-    else if EXPECT(NewSize > 60, false)
+    else if EXPECT(NewSize > StackSize, false)
     {
         char8* Buffer{Memory::Allocate<char8>(NewSize + ReserveSize)};
 
@@ -406,12 +610,13 @@ FString& FString::Concat_Assign(const FStaticString& String)
         Memory::Copy(&CharacterArray.Stack[TerminatorIndex], String.RawString(), NumChars);
     }
 
-    TerminatorIndex += (NumChars - 1);
+    TerminatorIndex += NumChars - 1;
 
     return *this;
 }
 
-FString FString::Concat_New(const FStaticString& String) const
+template<EStackSize InStackSize>
+FString<InStackSize> FString<InStackSize>::Concat_New(const FStaticString& String) const
 {
     const uint32 NumChars{String.Num()};
     const uint32 NewSize{TerminatorIndex + NumChars};
@@ -426,11 +631,12 @@ FString FString::Concat_New(const FStaticString& String) const
     return ResultString;
 }
 
-FString& FString::PushBack_Assign(const char8* RESTRICT String, const uint32 NumChars)
+template<EStackSize InStackSize>
+FString<InStackSize>& FString<InStackSize>::PushBack_Assign(const char8* String, const uint32 NumChars)
 {
     const uint32 NewSize{TerminatorIndex + NumChars};
 
-    if EXPECT(ActiveArray() == EActiveArray::Heap, false)
+    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
     {
         if(NewSize > Memory::AllocatedSize(CharacterArray.Heap))
         {
@@ -440,7 +646,7 @@ FString& FString::PushBack_Assign(const char8* RESTRICT String, const uint32 Num
         Memory::Move(&CharacterArray.Heap[NumChars - 1], CharacterArray.Heap, Num());
         Memory::Copy(CharacterArray.Heap, String, NumChars - 1);
     }
-    else if EXPECT(NewSize > 60, false)
+    else if EXPECT(NewSize > StackSize, false)
     {
         char8* Buffer{Memory::Allocate<char8>(NewSize + ReserveSize)};
 
@@ -455,12 +661,13 @@ FString& FString::PushBack_Assign(const char8* RESTRICT String, const uint32 Num
         Memory::Copy(CharacterArray.Stack, String, NumChars - 1);
     }
 
-    TerminatorIndex += (NumChars - 1);
+    TerminatorIndex += NumChars - 1;
 
     return *this;
 }
 
-FString FString::PushBack_New(const char8* RESTRICT String, const uint32 NumChars) const
+template<EStackSize InStackSize>
+FString<InStackSize> FString<InStackSize>::PushBack_New(const char8* String, const uint32 NumChars) const
 {
     const uint32 NewSize{(Num() - 1) + NumChars};
 
@@ -473,18 +680,19 @@ FString FString::PushBack_New(const char8* RESTRICT String, const uint32 NumChar
     return ResultString;
 }
 
-FString& FString::Erase_Assign(const uint32 Begin, const uint32 End)
+template<EStackSize InStackSize>
+FString<InStackSize>& FString<InStackSize>::Erase_Assign(const uint32 Begin, const uint32 End)
 {
     ASSERT((End < Num()) && (Begin < End));
 
     const uint32 NumCharsLeftAtEnd{Num() - End};
     const uint32 NewSize{Begin + NumCharsLeftAtEnd};
 
-    if(NewSize > 60)
+    if EXPECT(NewSize > StackSize, StackSize == ss0)
     {
-        Memory::Move(&CharacterArray.Heap[Begin], &CharacterArray.Heap[End], NumCharsLeftAtEnd);
+        Memory::Copy(&CharacterArray.Heap[Begin], &CharacterArray.Heap[End], NumCharsLeftAtEnd);
     }
-    else if(ActiveArray() == EActiveArray::Heap)
+    else if EXPECT(ActiveArray() == EActiveArray::Heap, false)
     {
         char8* Buffer{static_cast<char8*>(STACK_ALLOCATE(NewSize))};
 
@@ -495,15 +703,16 @@ FString& FString::Erase_Assign(const uint32 Begin, const uint32 End)
     }
     else
     {
-        Memory::Move(&CharacterArray.Stack[Begin], &CharacterArray.Stack[End], NumCharsLeftAtEnd);
+        Memory::Copy(&CharacterArray.Stack[Begin], &CharacterArray.Stack[End], NumCharsLeftAtEnd);
     }
 
-    TerminatorIndex = (NewSize - 1);
+    TerminatorIndex = NewSize - 1;
 
     return *this;
 }
 
-FString FString::Erase_New(const uint32 Begin, const uint32 End) const
+template<EStackSize InStackSize>
+FString<InStackSize> FString<InStackSize>::Erase_New(const uint32 Begin, const uint32 End) const
 {
     ASSERT((End < Num()) && (Begin < End));
 
@@ -521,12 +730,13 @@ FString FString::Erase_New(const uint32 Begin, const uint32 End) const
     return ResultString;
 }
 
-FString& FString::Replace_Assign(const uint32 Begin, const char8* RESTRICT String, const uint32 NumChars)
+template<EStackSize InStackSize>
+FString<InStackSize>& FString<InStackSize>::Replace_Assign(const uint32 Begin, const char8* String, const uint32 NumChars)
 {
     const uint32 NewSize{Math::Max(Begin + NumChars, Num())};
     const uint32 ReplacementSize{NumChars - (NewSize < Num())};
 
-    if(ActiveArray() == EActiveArray::Heap)
+    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
     {
         if EXPECT(NewSize > Memory::AllocatedSize(CharacterArray.Heap), false)
         {
@@ -540,12 +750,13 @@ FString& FString::Replace_Assign(const uint32 Begin, const char8* RESTRICT Strin
         Memory::Copy(&CharacterArray.Stack[Begin], String, ReplacementSize);
     }
 
-    TerminatorIndex = (NewSize - 1);
+    TerminatorIndex = NewSize - 1;
 
     return *this;
 }
 
-FString FString::Replace_New(const uint32 Begin, const char8* RESTRICT String, const uint32 NumChars) const
+template<EStackSize InStackSize>
+FString<InStackSize> FString<InStackSize>::Replace_New(const uint32 Begin, const char8* String, const uint32 NumChars) const
 {
     const uint32 NewSize{Math::Max(Begin + NumChars, Num())};
     const uint32 ReplacementSize{NumChars - (NewSize < Num())};
@@ -559,14 +770,15 @@ FString FString::Replace_New(const uint32 Begin, const char8* RESTRICT String, c
     return ResultString;
 }
 
-FString& FString::Insert_Assign(const uint32 Begin, const char8* RESTRICT String, const uint32 NumChars)
+template<EStackSize InStackSize>
+FString<InStackSize>& FString<InStackSize>::Insert_Assign(const uint32 Begin, const char8* String, const uint32 NumChars)
 {
     ASSERT(Begin < TerminatorIndex);
 
     const uint32 NewSize{Math::Max(Begin + NumChars + 1, Num())};
     const uint32 InsertionSize{NumChars - (NewSize < Num())}; //lewd
 
-    if(ActiveArray() == EActiveArray::Heap)
+    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
     {
         if EXPECT(NewSize > Memory::AllocatedSize(CharacterArray.Heap), false)
         {
@@ -576,7 +788,7 @@ FString& FString::Insert_Assign(const uint32 Begin, const char8* RESTRICT String
         Memory::Copy(&CharacterArray.Heap[Begin + InsertionSize], &CharacterArray.Heap[Begin], InsertionSize);
         Memory::Copy(&CharacterArray.Heap[Begin + 1], String, InsertionSize);
     }
-    else if(NewSize > 60)
+    else if(NewSize > StackSize)
     {
         char8* Buffer{Memory::Allocate<char8>(NewSize + ReserveSize)};
 
@@ -592,12 +804,13 @@ FString& FString::Insert_Assign(const uint32 Begin, const char8* RESTRICT String
         Memory::Copy(&CharacterArray.Stack[Begin + 1], String, InsertionSize);
     }
 
-    TerminatorIndex = (NewSize - 1);
+    TerminatorIndex = NewSize - 1;
 
     return *this;
 }
 
-FString FString::Insert_New(const uint32 Begin, const char8* RESTRICT String, const uint32 NumChars) const
+template<EStackSize InStackSize>
+FString<InStackSize> FString<InStackSize>::Insert_New(const uint32 Begin, const char8* String, const uint32 NumChars) const
 {
     ASSERT(Begin < TerminatorIndex);
 
@@ -616,7 +829,20 @@ FString FString::Insert_New(const uint32 Begin, const char8* RESTRICT String, co
     return ResultString;
 }
 
-void FString::Empty()
+template<EStackSize InStackSize>
+char8* FString<InStackSize>::FindSubstring(const char8* String, const uint32 NumChars)
+{
+    return StrUtil::FindSubString(Data(), Num(), String, NumChars);
+}
+
+template<EStackSize InStackSize>
+const char8* FString<InStackSize>::FindSubstring(const char8* String, const uint32 NumChars) const
+{
+    return StrUtil::FindSubString(Data(), Num(), String, NumChars);
+}
+
+template<EStackSize InStackSize>
+void FString<InStackSize>::Empty()
 {
     if EXPECT(ActiveArray() == EActiveArray::Heap, false)
     {
@@ -624,8 +850,18 @@ void FString::Empty()
     }
 
     TerminatorIndex = 0;
-    CharacterArray.Stack[TerminatorIndex] = NULL_CHAR;
+
+    if constexpr(StackSize > ss0)
+    {
+        CharacterArray.Stack[TerminatorIndex] = NULL_CHAR;
+    }
 }
+
+template class FString<ss0>;
+template class FString<ss60>;
+template class FString<ss124>;
+template class FString<ss252>;
+template class FString<ss508>;
 
 char8_32 FStaticString::CombineStrings(const char8_32 Lower, const char8_32 Upper, const uint32 LowEnd)
 {
@@ -646,7 +882,7 @@ FStaticString& FStaticString::Concat_Assign(FStaticString Other)
     return *this;
 }
 
-FStaticString& FStaticString::Concat_Assign(const char8* RESTRICT String, const uint32 NumChars)
+FStaticString& FStaticString::Concat_Assign(const char8* String, const uint32 NumChars)
 {
     ASSERT(((Num() - 1) + NumChars) <= MaxNumCharacters);
 
@@ -666,7 +902,7 @@ FStaticString FStaticString::Concat_New(FStaticString Other) const
     return Other;
 }
 
-FStaticString FStaticString::Concat_New(const char8* RESTRICT String, const uint32 NumChars) const
+FStaticString FStaticString::Concat_New(const char8* String, const uint32 NumChars) const
 {
     ASSERT(((Num() - 1) + NumChars) <= MaxNumCharacters);
 
@@ -685,7 +921,7 @@ FStaticString& FStaticString::PushBack_Assign(FStaticString Other)
     return *this;
 }
 
-FStaticString& FStaticString::PushBack_Assign(const char8* RESTRICT String, const uint32 NumChars)
+FStaticString& FStaticString::PushBack_Assign(const char8* String, const uint32 NumChars)
 {
     ASSERT(((Num() - 1) + NumChars) <= MaxNumCharacters);
 
@@ -706,7 +942,7 @@ FStaticString FStaticString::PushBack_New(FStaticString Other) const
     return Other;
 }
 
-FStaticString FStaticString::PushBack_New(const char8* RESTRICT String, const uint32 NumChars) const
+FStaticString FStaticString::PushBack_New(const char8* String, const uint32 NumChars) const
 {
     ASSERT(((Num() - 1) + NumChars) <= MaxNumCharacters);
 

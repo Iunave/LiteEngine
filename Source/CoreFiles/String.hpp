@@ -8,8 +8,23 @@
 #define NULL_CHAR static_cast<const char8>('\0')
 #endif
 
+enum EStackSize : uint32
+{
+    ss0 = 0,
+    ss60 = 60,
+    ss124 = 124,
+    ss252 = 252,
+    ss508 = 508
+};
+
+template<EStackSize>
 class FString;
+
 class FStaticString;
+
+class FQuaternion;
+class FVector;
+class FColor;
 
 namespace StrUtil
 {
@@ -21,13 +36,26 @@ namespace StrUtil
     template<typename ValueType> requires(TypeTrait::IsInteger<ValueType>)
     CONST extern TStaticArray<char8, (sizeof(ValueType) * 2) + 1> IntToHex(ValueType Value);
 
+    CONST char8* FindSubString(char8* SourceString, const uint32 NumSourceChars, const char8* SubString, const uint32 NumSubChars);
+    CONST const char8* FindSubString(const char8* SourceString, const uint32 NumSourceChars, const char8* SubString, const uint32 NumSubChars);
+
     char8* ToUpperCase(char8* String LIFETIME_BOUND);
-    FString& ToUpperCase(FString& String LIFETIME_BOUND);
+
+    template<EStackSize StackSize>
+    FString<StackSize>& ToUpperCase(FString<StackSize>& String LIFETIME_BOUND);
+
     FStaticString& ToUpperCase(FStaticString& String LIFETIME_BOUND);
 
     char8* ToLowerCase(char8* String LIFETIME_BOUND);
-    FString& ToLowerCase(FString& String LIFETIME_BOUND);
+
+    template<EStackSize StackSize>
+    FString<StackSize>& ToLowerCase(FString<StackSize>& String LIFETIME_BOUND);
+
     FStaticString& ToLowerCase(FStaticString& String LIFETIME_BOUND);
+
+    extern FString<ss124> ToString(FQuaternion);
+    extern FString<ss124> ToString(FVector);
+    extern FString<ss124> ToString(FColor);
 }
 
 template<uint64 Num>
@@ -42,17 +70,22 @@ struct TTemplateString
 };
 
 /*
- * this string will store up to 60 characters on the stack
- * if the characters exceed 60 in size, it will switch over to heap allocation
+ * this string will store up to InStackSize characters on the stack
+ * if the characters exceed InStackSize in size, it will switch over to heap allocation
  * not trivially copyable
  * now with constexpr, yay!
  */
-class PACKED alignas(64) FString final
+template<EStackSize InStackSize = ss60>
+class PACKED alignas(static_cast<uint32>(InStackSize) + 4) FString final
 {
 private:
 
     friend FString& StrUtil::ToUpperCase(FString&);
     friend FString& StrUtil::ToLowerCase(FString&);
+
+    friend FString<ss124> StrUtil::ToString(FQuaternion);
+    friend FString<ss124> StrUtil::ToString(FVector);
+    friend FString<ss124> StrUtil::ToString(FColor);
 
     using TConstIterator = TRangedIterator<const char8>;
     using TMutableIterator = TRangedIterator<char8>;
@@ -65,14 +98,18 @@ public:
         Heap = 1,
     };
 
+#if defined(AVX512)
+    //the mask we use to assign to the upper half of the stack
+    inline static constexpr uint16 MaskStoreMask{0b1111111111111110};
+#elif defined(AVX256)
     //the mask we use to assign to the upper half of the stack
     inline static constexpr int32_8 MaskStoreMask{-1, -1, -1, -1, -1, -1, -1, 0};
-
+#endif
     //how much to reserve extra if we need to reallocate
     inline static constexpr uint32 ReserveSize{32};
 
     //the number of characters that can fit in the stack
-    inline static constexpr uint32 StackSize{60};
+    inline static constexpr uint32 StackSize{static_cast<uint32>(InStackSize)};
 
     constexpr explicit FString(ENoInit)
     {
@@ -81,7 +118,10 @@ public:
     constexpr FString()
         : TerminatorIndex{0}
     {
-        CharacterArray.Stack[TerminatorIndex] = NULL_CHAR;
+        if constexpr(StackSize > ss0)
+        {
+            CharacterArray.Stack[TerminatorIndex] = NULL_CHAR;
+        }
     }
 
     explicit constexpr FString(const uint32 NumChars)
@@ -109,7 +149,7 @@ public:
 
     constexpr ~FString()
     {
-        if EXPECT(ActiveArray() == EActiveArray::Heap, false)
+        if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
         {
             Memory::Free(CharacterArray.Heap);
         }
@@ -134,9 +174,9 @@ public:
 
 private:
 
-    FString& Assign_Stack(const char8* RESTRICT String, const uint32 NumChars);
+    FString& Assign_Stack(const char8* String, const uint32 NumChars);
 
-    FString& Assign_Heap(const char8* RESTRICT String, const uint32 NumChars);
+    FString& Assign_Heap(const char8* String, const uint32 NumChars);
 
 public:
 
@@ -212,9 +252,9 @@ public:
 
 private:
 
-    FString& Concat_Assign(const char8* RESTRICT String, const uint32 NumChars);
+    FString& Concat_Assign(const char8* String, const uint32 NumChars);
 
-    FString Concat_New(const char8* RESTRICT String, const uint32 NumChars) const;
+    FString Concat_New(const char8* String, const uint32 NumChars) const;
 
 public:
 
@@ -264,9 +304,9 @@ public:
 
 private:
 
-    FString& PushBack_Assign(const char8* RESTRICT String, const uint32 NumChars);
+    FString& PushBack_Assign(const char8* String, const uint32 NumChars);
 
-    FString PushBack_New(const char8* RESTRICT String, const uint32 NumChars) const;
+    FString PushBack_New(const char8* String, const uint32 NumChars) const;
 
 public:
 
@@ -302,9 +342,9 @@ public:
 
 private:
 
-    FString& Replace_Assign(const uint32 Begin, const char8* RESTRICT String, const uint32 NumChars);
+    FString& Replace_Assign(const uint32 Begin, const char8* String, const uint32 NumChars);
 
-    FString Replace_New(const uint32 Begin, const char8* RESTRICT String, const uint32 NumChars) const;
+    FString Replace_New(const uint32 Begin, const char8* String, const uint32 NumChars) const;
 
 public:
 
@@ -332,51 +372,71 @@ public:
 
 private:
 
-    FString& Insert_Assign(const uint32 Begin, const char8* RESTRICT String, const uint32 NumChars);
+    FString& Insert_Assign(const uint32 Begin, const char8* String, const uint32 NumChars);
 
-    FString Insert_New(const uint32 Begin, const char8* RESTRICT String, const uint32 NumChars) const;
+    FString Insert_New(const uint32 Begin, const char8* String, const uint32 NumChars) const;
+
+public:
+
+    template<uint64 NumChars>
+    INLINE char8* FindSubstring(const char8 (&String)[NumChars])
+    {
+        return FindSubstring(String, NumChars);
+    }
+
+    template<uint64 NumChars>
+    INLINE const char8* FindSubstring(const char8 (&String)[NumChars]) const
+    {
+        return FindSubstring(String, NumChars);
+    }
+
+    INLINE char8* FindSubstring(const FString& Other)
+    {
+        return FindSubstring(Other.RawString(), Other.Num());
+    }
+
+    INLINE const char8* FindSubstring(const FString& Other) const
+    {
+        return FindSubstring(Other.RawString(), Other.Num());
+    }
+
+private:
+
+    char8* FindSubstring(const char8* String, const uint32 NumChars);
+
+    const char8* FindSubstring(const char8* String, const uint32 NumChars) const;
+
+public:
+
+    template<uint64 NumChars>
+    INLINE bool operator==(const char8 (&String)[NumChars]) const
+    {
+        return CompareEqual(String, NumChars);
+    }
+
+    bool operator==(const FString& Other) const
+    {
+        return CompareEqual(Other.Data(), Other.Num());
+    }
+
+    template<uint64 NumChars>
+    INLINE bool operator!=(const char8 (&String)[NumChars]) const
+    {
+        return !CompareEqual(String, NumChars);
+    }
+
+    INLINE bool operator!=(const FString& Other) const
+    {
+        return !CompareEqual(Other.Data(), Other.Num());
+    }
+
+private:
+
+    bool CompareEqual(const char8* String, const uint32 NumChars) const;
 
 public:
 
     void Empty();
-
-    template<uint64 NumChars>
-    constexpr bool operator==(const char8 (&String)[NumChars]) const
-    {
-        if(Num() == NumChars)
-        {
-            return Memory::Compare(RawString(), String, NumChars) == 0;
-        }
-        return false;
-    }
-
-    constexpr bool operator==(const FString& Other) const
-    {
-        if(this->Num() == Other.Num())
-        {
-            return Memory::Compare(this->RawString(), Other.RawString(), Num()) == 0;
-        }
-        return false;
-    }
-
-    template<uint64 NumChars>
-    constexpr bool operator!=(const char8 (&String)[NumChars]) const
-    {
-        if(Num() == NumChars)
-        {
-            return Memory::Compare(RawString(), String, NumChars) != 0;
-        }
-        return true;
-    }
-
-    constexpr bool operator!=(const FString& Other) const
-    {
-        if(this->Num() == Other.Num())
-        {
-            return Memory::Compare(this->RawString(), Other.RawString(), Num()) != 0;
-        }
-        return true;
-    }
 
     INLINE constexpr EActiveArray ActiveArray() const
     {
@@ -491,11 +551,12 @@ private:
         {
             if EXPECT(NumChars <= StackSize, true)
             {
-                (void)Stack;
+                Stack[NumChars - 1] = NULL_CHAR;
             }
             else
             {
-                Heap = Memory::Allocate<char8>(NumChars + ReserveSize);
+                Heap = Memory::Allocate<char8>(NumChars);
+                Heap[NumChars - 1] = NULL_CHAR;
             }
         }
 
@@ -520,8 +581,6 @@ private:
 
     uint32 TerminatorIndex;
 };
-
-static_assert(alignof(FString) == 64);
 
 /*
  * a string that fits 32 characters built using SIMD instructions
@@ -774,11 +833,11 @@ private:
     }
 
     template<uint64 NumChars>
-    consteval int32 MakeMask(const char8 (&String)[NumChars]) const
+    constexpr int32 MakeMask(const char8 (&String)[NumChars]) const
     {
-        const char8_32 StringRegister{Simd::LoadUnaligned<char8_32>(String)};
+        const char8_32 StringVector{Simd::LoadUnaligned<char8_32>(String)};
         const int32 Mask{ComparisonMask >> (32 - NumChars)};
-        return Mask & Simd::MoveMask(Characters == StringRegister);
+        return Mask & Simd::MoveMask(Characters == StringVector);
     }
 
     static char8_32 CombineStrings(const char8_32 Lower, const char8_32 Upper, const uint32 LowEnd);
@@ -852,41 +911,14 @@ public:
 
 static_assert(alignof(FStaticString) == 32);
 
+#if DEBUG
 namespace fmt
 {
-    namespace detail
-    {
-        /*
-        template<>
-        struct char_t_impl<FString>
-        {
-            using type = char8;
-        };
-
-        template<>
-        struct char_t_impl<FStaticString>
-        {
-            using type = char8;
-        };
-
-        template<>
-        struct is_string<FString>
-        {
-            inline static constexpr bool value{true};
-        };
-
-        template<>
-        struct is_string<FStaticString>
-        {
-            inline static constexpr bool value{true};
-        };
-        */
-    }
-    template<>
-    struct formatter<FString> : formatter<const char8*>
+    template<EStackSize InStackSize>
+    struct formatter<FString<InStackSize>> : formatter<const char8*>
     {
         template<typename FormatContext>
-        auto format(const FString& p, FormatContext& ctx)
+        auto format(const FString<InStackSize>& p, FormatContext& ctx)
         {
             return formatter<const char8*>::format(p.RawString(), ctx);
         }
@@ -902,3 +934,4 @@ namespace fmt
         }
     };
 }
+#endif //DEBUG

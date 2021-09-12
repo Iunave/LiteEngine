@@ -4,6 +4,8 @@
 #include "TypeTraits.hpp"
 #include "Assert.hpp"
 
+class FVector;
+
 namespace Math
 {
 
@@ -13,7 +15,8 @@ namespace Math
     template<typename T>
     inline constexpr T e{static_cast<T>(2.71828182845904523536028747135266249775724709369995)};
 
-    template<typename T> requires(TypeTrait::IsSigned<T>)
+    //used to `and` away the sign
+    template<typename T> requires(std::is_signed_v<T>)
     inline consteval T SignMask()
     {
         return T{-1} >> 1;
@@ -22,7 +25,7 @@ namespace Math
     template<typename T>
     inline constexpr T Absolute(T Arg)
     {
-        if constexpr(TypeTrait::IsSigned<T>)
+        if constexpr(std::is_signed_v<T>)
         {
             return Arg > 0 ? Arg : Arg * -1;
         }
@@ -35,7 +38,7 @@ namespace Math
     template<typename T>
     inline consteval T Smallest()
     {
-        if constexpr(TypeTrait::IsInteger<T>)
+        if constexpr(std::is_integral_v<T>)
         {
             return T{1};
         }
@@ -74,7 +77,7 @@ namespace Math
         }
     }
 
-    template<typename T> requires(TypeTrait::IsSigned<T>)
+    template<typename T> requires(std::is_signed_v<T>)
     inline T SignExtend(T Arg)
     {
         return Arg >> ((8 * sizeof(T)) - 1);
@@ -114,6 +117,7 @@ namespace Math
         return (Values + ...) / sizeof...(T);
     }
 
+    //count the amount of zero bits starting from the most significant bit untill one is set
     template<typename T>
     inline constexpr int32 CountLeadingZeroes(T Arg)
     {
@@ -141,7 +145,7 @@ namespace Math
     }
 
     //searches for the first bit that is 1 starting from the LSB
-    template<typename T>
+    template<typename T> requires(std::is_integral_v<T>)
     inline constexpr int32 FindFirstSet(T Arg)
     {
         if constexpr(sizeof(Arg) <= 4)
@@ -303,20 +307,22 @@ namespace Math
         using UnqualifiedDerived = TypeTrait::RemoveCV<Derived>;
         using UnqualifiedBase = TypeTrait::RemoveCV<Base>;
 
-        UnqualifiedDerived* DerivedPointer{reinterpret_cast<UnqualifiedDerived*>(1)};
+        UnqualifiedDerived* DerivedPointer{reinterpret_cast<UnqualifiedDerived*>(alignof(UnqualifiedBase))};
         UnqualifiedBase* BasePointer{static_cast<UnqualifiedBase*>(DerivedPointer)};
 
         return reinterpret_cast<int64>(BasePointer) - reinterpret_cast<int64>(DerivedPointer);
     }
 
     template<typename ChoiceType, typename... TChoices>
-    ChoiceType ConditionalChoose(const uint64 Condition, TChoices... Choices LIFETIME_BOUND)
+    ChoiceType ChooseVar(const uint64 Condition, TChoices... Choices)
     {
         struct FChoiceWrapper
         {
-            const ChoiceType Choices[sizeof...(TChoices)];
+            const ChoiceType Choices[sizeof...(Choices)];
         };
 
         return FChoiceWrapper{Choices...}.Choices[Condition];
     }
+
+    bool IsInSphere(float64 SphereRadius, FVector SpherePosition, FVector TargetPosition);
 }

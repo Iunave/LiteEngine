@@ -1,83 +1,65 @@
 #include "Vector.hpp"
 #include "Math.hpp"
+#include "String.hpp"
 
-const constinit FVector FVector::ZeroVector{0.0, 0.0, 0.0};
-const constinit FVector FVector::UpVector{0.0, 0.0, 1.0};
-const constinit FVector FVector::DownVector{0.0, 0.0, -1.0};
-const constinit FVector FVector::ForwardVector{1.0, 0.0, 0.0};
-const constinit FVector FVector::BackwardVector{-1.0, 0.0, 0.0};
-const constinit FVector FVector::LeftVector{0.0, 1.0, 0.0};
-const constinit FVector FVector::RightVector{0.0, -1.0, 0.0};
-
-void FVector::Set(const float64 X, const float64 Y, const float64 Z)
-{
-    Register = float64_4{X, Y, Z, 1.0};
-}
+const constinit FVector FVector::Zero{0.0, 0.0, 0.0};
+const constinit FVector FVector::Up{0.0, 0.0, 1.0};
+const constinit FVector FVector::Down{0.0, 0.0, -1.0};
+const constinit FVector FVector::Forward{1.0, 0.0, 0.0};
+const constinit FVector FVector::Backward{-1.0, 0.0, 0.0};
+const constinit FVector FVector::Left{0.0, 1.0, 0.0};
+const constinit FVector FVector::Right{0.0, -1.0, 0.0};
 
 bool FVector::ExactEquals(FVector Other) const
 {
-    const int32 ComparisonResult{Simd::MoveMask(Register == Other.Register)};
-    return ComparisonResult == MaskXYZ() || ComparisonResult == MaskXYZW();
+    const int32 ComparisonResult{Simd::MoveMask(Vector == Other.Vector)};
+    return ComparisonResult == MaskXYZ || ComparisonResult == MaskXYZW;
 }
 
 FVector& FVector::Clamp(FVector Min, FVector Max)
 {
-    Register = Simd::MakeFromGreater(Register, Min.Register);
-    Register = Simd::MakeFromLesser(Register, Max.Register);
-
+    Simd::Clamp(Vector, Min.Vector, Max.Vector);
     return *this;
 }
 
 FVector FVector::GetClamped(FVector Min, FVector Max) const
 {
-    float64_4 ResultVector;
-
-    ResultVector = Simd::MakeFromGreater(Register, Min.Register);
-    ResultVector = Simd::MakeFromLesser(Register, Max.Register);
-
-    return FVector{Move(ResultVector)};
+    FVector ResultVector{Vector};
+    Simd::Clamp(ResultVector.Vector, Min.Vector, Max.Vector);
+    return ResultVector;
 }
 
 float64 FVector::Length() const
 {
-    const float64_4 VectorSquared{Register * Register};
-
+    const float64_4 VectorSquared{Vector * Vector};
     return Math::SquareRoot(VectorSquared[0] + VectorSquared[1] + VectorSquared[2]);
 }
 
 FVector& FVector::Normalize()
 {
-    const float64 VectorLength{Length()};
-    const float64_4 Divend{VectorLength + static_cast<float64>(VectorLength == 0.0)};
-
-    Register /= Divend;
-
+    Vector /= Length();
     return *this;
 }
 
 FVector FVector::GetNormal() const
 {
-    const float64 VectorLength{Length()};
-    const float64_4 Divend{VectorLength + static_cast<float64>(VectorLength == 0.0)};
-
-    return FVector{Register / Divend};
+    return FVector{Vector / Length()};
 }
 
 float64 FVector::DotProduct(FVector Other) const
 {
-    const float64_4 MultipliedVector{this->Register * Other.Register};
-
+    const float64_4 MultipliedVector{this->Vector * Other.Vector};
     return MultipliedVector[0] + MultipliedVector[1] + MultipliedVector[2];
 }
 
 FVector FVector::CrossProduct(FVector Other) const
 {
-    const float64_4 ThisPositionReversed{Simd::ShuffleVector<1, 2, 0, 3>(this->Register)};
-    const float64_4 OtherPositionReversed{Simd::ShuffleVector<1, 2, 0, 3>(Other.Register)};
+    const float64_4 ThisPositionReversed{Simd::Shuffle<1, 2, 0, 3>(this->Vector)};
+    const float64_4 OtherPositionReversed{Simd::Shuffle<1, 2, 0, 3>(Other.Vector)};
 
-    const float64_4 Result{Simd::FusedMultiplySubtract(this->Register, OtherPositionReversed, Other.Register * ThisPositionReversed)};
+    const float64_4 Result{Simd::FusedMultiplySubtract(this->Vector, OtherPositionReversed, Other.Vector * ThisPositionReversed)};
 
-    return FVector{Simd::ShuffleVector<1, 2, 0, 3>(Result)};
+    return FVector{Simd::Shuffle<1, 2, 0, 3>(Result)};
 }
 
 float64 FVector::AngleBetween(FVector Other) const
@@ -88,69 +70,26 @@ float64 FVector::AngleBetween(FVector Other) const
     return Math::ArchCosine(DotProductTroughLength);
 }
 
-float64 FVector::operator%(FVector Other) const
-{
-    return AngleBetween(Move(Other));
-}
-
-float64 FVector::operator&(FVector Other) const
-{
-    return DotProduct(Move(Other));
-}
-
-FVector FVector::operator^(FVector Other) const
-{
-    return CrossProduct(Move(Other));
-}
-
 bool FVector::operator==(FVector Other) const
 {
-    const float64_4 SubResult{static_cast<int64_4>(Register - Other.Register) & Simd::SetAll<int64_4>(Math::SignMask<int64>())};
+    const float64_4 SubResult{static_cast<int64_4>(Vector - Other.Vector) & Math::SignMask<int64>()};
+    const int32 ComparisonResult{Simd::MoveMask(SubResult <= 0.0001)};
 
-    const int32 ComparisonResult{Simd::MoveMask(SubResult <= 0.0001_float64_4)};
-
-    return ComparisonResult == MaskXYZ() || ComparisonResult == MaskXYZW();
+    return ComparisonResult == MaskXYZ || ComparisonResult == MaskXYZW;
 }
 
-bool FVector::operator!=(FVector Other) const
+FString<ss124> StrUtil::ToString(FVector Source)
 {
-    return !(*this == Move(Other));
-}
+    FString<ss124> String{};
 
-bool FVector::operator==(const float64 OtherLength) const
-{
-    return this->Length() == OtherLength;
-}
+    const char8* End{fmt::format_to(String.Data(), "X={:+f} Y={:+f} Z={:+f}", Source.X(), Source.Y(), Source.Z())};
 
-bool FVector::operator!=(const float64 OtherLength) const
-{
-    return this->Length() != OtherLength;
-}
+    String.TerminatorIndex = static_cast<uint32>(End - String.CharacterArray.Stack);
+    String[String.TerminatorIndex] = NULL_CHAR;
 
-bool FVector::operator<=(FVector Other) const
-{
-    return this->Length() <= Other.Length();
-}
+    ASSERT(String.TerminatorIndex < ss124);
 
-bool FVector::operator<(FVector Other) const
-{
-    return this->Length() < Other.Length();
-}
-
-bool FVector::operator>=(FVector Other) const
-{
-    return this->Length() >= Other.Length();
-}
-
-bool FVector::operator>(FVector Other) const
-{
-    return this->Length() > Other.Length();
-}
-
-FVector& FVector::operator~()
-{
-    Register *= Simd::SetAll<float64_4>(-1.0);
-    return *this;
+    return String;
 }
 
 

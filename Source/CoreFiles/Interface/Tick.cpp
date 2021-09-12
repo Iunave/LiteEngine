@@ -1,4 +1,4 @@
-#include "Interface/Tick.hpp"
+#include "Tick.hpp"
 #include "Math.hpp"
 
 FTickManager::FTickManager(const int64 ObjectsToPreallocate)
@@ -26,11 +26,11 @@ int64 FTickManager::AddTickable(OTickable* ObjectToAdd NONNULL)
 
 void FTickManager::RemoveTickable(const int64 ObjectPosition)
 {
-    const int64 MovedObjectIndex{TickingObjects.RemoveAtSwap(ObjectPosition, 1)};
+    TickingObjects.RemoveAtSwap(ObjectPosition);
 
-    if EXPECT(TickingObjects.IsIndexValid(MovedObjectIndex), true)
+    if EXPECT(TickingObjects.IsIndexValid(ObjectPosition), true)
     {
-        TickingObjects[MovedObjectIndex]->TickPosition = MovedObjectIndex;
+        TickingObjects[ObjectPosition]->TickPosition = ObjectPosition;
     }
 }
 

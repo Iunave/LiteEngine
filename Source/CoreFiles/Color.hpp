@@ -1,126 +1,270 @@
 #pragma once
 
+#include "Definitions.hpp"
 #include "Simd.hpp"
-/*
-class alignas(16) FColor final
+
+struct ATTRIBUTE(packed, may_alias) alignas(4) RGBA8I final
+{
+    uint8 R;
+    uint8 G;
+    uint8 B;
+    uint8 A;
+};
+static_assert(alignof(RGBA8I) == 4);
+
+struct ATTRIBUTE(packed, may_alias) alignas(8) RGBA16I final
+{
+    uint16 R;
+    uint16 G;
+    uint16 B;
+    uint16 A;
+};
+static_assert(alignof(RGBA16I) == 8);
+
+struct ATTRIBUTE(packed, may_alias) alignas(16) RGBA32F final
+{
+    float32 R;
+    float32 G;
+    float32 B;
+    float32 A;
+};
+static_assert(alignof(RGBA32F) == 16);
+
+class FColor final
 {
 public:
 
-    static consteval int32 ComparisonMask()
-    {
-        return Simd::float32_4::ComparisonMask();
-    }
+    using ColorType = float64_4;
+    using ChannelType = Simd::ElementType<ColorType>;
 
-    inline explicit constexpr FColor(ENoInit)
-    {
-    }
+    static const constinit FColor Red;
+    static const constinit FColor Yellow;
+    static const constinit FColor Green;
+    static const constinit FColor Turquoise;
+    static const constinit FColor Blue;
+    static const constinit FColor Pink;
+    static const constinit FColor Black;
+    static const constinit FColor White;
 
-    inline explicit constexpr FColor(const float32 Value = 0)
-        : Vector(Value)
-    {
-    }
+    static inline constexpr int32 Mask{Simd::Mask<float64_4>()};
 
-    inline explicit constexpr FColor(const float32 R, const float32 G, const float32 B, const float32 A = 1.0f)
-        : Vector(R, G, B, A)
-    {
-    }
+public:
 
-    inline constexpr FColor(const FColor& Other)
-        : Vector(Other.Vector)
+    explicit constexpr FColor(ENoInit)
     {
     }
 
-    inline constexpr FColor(FColor&& Other)
-        : Vector(Move(Other.Vector))
+    constexpr FColor(ChannelType R = 0.0, ChannelType G = 0.0, ChannelType B = 0.0, ChannelType A = 1.0)
+        : Color{R, G, B, A}
     {
     }
 
-    inline explicit constexpr FColor(const Simd::float32_4& Other)
-        : Vector(Other)
+    FColor(RGBA8I InColor);
+
+    FColor(RGBA16I InColor);
+
+    FColor(RGBA32F InColor);
+
+    constexpr FColor(const FColor& Other)
+        : Color(Other.Color)
     {
     }
 
-    inline explicit constexpr FColor(Simd::float32_4&& Other)
-        : Vector(Move(Other))
+    constexpr FColor(FColor&& Other)
+        : Color(Other.Color)
     {
     }
 
-    inline FColor& operator=(const FColor& Other)
+    explicit constexpr FColor(ColorType OtherColor)
+        : Color(OtherColor)
     {
-        Vector = Other.Vector;
+    }
+
+    FColor& operator=(FColor Other)
+    {
+        Color = Other.Color;
         return *this;
     }
 
-    inline FColor& operator=(FColor&& Other)
+    FColor& operator=(ColorType Other)
     {
-        Vector = Move(Other.Vector);
+        Color = Other;
         return *this;
     }
 
-    inline FColor& operator=(const Simd::float32_4& Other)
+    FColor& operator=(const ChannelType Value)
     {
-        Vector = Other;
+        Color = Simd::SetAll<ColorType>(Value);
         return *this;
     }
 
-    inline FColor& operator=(Simd::float32_4&& Other)
+    explicit operator RGBA8I() const;
+
+    explicit operator RGBA16I() const;
+
+    explicit operator RGBA32F() const;
+
+    ChannelType R() const
     {
-        Vector = Move(Other);
+        return Color[0];
+    }
+
+    ChannelType& R()
+    {
+        return Simd::ToPtr(&Color)[0];
+    }
+
+    ChannelType G() const
+    {
+        return Color[1];
+    }
+
+    ChannelType& G()
+    {
+        return Simd::ToPtr(&Color)[1];
+    }
+
+    ChannelType B() const
+    {
+        return Color[2];
+    }
+
+    ChannelType& B()
+    {
+        return Simd::ToPtr(&Color)[2];
+    }
+
+    ChannelType A() const
+    {
+        return Color[3];
+    }
+
+    ChannelType& A()
+    {
+        return Simd::ToPtr(&Color)[3];
+    }
+
+    ColorType Data() const
+    {
+        return Color;
+    }
+
+    ColorType& Data()
+    {
+        return Color;
+    }
+
+    bool ExactEquals(FColor Other) const;
+
+    //checks if two colors are almost equal with tolerance = 0.0001
+    bool operator==(FColor Other) const;
+
+    INLINE bool operator!=(FColor Other) const
+    {
+        return !(*this == Other);
+    }
+
+    ChannelType operator[](TypeTrait::IsInteger auto Index) const
+    {
+        ASSERT(Index >= 0 && Index <= 3);
+        return Color[Index];
+    }
+
+    ChannelType& operator[](TypeTrait::IsInteger auto Index)
+    {
+        ASSERT(Index >= 0 && Index <= 3);
+        return Simd::ToPtr(&Color)[Index];
+    }
+
+    INLINE FColor operator+(FColor Other) const
+    {
+        return FColor{Color + Other.Color};
+    }
+
+    INLINE FColor operator+(ChannelType Value) const
+    {
+        return FColor{Color + Value};
+    }
+
+    INLINE FColor& operator+=(FColor Other)
+    {
+        Color += Other.Color;
         return *this;
     }
 
-    inline FColor& operator=(const float32 Value)
+    INLINE FColor& operator+=(ChannelType Value)
     {
-        Vector = Value;
+        Color += Value;
         return *this;
     }
 
-    inline float32 R() const
+    INLINE FColor operator-(FColor Other) const
     {
-        return Vector[0];
+        return FColor{Color - Other.Color};
     }
 
-    inline float32& R()
+    INLINE FColor operator-(ChannelType Value) const
     {
-        return Vector[0];
+        return FColor{Color - Value};
     }
 
-    inline float32 G() const
+    INLINE FColor& operator-=(FColor Other)
     {
-        return Vector[1];
+        Color -= Other.Color;
+        return *this;
     }
 
-    inline float32& G()
+    INLINE FColor& operator-=(ChannelType Value)
     {
-        return Vector[1];
+        Color -= Value;
+        return *this;
     }
 
-    inline float32 B() const
+    INLINE FColor operator*(FColor Other) const
     {
-        return Vector[2];
+        return FColor{Color * Other.Color};
     }
 
-    inline float32& B()
+    INLINE FColor operator*(ChannelType Value) const
     {
-        return Vector[2];
+        return FColor{Color * Value};
     }
 
-    inline float32 A() const
+    INLINE FColor& operator*=(FColor Other)
     {
-        return Vector[3];
+        Color *= Other.Color;
+        return *this;
     }
 
-    inline float32& A()
+    INLINE FColor& operator*=(ChannelType Value)
     {
-        return Vector[3];
+        Color *= Value;
+        return *this;
     }
 
-    DEFINE_ARITHMETIC_OPERATORS(FColor, Vector)
-    DEFINE_ARITHMETIC_OPERATORS_ARG(FColor, Vector, float32)
+    INLINE FColor operator/(FColor Other) const
+    {
+        return FColor{Color / Other.Color};
+    }
+
+    INLINE FColor operator/(ChannelType Value) const
+    {
+        return FColor{Color / Value};
+    }
+
+    INLINE FColor& operator/=(FColor Other)
+    {
+        Color /= Other.Color;
+        return *this;
+    }
+
+    INLINE FColor& operator/=(ChannelType Value)
+    {
+        Color /= Value;
+        return *this;
+    }
 
 private:
 
-    Simd::float32_4 Vector;
-
+    ColorType Color;
 };
-*/

@@ -43,7 +43,7 @@ private:
 
 OBJECT_CLASS(OTickable)
 {
-    OBJECT_BODY()
+    OBJECT_BASES()
     friend class FTickManager;
 public:
 

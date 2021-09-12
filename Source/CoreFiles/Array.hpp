@@ -4,12 +4,11 @@
 #include "Memory.hpp"
 #include "Math.hpp"
 #include "TypeTraits.hpp"
-#include "Tuple.hpp"
 #include "Assert.hpp"
 #include <initializer_list>
 
 #ifndef WITH_ARRAY_OFFSET_CHECKS
-#define WITH_ARRAY_OFFSET_CHECKS 1
+#define WITH_ARRAY_OFFSET_CHECKS DEBUG
 #endif
 
 template<typename>
@@ -84,10 +83,17 @@ public:
 
     constexpr explicit TStaticArray(const ElementType* NONNULL ElementPtr, int64 Num)
     {
-        while(Num > 0)
+        if constexpr(TypeTrait::IsTriviallyConstructible<ElementType>)
         {
-            --Num;
-            Array[Num] = ElementPtr[Num];
+            Memory::Copy(Array, ElementPtr, Num);
+        }
+        else
+        {
+            while(Num > 0)
+            {
+                --Num;
+                Array[Num] = ElementPtr[Num];
+            }
         }
     }
 
@@ -351,7 +357,7 @@ public:
     }
 
     //used to initialize from a malloced pointer
-    TDynamicArray(ElementType* RESTRICT NONNULL Pointer, const int64 NumElements, EChooseConstructor)
+    TDynamicArray(ElementType* NONNULL Pointer, const int64 NumElements, EChooseConstructor)
         : ElementPointer(Pointer)
         , LastIndex(NumElements - 1)
     {
@@ -563,27 +569,17 @@ public:
         return Index <= LastIndex && Index >= 0;
     }
 
-    template<bool bDeallocate = false> requires(TypeTrait::IsDefaultConstructible<ElementType>)
+    template<bool bDeallocate = false> requires(TypeTrait::IsMoveConstructible<ElementType>)
     ElementType Pop()
     {
-        ElementType* LastElement{Back()};
-        ElementType PoppedElement{};
+        ASSERT(Num() >= 1);
 
-        if EXPECT(LastElement != nullptr, true)
+        ElementType PoppedElement{Move(*Back())};
+        --LastIndex;
+
+        if constexpr(bDeallocate)
         {
-            PoppedElement = Move(*LastElement);
-
-            if constexpr(!TypeTrait::IsTriviallyDestructible<ElementType>)
-            {
-                LastElement->ElementType::~ElementType();
-            }
-
-            if constexpr(bDeallocate)
-            {
-                DeallocateUnusedIfNeeded();
-            }
-
-            --LastIndex;
+            DeallocateUnusedIfNeeded();
         }
 
         return PoppedElement;
@@ -628,24 +624,43 @@ public:
     }
 
     template<typename... Ts>
-    int64 InsertAtPushBack(const int64 TargetIndex LIFETIME_BOUND, Ts&&... Args)
+    int64 InsertAtPushBack(const int64 TargetIndex, Ts&&... Args)
     {
         PushBackMemory<true>(TargetIndex);
         return ConstructElement(TargetIndex, MoveIfPossible(Args)...);
     }
 
     template<typename... Ts>
-    int64 InsertAtSwap(const int64 TargetIndex LIFETIME_BOUND, Ts&&... Args)
+    int64 InsertAtSwap(const int64 TargetIndex, Ts&&... Args)
     {
         MoveElementToEnd<true>(TargetIndex);
         return ConstructElement(TargetIndex, MoveIfPossible(Args)...);
     }
 
-    //returns the new index to the first element that has been moved
     template<bool bDeallocateMemory = false>
-    int64 RemoveAtSwap(const int64 TargetIndex, const int64 NumToRemove = 1)
+    void RemoveAtSwap(const int64 TargetIndex)
     {
-        ASSERT(NumToRemove >= 0 && (TargetIndex + NumToRemove) <= Num());
+        ASSERT(IsIndexValid(TargetIndex));
+
+        if constexpr(!TypeTrait::IsTriviallyDestructible<ElementType>)
+        {
+            ElementPointer[TargetIndex].ElementType::~ChannelType();
+        }
+
+        Memory::Copy(&ElementPointer[TargetIndex], &ElementPointer[LastIndex], ElementSize()); //destination and source might be the same here, but thats ok?
+
+        --LastIndex;
+
+        if constexpr(bDeallocateMemory)
+        {
+            DeallocateUnusedIfNeeded();
+        }
+    }
+
+    template<bool bDeallocateMemory = false>
+    void RemoveAtSwap(const int64 TargetIndex, const int64 NumToRemove)
+    {
+        ASSERT(NumToRemove >= 2 && (TargetIndex + NumToRemove) <= Num());
 
         DestroyElements(TargetIndex, NumToRemove);
 
@@ -661,22 +676,18 @@ public:
         {
             DeallocateUnusedIfNeeded();
         }
-
-        return FirstElementToMoveIndex;
     }
 
-    //returns the new index to the first element that has been moved
     template<bool bDeallocateMemory = false>
-    int64 RemoveAtCollapse(const int64 TargetIndex, const int64 NumToRemove = 1)
+    void RemoveAtCollapse(const int64 TargetIndex, const int64 NumToRemove = 1)
     {
         ASSERT(NumToRemove >= 0 && (TargetIndex + NumToRemove) <= Num());
 
         DestroyElements(TargetIndex, NumToRemove);
 
         const int64 NumBytesToMove{ElementSize() * (Num() - TargetIndex - NumToRemove)};
-        const int64 FirstElementToMoveIndex{TargetIndex + NumToRemove};
 
-        Memory::Move(&ElementPointer[TargetIndex], &ElementPointer[FirstElementToMoveIndex], NumBytesToMove);
+        Memory::Move(&ElementPointer[TargetIndex], &ElementPointer[TargetIndex + 1], NumBytesToMove);
 
         LastIndex -= NumToRemove;
 
@@ -684,8 +695,6 @@ public:
         {
             DeallocateUnusedIfNeeded();
         }
-
-        return FirstElementToMoveIndex;
     }
 
     void ReserveUndefined(const int64 NumElementsToReserve)
@@ -703,7 +712,7 @@ public:
     //might not actually deallocate anything
     void DeallocateUnusedIfNeeded()
     {
-        static constexpr bool bExpectToReAllocate{ElementSize() >= (ArrayConstants::UnusedSizeLimit<ElementType>() / 2)};
+        constexpr bool bExpectToReAllocate{ElementSize() >= (ArrayConstants::UnusedSizeLimit<ElementType>() / 2)};
 
         const int64 UnusedSize{AllocatedSize() - UsedSize()};
 
@@ -763,7 +772,7 @@ public:
 
         if constexpr(TypeTrait::IsTriviallyConstructible<ElementType>)
         {
-            Memory::Copy(&ElementPointer[StartIndex], Replacement.GetData(), Replacement.UsedSize());
+            Memory::Copy(&ElementPointer[StartIndex], Replacement.GetData(), Replacement.AvailableSize());
         }
         else
         {
@@ -782,32 +791,37 @@ public:
         Overwrite(StartIndex, Move(HoldingArray));
     }
 
-    template<typename TargetElementType>
+    template<typename TargetElementType> requires(TypeTrait::IsStaticCastable<TargetElementType, ElementType>)
     NODISCARD TDynamicArray<TargetElementType> Convert() const &
     {
-        TDynamicArray<TargetElementType> ResultArray{};
-        ResultArray.ReserveUndefined(Num());
+        TDynamicArray<TargetElementType> ResultArray{Num(), EChooseConstructor{}};
 
         while(ResultArray.LastIndex < LastIndex)
         {
-            ResultArray.LastIndex += 1;
+            ++ResultArray.LastIndex;
             ResultArray[ResultArray.LastIndex] = static_cast<TargetElementType>(ElementPointer[ResultArray.LastIndex]);
         }
 
         return ResultArray;
     }
 
-    template<typename TargetElementType>
+    template<typename TargetElementType> requires(TypeTrait::IsStaticCastable<TargetElementType, ElementType>)
     NODISCARD TDynamicArray<TargetElementType> Convert() &&
     {
-        TDynamicArray<TargetElementType> ResultArray{reinterpret_cast<TargetElementType*>(ElementPointer), LastIndex, sizeof(TargetElementType) * Num()};
+        TDynamicArray<TargetElementType> ResultArray{reinterpret_cast<TargetElementType*>(ElementPointer), Num(), EChooseConstructor{}};
 
-        for(int64 Index{0}; Index < LastIndex; ++Index)
+        const int64 NewNeededSize{Num() * sizeof(TargetElementType)};
+
+        if EXPECT(AllocatedSize() < NewNeededSize, sizeof(TargetElementType) > sizeof(ElementType))
         {
-            ResultArray[Index] = static_cast<TargetElementType&&>(ElementPointer[Index]);
+            ResultArray.ElementPointer = reinterpret_cast<TargetElementType*>(Memory::ReAllocate(ElementPointer, NewNeededSize));
         }
 
-        ResultArray.ElementPointer = reinterpret_cast<TargetElementType*>(Memory::ReAllocate(ElementPointer, ResultArray.AllocatedSize()));
+        while(ResultArray.LastIndex < LastIndex)
+        {
+            ++ResultArray.LastIndex;
+            ResultArray[ResultArray.LastIndex] = static_cast<TargetElementType&&>(ElementPointer[ResultArray.LastIndex]);
+        }
 
         ElementPointer = nullptr;
         LastIndex = -1;
@@ -843,28 +857,29 @@ public:
         return INDEX_NONE;
     }
 
-    ElementType* FindPointer(ConstElementType ElementToFind) const requires(TypeTrait::AreLogicallyComparable<ElementType, ElementType>)
+    ElementType* Find(ConstElementType ElementToFind) const requires(TypeTrait::AreLogicallyComparable<ElementType, ElementType>)
     {
         for(int64 Index{0}; Index < Num(); ++Index)
         {
             if(ElementToFind == ElementPointer[Index])
             {
-                return &ElementPointer[Index];
+                return ElementPointer + Index;
             }
         }
         return nullptr;
     }
 
-    TTuple<int64, ElementType*> Find(ConstElementType ElementToFind) const requires(TypeTrait::AreLogicallyComparable<ElementType, ElementType>)
+    template<typename FunctionType>
+    ElementType* FindByFunction(FunctionType&& Function)
     {
         for(int64 Index{0}; Index < Num(); ++Index)
         {
-            if(ElementToFind == ElementPointer[Index])
+            if(Function(ElementPointer[Index]))
             {
-                return {Index, &ElementPointer[Index]};
+                return ElementPointer + Index;
             }
         }
-        return {INDEX_NONE, nullptr};
+        return nullptr;
     }
 
 #pragma clang diagnostic pop
@@ -935,7 +950,7 @@ private:
             NewSize = BytesToAllocate + AllocatedSize();
         }
 
-        static constexpr bool bExpectToReallocate{ElementSize() >= (ArrayConstants::ReserveSizeLimit<ElementType>() / 2)};
+        constexpr bool bExpectToReallocate{ElementSize() >= (ArrayConstants::ReserveSizeLimit<ElementType>() / 2)};
 
         if EXPECT((BytesToAllocate + UsedSize()) > AllocatedSize(), bExpectToReallocate)
         {
@@ -944,7 +959,7 @@ private:
     }
 
     template<typename... Ts>
-    int64 ConstructElement(const int64 Location LIFETIME_BOUND, Ts&&... Args)
+    int64 ConstructElement(const int64 Location, Ts&&... Args)
     {
         ASSERT(IsIndexValid(Location));
 
@@ -954,7 +969,7 @@ private:
     }
 
     template<typename InElementType = ElementType> requires(TypeTrait::PureEqual<InElementType, ElementType>)
-    int64 ConstructElement(const int64 Location LIFETIME_BOUND, InElementType&& Element)
+    int64 ConstructElement(const int64 Location, InElementType&& Element)
     {
         ASSERT(IsIndexValid(Location));
 
@@ -1057,7 +1072,7 @@ namespace ArrUtil
         return ResultArray;
     }
 }
-
+#if DEBUG
 namespace fmt
 {
     template<int64 Num>
@@ -1100,3 +1115,4 @@ namespace fmt
         }
     };
 }
+#endif //DEBUG

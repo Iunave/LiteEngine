@@ -47,7 +47,7 @@ public:
     inline TFuture& Initialize(VarArgs&&... Args)
     {
         //ASSERT(!FuturePointer.IsValid());
-        FuturePointer = MakeShared<FProtectedResult, ESPMode::Safe>(MoveIfPossible(Args)...);
+        FuturePointer = MakeShared<FProtectedResult, EThreadMode::Safe>(MoveIfPossible(Args)...);
         FuturePointer->Mutex.Lock();
     }
 
@@ -96,5 +96,5 @@ private:
         FutureType Result;
     };
 
-    TSharedPtr<FProtectedResult, ESPMode::Safe> FuturePointer;
+    TSharedPtr<FProtectedResult, EThreadMode::Safe> FuturePointer;
 };

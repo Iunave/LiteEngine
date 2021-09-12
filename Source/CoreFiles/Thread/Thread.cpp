@@ -74,7 +74,11 @@ namespace Thread
     {
         pthread_mutexattr_t MutexAttributes;
         pthread_mutexattr_init(&MutexAttributes);
-        pthread_mutexattr_settype(&MutexAttributes, PTHREAD_MUTEX_DEFAULT);
+#if DEBUG
+        pthread_mutexattr_settype(&MutexAttributes, PTHREAD_MUTEX_ERRORCHECK_NP);
+#else
+        pthread_mutexattr_settype(&MutexAttributes, PTHREAD_MUTEX_FAST_NP);
+#endif
     }
 
     FMutex::FAttributeWrapper::~FAttributeWrapper()
@@ -99,7 +103,7 @@ namespace Thread
 
     void FMutex::Lock()
     {
-        pthread_mutex_lock(&MutexHandle);
+        CHECK(pthread_mutex_lock(&MutexHandle) == 0);
     }
 
     bool FMutex::TryLock()
@@ -109,7 +113,7 @@ namespace Thread
 
     void FMutex::Unlock()
     {
-        pthread_mutex_unlock(&MutexHandle);
+        CHECK(pthread_mutex_unlock(&MutexHandle) == 0);
     }
 
     FBarrier::FAttributeWrapper::FAttributeWrapper()

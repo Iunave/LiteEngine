@@ -2,13 +2,22 @@
 
 #include "Definitions.hpp"
 #include "Thread/Thread.hpp"
-#include "SmartPointer.hpp"
 #include "String.hpp"
 #include "Array.hpp"
+#include "Object/Object.hpp"
 
-class FRunnable
+namespace Thread
 {
+    class FTaskQueue;
+    class FThreadPool;
+}
+
+OBJECT_CLASS(ORunnable)
+{
+    OBJECT_BASES()
+
     friend void* ThreadWork(void*);
+    friend class Thread::FThreadPool;
 public:
 
     enum ETaskProgress : uint8
@@ -19,19 +28,13 @@ public:
         Completed = 3
     };
 
-    FRunnable(FString InTaskName);
+    ORunnable();
 
-    FRunnable();
-
-    virtual ~FRunnable();
+    virtual ~ORunnable();
 
     virtual void Run() = 0;
 
-    void WaitForCompletion(const bool bEvenIfNotQueuedOrRunning = true) const;
-
-#if DEBUG
-    const FString TaskName;
-#endif
+    void WaitForCompletion(bool bEvenIfNotInQueue = true) const;
 
     INLINE ETaskProgress GetTaskProgress() const
     {
@@ -51,8 +54,8 @@ namespace Thread
 
     class FTaskQueue final
     {
-        friend class FThreadPool;
         friend void* ::ThreadWork(void*);
+        friend class FThreadPool;
     public:
 
         static constexpr int64 QueuePoolSize{256};
@@ -61,7 +64,7 @@ namespace Thread
 
         ~FTaskQueue();
 
-        TSharedPtr<FRunnable, ESPMode::Safe> NextTask();
+        ORunnable* NextTask();
 
     private:
 
@@ -70,7 +73,7 @@ namespace Thread
         Thread::FSemaphore QueuedTaskCount;
         Thread::FSemaphore FreeTaskCount;
 
-        TStaticArray<TSharedPtr<FRunnable, ESPMode::Safe>, QueuePoolSize> QueuedTasks;
+        TStaticArray<ORunnable*, QueuePoolSize> QueuedTasks;
     };
 
     class FThreadPool final : public FSingleton<FThreadPool>
@@ -81,7 +84,7 @@ namespace Thread
 
         ~FThreadPool();
 
-        void AddTask(TSharedPtr<FRunnable, ESPMode::Safe> NewTask);
+        void AddTask(ORunnable* NewTask);
 
     private:
 
@@ -92,11 +95,10 @@ namespace Thread
         FTaskQueue TaskQueue;
     };
 
-    template<typename RunnableClass> requires(TypeTrait::IsBaseOf<FRunnable, RunnableClass>)
-    INLINE void AsyncTask(TSharedPtr<RunnableClass, ESPMode::Safe> NewTask)
+    INLINE void AsyncTask(ORunnable* NewTask)
     {
-        ASSERT(NewTask.IsValid());
-        FThreadPool::Instance().AddTask(Move(NewTask));
+        ASSERT(NewTask != nullptr);
+        FThreadPool::Instance().AddTask(NewTask);
     }
 }
 

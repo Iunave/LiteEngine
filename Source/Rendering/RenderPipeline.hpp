@@ -59,11 +59,12 @@ public:
 
     void Bind(Vk::CommandBuffer CommandBuffer);
 
-    class FShaderCode : public FRunnable
+    OBJECT_CLASS(OShaderCodeReader) : public ORunnable
     {
+        OBJECT_BASES(ORunnable)
     public:
 
-        INLINE explicit FShaderCode(const FString& InFileName)
+        INLINE explicit OShaderCodeReader(const FString& InFileName)
             : FileName{InFileName}
         {
         }
@@ -76,13 +77,13 @@ public:
         FString FileName;
     };
 
+    OShaderCodeReader ShaderCodeReader;
+
 protected:
 
     Vk::Pipeline GraphicsPipeline;
 
     Vk::PipelineLayout PipelineLayout;
-
-    TSharedPtr<FShaderCode, ESPMode::Safe> ShaderCode;
 
     Vk::ShaderModule VertexShaderModule;
     Vk::ShaderModule FragmentationShaderModule;

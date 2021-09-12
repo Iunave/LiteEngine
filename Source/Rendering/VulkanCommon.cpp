@@ -2,7 +2,12 @@
 #include "VulkanCommon.hpp"
 #undef INCLUDE_ALL_VULKAN_FILES
 
-FRenderWindow GRenderWindow{};
+FRenderWindow GRenderWindow{}
+(0, 0,
+
+FString(),
+
+false);
 TSharedPtr<FRenderSwapChain> GRenderSwapChain{MakeShared<FRenderSwapChain>(nullptr)};
 FRenderPipeline GRenderPipeline{};
 #if USE_VULKAN_VALIDATION_LAYERS

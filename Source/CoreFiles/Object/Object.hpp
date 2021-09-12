@@ -1,61 +1,130 @@
 #pragma once
 
-#include "../Definitions.hpp"
-#include "../String.hpp"
-#include "../Array.hpp"
-#include "../Memory.hpp"
-#include "../Simd.hpp"
-#include "../SmartPointer.hpp"
-#include "../TypeTraits.hpp"
-#include "../Atomic.hpp"
-#include "Thread/Thread.hpp"
-#include "../Log.hpp"
+#include "Definitions.hpp"
+#include "String.hpp"
+#include "Array.hpp"
+#include "Simd.hpp"
+#include "SmartPointer.hpp"
+#include "TypeTraits.hpp"
 
-class OObject;
+#include <tuple>
 
-/*
- * Used to register a class with a name and an id
- *
- * OBJECT_CLASS(OMyClass) : public OObject ...
- */
-#define OBJECT_CLASS(Class)\
-class Class;\
-\
+#define FOR_EACH2_1(f, t, n, ...) f(t, n)
+#define FOR_EACH2_2(f, t, n, ...) f(t, n), FOR_EACH2_1(f, __VA_ARGS__)
+#define FOR_EACH2_3(f, t, n, ...) f(t, n), FOR_EACH2_2(f, __VA_ARGS__)
+#define FOR_EACH2_4(f, t, n, ...) f(t, n), FOR_EACH2_3(f, __VA_ARGS__)
+#define FOR_EACH2_5(f, t, n, ...) f(t, n), FOR_EACH2_4(f, __VA_ARGS__)
+#define FOR_EACH2_6(f, t, n, ...) f(t, n), FOR_EACH2_5(f, __VA_ARGS__)
+#define FOR_EACH2_7(f, t, n, ...) f(t, n), FOR_EACH2_6(f, __VA_ARGS__)
+#define FOR_EACH2_8(f, t, n, ...) f(t, n), FOR_EACH2_7(f, __VA_ARGS__)
+#define FOR_EACH2_9(f, t, n, ...) f(t, n), FOR_EACH2_8(f, __VA_ARGS__)
+#define FOR_EACH2_10(f, t, n, ...) f(t, n), FOR_EACH2_9(f, __VA_ARGS__)
+#define FOR_EACH2_11(f, t, n, ...) f(t, n), FOR_EACH2_10(f, __VA_ARGS__)
+#define FOR_EACH2_12(f, t, n, ...) f(t, n), FOR_EACH2_11(f, __VA_ARGS__)
+#define FOR_EACH2_13(f, t, n, ...) f(t, n), FOR_EACH2_12(f, __VA_ARGS__)
+#define FOR_EACH2_14(f, t, n, ...) f(t, n), FOR_EACH2_13(f, __VA_ARGS__)
+#define FOR_EACH2_15(f, t, n, ...) f(t, n), FOR_EACH2_14(f, __VA_ARGS__)
+
+#define CONCATENATE(A, B) A ## B
+
+#define FOR_EACH2_NARG(...) FOR_EACH2_NARG_(dummy, __VA_ARGS__, FOR_EACH2_RSEQ_N())
+#define FOR_EACH2_NARG_(...) FOR_EACH2_ARG_N(__VA_ARGS__)
+#define FOR_EACH2_ARG_N(a, b, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, n, ...) n
+#define FOR_EACH2_RSEQ_N() 15, 15, 14, 14, 13, 13, 12, 12, 11, 11, 10, 10, 8, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1, 0
+
+#define FOR_EACH2_(n, f, ...) CONCATENATE(FOR_EACH2_, n)(f, __VA_ARGS__)
+#define FOR_EACH2(f, ...) FOR_EACH2_(FOR_EACH2_NARG(dummy, __VA_ARGS__), f, __VA_ARGS__)
+
+#define TEMPLATE_ARG(f, n) f n
+#define TEMPLATE_NAME(f, n) n
+
+
+#define DECLARE_CLASS(Class, ...)\
+class Class
+
+#define DECLARE_CLASS_TEMPLATE(Class, ...)\
+template<FOR_EACH2(TEMPLATE_ARG, __VA_ARGS__)> \
+class Class
+
+#define SPECIALIZE_TYPE_TRAIT(Class, ...)\
 namespace TypeTrait\
 {\
-    template<>\
+    template<> \
     struct TIsObjectClass<Class>\
     {\
         static constexpr bool Value{true};\
     };\
-}\
-\
+}
+
+#define SPECIALIZE_TYPE_TRAIT_TEMPLATE(Class, ...)\
+namespace TypeTrait\
+{\
+    template<FOR_EACH2(TEMPLATE_ARG, __VA_ARGS__)> \
+    struct TIsObjectClass<Class<FOR_EACH2(TEMPLATE_NAME, __VA_ARGS__)>>\
+    {\
+        static constexpr bool Value{true};\
+    };\
+}
+
+#define SPECIALIZE_INFO(Class, ...)\
 namespace Rtti\
 {\
-    template<>\
-    inline constexpr FStaticString GetObjectName<Class>()\
+    template<> \
+    struct TObjectInfo<Class>\
     {\
-        return #Class;\
-    }\
+        inline static constexpr FStaticString GetObjectName()\
+        {\
+            return #Class;\
+        }\
 \
-    template<>\
-    inline uint32 GetObjectTypeID<Class>()\
+        inline static uint32 GetObjectTypeID()\
+        {\
+            static const uint32 TypeId{GenerateTypeID()};\
+            return TypeId;\
+        }\
+    };\
+}
+
+#define SPECIALIZE_INFO_TEMPLATE(Class, ...)\
+namespace Rtti\
+{\
+    template<FOR_EACH2(TEMPLATE_ARG, __VA_ARGS__)> \
+    struct TObjectInfo<Class<FOR_EACH2(TEMPLATE_NAME, __VA_ARGS__)>>\
     {\
-        static const uint32 TypeId{GenerateTypeID()};\
-        return TypeId;\
-    }\
-}\
-class Class
+        inline static constexpr FStaticString GetObjectName()\
+        {\
+            return #Class;\
+        }\
+\
+        inline static uint32 GetObjectTypeID()\
+        {\
+            static const uint32 TypeId{GenerateTypeID()};\
+            return TypeId;\
+        }\
+    };\
+}
 
 /*
- * The arguments for the OBJECT_BODY(...) macro is all the direct base classes
+ * used to register a class in the type system
+ * example usage:
+ * OBJECT_CLASS(OMyClass) : public OObject ...
+ * OBJECT_CLASS(OMyClass, int, NTTP, typename T) : public OObject ...
+ */
+#define OBJECT_CLASS(Class, ...)\
+DECLARE_CLASS##__VA_OPT__(_TEMPLATE)(Class, __VA_ARGS__);\
+SPECIALIZE_TYPE_TRAIT##__VA_OPT__(_TEMPLATE)(Class, __VA_ARGS__)\
+SPECIALIZE_INFO##__VA_OPT__(_TEMPLATE)(Class, __VA_ARGS__)\
+DECLARE_CLASS##__VA_OPT__(_TEMPLATE)(Class, __VA_ARGS__)
+
+/*
+ * The arguments for the OBJECT_BASES(...) macro is all the direct base classes (if they are objects themselves)
  *
- * OBJECT_CLASS(OMyClass) : public OObject
+ * OBJECT_CLASS(OMyClass) : public OObject1, public NotAnObject, public OObject2
  * {
- *     OBJECT_BODY(OObject)
+ *     OBJECT_BASES(OObject1, OObject2)
  * };
  */
-#define OBJECT_BODY(...)\
+#define OBJECT_BASES(...)\
 public:\
     static constexpr TypeTrait::AddPointersToTupleArgs<__VA_ARGS__> GetDirectBaseClasses()\
     {\
@@ -74,13 +143,13 @@ public:\
             return (0 + ... + Ts::NumTotalBaseClasses());\
         };\
 \
-        return NumDirectBaseClasses.operator()<__VA_ARGS__>() + FoldNumTotalBaseClasses.operator()<__VA_ARGS__>();\
+        return NumDirectBaseClasses.template operator()<__VA_ARGS__>() + FoldNumTotalBaseClasses.template operator()<__VA_ARGS__>();\
     }\
 \
     virtual uint32 GetObjectId() const __VA_OPT__(override)\
     {\
         using ThisType = TypeTrait::RemoveCV<TypeTrait::RemovePointer<decltype(this)>>;\
-        return Rtti::GetObjectTypeID<ThisType>();\
+        return Rtti::TObjectInfo<ThisType>::GetObjectTypeID();\
     }\
 \
     virtual int64 OffsetThisFromId(const uint32 TargetId) const __VA_OPT__(override)\
@@ -92,7 +161,7 @@ public:\
     virtual FStaticString GetClassName() const __VA_OPT__(override)\
     {\
         using ThisType = TypeTrait::RemoveCV<TypeTrait::RemovePointer<decltype(this)>>;\
-        return Rtti::GetObjectName<ThisType>();\
+        return Rtti::TObjectInfo<ThisType>::GetObjectName();\
     }\
 private:
 
@@ -116,10 +185,19 @@ namespace Rtti
     }
 
     template<typename Class>
-    constexpr FStaticString GetObjectName();
+    struct TObjectInfo
+    {
+        inline static constexpr FStaticString GetObjectName()
+        {
+            return "default_implementation";
+        }
 
-    template<typename Class>
-    uint32 GetObjectTypeID();
+        inline static uint32 GetObjectTypeID()
+        {
+            static const uint32 TypeId{GenerateTypeID()};
+            return TypeId;
+        }
+    };
 
     template<typename Derived, uint64 Index>
     using BaseClassAt = TypeTrait::RemovePointer<TypeTrait::RemoveCV<TypeTrait::RemoveReference<decltype(std::get<Index>(Derived::GetDirectBaseClasses()))>>>;
@@ -133,7 +211,7 @@ namespace Rtti
         int32 Offset{static_cast<int32>(Math::PointerOffset<Derived, Class>())};
         Offset <<= 16; //push offset to the upper half
 
-        TStaticArray<uint32, 1> OffsetAndTypeId{Offset | GetObjectTypeID<Class>()};
+        TStaticArray<uint32, 1> OffsetAndTypeId{Offset | TObjectInfo<Class>::GetObjectTypeID()};
 
         auto ExpandTuple = [&OffsetAndTypeId]<uint64... I>(TypeTrait::IndexSequence<I...>)
         {
@@ -178,8 +256,6 @@ namespace Rtti
         constexpr uint64 NumElementIterations{NumRegisterElements * NumComparisons};
         constexpr auto ValidMask{Simd::Mask<VectorIDType>() >> (NumElementIterations - IDArrayType<Class>::Num())}; //mask out the garbage results with this
 
-        const VectorIDType TargetIDVector{Simd::SetAll<VectorIDType>(TargetID)};
-
         int64 ResultPtr{0};
 
         #pragma unroll NumComparisons
@@ -188,14 +264,17 @@ namespace Rtti
             VectorIDType StoredIDs{Simd::LoadUnaligned<VectorIDType>(IDArray + Index)};
             StoredIDs &= 0x0000FFFF; //mask out the offset part
 
-            auto ComparisonMask{Simd::MoveMask(TargetIDVector == StoredIDs)};
-
+#if defined(AVX512)
+            uint16 ComparisonMask{Simd::MoveMask(TargetID == StoredIDs)};
+#elif defined(AVX256)
+            int32 ComparisonMask{Simd::MoveMask(TargetID == StoredIDs)};
+#endif
             if(Index == (NumElementIterations - NumRegisterElements)) //this should be optimized out
             {
                 ComparisonMask &= ValidMask;
             }
 
-            const auto MatchIndex{Math::FindFirstSet(ComparisonMask)};
+            const int32 MatchIndex{Math::FindFirstSet(ComparisonMask)};
             const bool bIsMatch{MatchIndex != 0};
 
             const uint32 MatchedElement{IDArray[((MatchIndex - 1) + Index) + !bIsMatch]}; //FindFirstSet returns index + 1, we need index
@@ -207,9 +286,9 @@ namespace Rtti
         return ResultPtr;
     }
 
-}
+} //namespace Rtti
 
-template<typename TargetType, typename BaseType>
+template<typename TargetType, typename BaseType> requires(TypeTrait::IsObjectClass<TypeTrait::RemovePointer<TargetType>> && TypeTrait::IsObjectClass<BaseType>)
 inline TargetType ObjectCast(BaseType* BasePointer)
 {
     using TargetTypeClass = TypeTrait::RemoveCV<TypeTrait::RemovePointer<TargetType>>;
@@ -222,7 +301,7 @@ inline TargetType ObjectCast(BaseType* BasePointer)
         }
         else
         {
-            const uint32 TargetId{Rtti::GetObjectTypeID<TargetTypeClass>()};
+            const uint32 TargetId{Rtti::TObjectInfo<TargetTypeClass>::GetObjectTypeID()};
             return reinterpret_cast<TargetType>(BasePointer->OffsetThisFromId(TargetId));
         }
     }
@@ -230,14 +309,14 @@ inline TargetType ObjectCast(BaseType* BasePointer)
     return nullptr;
 }
 
-template<typename TargetType, typename BaseType>
+template<typename TargetType, typename BaseType> requires(TypeTrait::IsObjectClass<TypeTrait::RemovePointer<TargetType>> && TypeTrait::IsObjectClass<BaseType> && TypeTrait::IsStaticCastable<TargetType, BaseType*>)
 inline TargetType ObjectCastExact(BaseType* BasePointer)
 {
     using TargetTypeClass = TypeTrait::RemoveCV<TypeTrait::RemovePointer<TargetType>>;
 
     if(BasePointer != nullptr)
     {
-        const uint32 TargetId{Rtti::GetObjectTypeID<TargetTypeClass>()};
+        const uint32 TargetId{Rtti::TObjectInfo<TargetTypeClass>::GetObjectTypeID()};
 
         if(BasePointer->GetObjectId() == TargetId)
         {
@@ -248,98 +327,108 @@ inline TargetType ObjectCastExact(BaseType* BasePointer)
     return nullptr;
 }
 
-template<typename TargetType, typename BaseType>
-inline NONNULL TargetType ObjectCastChecked(NONNULL BaseType* BasePointer)
+template<typename TargetType, typename BaseType> requires(TypeTrait::IsObjectClass<TypeTrait::RemovePointer<TargetType>> && TypeTrait::IsObjectClass<BaseType>)
+inline TargetType NONNULL ObjectCastChecked(BaseType* BasePointer NONNULL)
 {
     using TargetTypeClass = TypeTrait::RemoveCV<TypeTrait::RemovePointer<TargetType>>;
 
-#if DEBUG
     ASSERT(BasePointer != nullptr);
 
-    if constexpr(TypeTrait::IsBaseOf<TargetTypeClass, TypeTrait::RemoveCV<BaseType>>)
+    if constexpr(TypeTrait::IsStaticCastable<TargetType, BaseType*>)
     {
-        return static_cast<TargetType>(BasePointer);
-    }
-    else
-    {
-        const uint32 TargetId{Rtti::GetObjectTypeID<TargetTypeClass>()};
+#if DEBUG
+        const uint32 TargetId{Rtti::TObjectInfo<TargetTypeClass>::GetObjectTypeID()};
         ASSERT(BasePointer->OffsetThisFromId(TargetId));
 
         return static_cast<TargetType>(BasePointer);
-    }
 #else
-    return static_cast<TargetType>(BasePointer);
+        return static_cast<TargetType>(BasePointer);
 #endif
-}
-
-template<typename TargetType, typename BaseType, template<typename, ESPMode> typename PointerClass, ESPMode ThreadMode>
-inline PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode> ObjectCast(PointerClass<BaseType, ThreadMode>& BasePointer)
-{
-    using TargetPointerClass = PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode>;
-
-    TargetType CastPointer{ObjectCast<TargetType>(BasePointer.Ptr())};
-
-    if(CastPointer != nullptr)
-    {
-        BasePointer.AddReference();
-        return TargetPointerClass{CastPointer, BasePointer.ReferenceCounter};
     }
     else
     {
-        return TargetPointerClass{CastPointer, nullptr};
+        const uint32 TargetId{Rtti::TObjectInfo<TargetTypeClass>::GetObjectTypeID()};
+        return reinterpret_cast<TargetType>(BasePointer->OffsetThisFromId(TargetId));
     }
 }
 
-template<typename TargetType, typename BaseType, template<typename, ESPMode> typename PointerClass, ESPMode ThreadMode>
-inline PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode> ObjectCastExact(PointerClass<BaseType, ThreadMode>& BasePointer)
+namespace PtrPri
 {
-    using TargetPointerClass = PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode>;
-
-    TargetType CastPointer{ObjectCastExact<TargetType>(BasePointer.Ptr())};
-
-    if(CastPointer != nullptr)
+    template<typename TargetType, typename BaseType, template<typename, EThreadMode> typename PointerClass, EThreadMode ThreadMode>
+    struct TObjectCastSmartPointerHelper final
     {
-        BasePointer.AddReference();
-        return TargetPointerClass{CastPointer, BasePointer.ReferenceCounter};
-    }
-    else
-    {
-        return TargetPointerClass{CastPointer, nullptr};
-    }
+        inline static PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode> ObjectCast(PointerClass<BaseType, ThreadMode>& BasePointer)
+        {
+            using TargetPointerClass = PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode>;
+
+            TargetType CastPointer{::ObjectCast<TargetType>(BasePointer.Ptr())};
+
+            if(CastPointer != nullptr)
+            {
+                BasePointer.AddReference();
+                return TargetPointerClass{CastPointer, BasePointer.ReferenceCounter};
+            }
+            else
+            {
+                return TargetPointerClass{nullptr};
+            }
+        }
+
+        inline static PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode> ObjectCastExact(PointerClass<BaseType, ThreadMode>& BasePointer)
+        {
+            using TargetPointerClass = PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode>;
+
+            TargetType CastPointer{::ObjectCastExact<TargetType>(BasePointer.Ptr())};
+
+            if(CastPointer != nullptr)
+            {
+                BasePointer.AddReference();
+                return TargetPointerClass{CastPointer, BasePointer.ReferenceCounter};
+            }
+            else
+            {
+                return TargetPointerClass{nullptr};
+            }
+        }
+
+        inline static PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode> ObjectCastChecked(PointerClass<BaseType, ThreadMode>& BasePointer)
+        {
+            using TargetPointerClass = PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode>;
+
+            TargetType CastPointer{::ObjectCastChecked<TargetType>(BasePointer.Ptr())};
+
+            BasePointer.AddReference();
+
+            return TargetPointerClass{CastPointer, BasePointer.ReferenceCounter};
+        }
+    };
+} //namespace PtrPri
+
+template<typename TargetType, typename BaseType, template<typename, EThreadMode> typename PointerClass, EThreadMode ThreadMode>
+INLINE PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode> ObjectCast(PointerClass<BaseType, ThreadMode>& BasePointer)
+{
+    return PtrPri::TObjectCastSmartPointerHelper<TargetType, BaseType, PointerClass, ThreadMode>::ObjectCast(BasePointer);
 }
 
-template<typename TargetType, typename BaseType, template<typename, ESPMode> typename PointerClass, ESPMode ThreadMode>
-inline PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode> ObjectCastChecked(PointerClass<BaseType, ThreadMode>& BasePointer)
+template<typename TargetType, typename BaseType, template<typename, EThreadMode> typename PointerClass, EThreadMode ThreadMode>
+INLINE PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode> ObjectCastExact(PointerClass<BaseType, ThreadMode>& BasePointer)
 {
-    TargetType CastPointer{ObjectCastChecked<TargetType>(BasePointer.Ptr())};
-
-    BasePointer.AddReference();
-
-    return PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode>{CastPointer, BasePointer.ReferenceCounter};
+    return PtrPri::TObjectCastSmartPointerHelper<TargetType, BaseType, PointerClass, ThreadMode>::ObjectCastExact(BasePointer);
 }
 
-OBJECT_CLASS(OObject) : public FNonCopyable
+template<typename TargetType, typename BaseType, template<typename, EThreadMode> typename PointerClass, EThreadMode ThreadMode>
+INLINE PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode> ObjectCastChecked(PointerClass<BaseType, ThreadMode>& BasePointer)
 {
-    OBJECT_BODY()
-public:
+    return PtrPri::TObjectCastSmartPointerHelper<TargetType, BaseType, PointerClass, ThreadMode>::ObjectCastChecked(BasePointer);
+}
 
-    OObject() = default;
-    virtual ~OObject() = default;
-
-    virtual void PreReplicate()
-    {
-    }
-
-    virtual void PostReplicate()
-    {
-    }
-
-protected:
-
-    bool bIsReplicated;
+OBJECT_CLASS(OObject)
+{
+    OBJECT_BASES()
 };
 
-inline FStaticString GetClassNameSafe(const OObject* const Object)
+template<typename ObjectClass> requires(TypeTrait::IsObjectClass<ObjectClass>)
+inline FStaticString GetClassNameSafe(const ObjectClass* const Object)
 {
     if(Object)
     {

@@ -46,7 +46,7 @@ public:
         {
             if(IsSet())
             {
-                Storage.Variable::StoredType.~StoredType(Storage);
+                Storage.Variable::StoredType.~StoredType();
             }
         }
     }

@@ -4,19 +4,31 @@
 #include "Object/Object.hpp"
 #include "Vector.hpp"
 #include "Quaternion.hpp"
-/*
-OBJECT_CLASS(AActor) : public OObject
+
+OBJECT_CLASS(AActor)
 {
-OBJECT_BODY(OObject)
+    OBJECT_BASES()
 public:
 
     struct FWorldRelationInfo
     {
-        FQuaternion Rotation;
         FVector Position;
+        FQuaternion Rotation;
     };
+
+    INLINE FVector GetActorPosition() const
+    {
+        return WorldRelationInfo.Position;
+    }
+
+    INLINE FQuaternion GetActorRotation() const
+    {
+        return WorldRelationInfo.Rotation;
+    }
+
+private:
 
     FWorldRelationInfo WorldRelationInfo;
 
 };
-*/
+

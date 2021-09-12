@@ -6,10 +6,10 @@
 #include "Object.hpp"
 
 class AActor;
-/*
-OBJECT_CLASS(OLevel) : public OObject
+
+OBJECT_CLASS(OLevel)
 {
-    OBJECT_BODY(OObject)
+    OBJECT_BASES()
 public:
 
 protected:
@@ -17,4 +17,4 @@ protected:
     TDynamicArray<TWeakPtr<AActor>> ActorsInLevel;
 
 };
-*/
+

@@ -90,7 +90,7 @@ FRenderConfigInfo::FRenderConfigInfo(Vk::Extent2D ImageExtent, Vk::RenderPass In
 }
 
 
-void FRenderPipeline::FShaderCode::Run()
+void FRenderPipeline::OShaderCodeReader::Run()
 {
     FileName <<= ShaderPath;
     FileName += VertShaderPostfix;
@@ -158,9 +158,7 @@ void FRenderPipeline::ShutDown()
 
 void FRenderPipeline::ReadShaderFilesAsync(FString ShaderFileName)
 {
-    ShaderCode = MakeShared<FShaderCode, ESPMode::Safe>(ShaderFileName);
-
-    Thread::AsyncTask(ShaderCode);
+    Thread::AsyncTask(&ReadShaderCode);
 }
 
 Vk::ShaderModule FRenderPipeline::CreateShaderModule(const Vk::ShaderModuleCreateInfo ShaderCreateInfo)
@@ -178,11 +176,11 @@ void FRenderPipeline::CreateGraphicsPipeline(const FRenderConfigInfo& RenderConf
     const Vk::Device LogicalDevice{GRenderDevice.GetLogicalDevice()};
     ASSERT(LogicalDevice);
 
-    ShaderCode->WaitForCompletion();
+    ShaderCodeReader.WaitForCompletion();
 
     Vk::ShaderModuleCreateInfo ShaderModuleCreateInfo{};
-    ShaderModuleCreateInfo.codeSize = (ShaderCode->FragCodeStartIndex + 1) * 4;
-    ShaderModuleCreateInfo.pCode = ShaderCode->VertexCode.GetData();
+    ShaderModuleCreateInfo.codeSize = (ShaderCodeReader.FragCodeStartIndex + 1) * 4;
+    ShaderModuleCreateInfo.pCode = ShaderCodeReader.VertexCode.GetData();
 
     VertexShaderModule = CreateShaderModule(ShaderModuleCreateInfo);
 

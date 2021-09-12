@@ -2,66 +2,38 @@
 #include "Memory.hpp"
 #include "Log.hpp"
 
-#include <unistd.h>
-
-#if DEBUG
-FRunnable::FRunnable()
-    : TaskName{StrUtil::IntToHex(reinterpret_cast<int64>(this)).Data(), (sizeof(int64) * 2) + 1}
-    , TaskProgress{Idle}
-{
-}
-#else
-FRunnable::FRunnable()
+ORunnable::ORunnable()
     : TaskProgress{Idle}
 {
 }
-#endif
 
-#if DEBUG
-FRunnable::FRunnable(FString InTaskName)
-    : TaskName{Move(InTaskName)}
-    , TaskProgress{Idle}
+ORunnable::~ORunnable()
 {
-}
-#else
-FRunnable::FRunnable(FString InTaskName)
-    : TaskProgress{Idle}
-{
-}
-#endif
-
-FRunnable::~FRunnable()
-{
-    ENSURE(TaskProgress >= 2, "task: {}, is queued or running but was never completed", TaskName);
+    ENSURE(TaskProgress >= 2, "task: {}, is queued or running but was never completed", GetClassName());
 }
 
-void FRunnable::PreRun()
+void ORunnable::PreRun()
 {
-    LOG(LogThread, "started task: {}", TaskName);
+    LOG(LogThread, "started task: {}", GetClassName());
     TaskProgress = Running;
 }
 
-void FRunnable::PostRun()
+void ORunnable::PostRun()
 {
-    LOG(LogThread, "completed task: {}", TaskName);
+    LOG(LogThread, "completed task: {}", GetClassName());
     TaskProgress = Completed;
 }
 
-void FRunnable::WaitForCompletion(const bool bEvenIfNotQueuedOrRunning)  const
+void ORunnable::WaitForCompletion(bool bEvenIfNotInQueue)  const
 {
-    const uint8 ProgressValue{static_cast<uint8>(1 + bEvenIfNotQueuedOrRunning)};
-
-    while(EXPECT(TaskProgress <= ProgressValue, false))
-    {
-        //LOGR(LogThread, "{} is waiting for \"{}\"", StrUtil::IntToHex(pthread_self()), TaskName); todo does not work yet
-    }
+    //todo
 }
 
 void* ThreadWork(void* Argument)
 {
     Thread::FTaskQueue* TaskQueue{static_cast<Thread::FTaskQueue*>(Argument)};
 
-    while(TSharedPtr<FRunnable, ESPMode::Safe> Task{TaskQueue->NextTask()})
+    while(ORunnable* Task{TaskQueue->NextTask()})
     {
         Task->PreRun();
         Task->Run();
@@ -82,10 +54,10 @@ Thread::FTaskQueue::~FTaskQueue()
 {
 }
 
-TSharedPtr<FRunnable, ESPMode::Safe> Thread::FTaskQueue::NextTask()
+ORunnable* Thread::FTaskQueue::NextTask()
 {
     --QueuedTaskCount;
-    TSharedPtr<FRunnable, ESPMode::Safe> TaskToReturn{Move(QueuedTasks[QueuedTaskCount])};
+    ORunnable* TaskToReturn{QueuedTasks[QueuedTaskCount]};
     ++FreeTaskCount;
 
     return TaskToReturn;
@@ -115,17 +87,17 @@ Thread::FThreadPool::FThreadPool()
     }
 }
 
-void Thread::FThreadPool::AddTask(TSharedPtr<FRunnable, ESPMode::Safe> NewTask)
+void Thread::FThreadPool::AddTask(ORunnable* NewTask)
 {
     TaskQueue.TaskAddMutex.Lock();
-#if DEBUG
-    if EXPECT(NewTask.IsValid(), true)
+
+    if EXPECT(NewTask != nullptr, true)
     {
-        LOG(LogThread, "enqueued task: {}", NewTask->TaskName);
+        LOG(LogThread, "enqueued task: {}", NewTask->GetClassName());
     }
-#endif
+
     --TaskQueue.FreeTaskCount;
-    TaskQueue.QueuedTasks[TaskQueue.QueuedTaskCount] = Move(NewTask);
+    TaskQueue.QueuedTasks[TaskQueue.QueuedTaskCount] = NewTask;
     ++TaskQueue.QueuedTaskCount;
 
     TaskQueue.TaskAddMutex.Unlock();

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Definitions.hpp"
-#include "SmartPointer.hpp"
 #include "String.hpp"
 
 namespace vk
@@ -17,7 +16,7 @@ public:
 
     FRenderWindow();
 
-    void CreateWindow(int32 Width, int32 Height, FString WindowName, const bool bFullScreen = false);
+    void CreateWindow(int32 Width, int32 Height, FString<ss60> WindowName, const bool bFullScreen = false);
 
     void CloseWindow();
 
@@ -30,7 +29,7 @@ public:
     UINLINE int32 GetPixelWidth() const;
     UINLINE int32 GetPixelHeight() const;
     UINLINE Vk::Extent2D GetImageExtent() const;
-    UINLINE const FString& GetName() const;
+    UINLINE const FString<ss60>& GetWindowName() const;
     UINLINE GLFWwindow* GetWindow() const;
 
 protected:
@@ -40,7 +39,7 @@ protected:
     int32 PixelWidth;
     int32 PixelHeight;
 
-    FString Name;
+    FString<ss60> Name;
 
     GLFWwindow* Window;
 

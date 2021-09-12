@@ -22,11 +22,6 @@ class FRenderDevice;
 #define VK_KHR_VALIDATION_LAYER_NAME "VK_LAYER_KHRONOS_validation"
 #endif
 
-extern FRenderWindow GRenderWindow;
-extern TSharedPtr<FRenderSwapChain> GRenderSwapChain; //pointer becouse might need to more than one
-extern FRenderPipeline GRenderPipeline;
-extern FRenderDevice GRenderDevice;
-
 namespace vk
 {
     inline const constinit uint32 VulkanVersion{VK_MAKE_VERSION(1,2,172)};
