@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <stdio.h>
 #include <chrono>
+#include <string>
 
 using char8 = char;
 using char16 = char16_t;
@@ -20,34 +21,19 @@ using float64 = double;
 using float128 = long double;
 using byte = unsigned char;
 
-struct FSimpleString
-{
-    template<u_int64_t Num>
-    FSimpleString(const char8 (&InString)[Num])
-        : End{Num}
-    {
-        __builtin_memcpy(String, InString, Num);
-    }
-
-    template<u_int64_t Num>
-    void operator+=(const char8 (&InString)[Num])
-    {
-        __builtin_memcpy(String + (End - 1), InString, Num);
-        End += Num - 1;
-    }
-
-    char8 String[128];
-    u_int32_t End;
-};
-
 int32 main(int NumArgs, const char** Arguments)
 {
     __builtin_cpu_init();
 
-    FSimpleString ExecutableName{"./"};
+    std::string ExecutableName{"./"};
     ExecutableName += PROJECT_NAME;
 
     int32 NumProgramRuns{1};
+
+    bool bAvxExplicitlySpecified{false};
+    const char8* AvxVersionString{nullptr};
+
+    bool bDebugProgram{false};
 
     for(int ArgumentIndex{0}; ArgumentIndex < NumArgs; ++ArgumentIndex)
     {
@@ -55,27 +41,44 @@ int32 main(int NumArgs, const char** Arguments)
         {
             sscanf(&Arguments[ArgumentIndex][10], "%i", &NumProgramRuns);
         }
+        else if(__builtin_memcmp(Arguments[ArgumentIndex], "debug", 5) == 0)
+        {
+            bDebugProgram = true;
+        }
+        else if(__builtin_memcmp(Arguments[ArgumentIndex], "avx", 3) == 0)
+        {
+            bAvxExplicitlySpecified = true;
+            AvxVersionString = Arguments[ArgumentIndex];
+        }
     }
 
-    if(__builtin_cpu_supports("avx512f"))
+    if(!bAvxExplicitlySpecified)
     {
-        ExecutableName += "_avx512";
-    }
-    else if(__builtin_cpu_supports("avx2"))
-    {
-        ExecutableName += "_avx2";
+        if(__builtin_cpu_supports("avx512f"))
+        {
+            ExecutableName += "_avx512";
+        }
+        else if(__builtin_cpu_supports("avx2"))
+        {
+            ExecutableName += "_avx256";
+        }
     }
     else
     {
-        __builtin_printf("Error: cpu does not support avx2 or avx512\n");
-        return -1;
+        ExecutableName += "_";
+        ExecutableName += AvxVersionString;
+    }
+
+    if(bDebugProgram)
+    {
+        ExecutableName += "_debug";
     }
 
     auto StartTime = std::chrono::high_resolution_clock::now();
 
     while(NumProgramRuns != 0)
     {
-        system(ExecutableName.String);
+        system(ExecutableName.c_str());
         --NumProgramRuns;
     }
 

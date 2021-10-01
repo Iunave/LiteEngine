@@ -4,6 +4,10 @@
 #include "Assert.hpp"
 #include "TypeTraits.hpp"
 
+#define dot &
+#define angle %
+#define cross ^
+
 class alignas(32) FVector final
 {
 public:

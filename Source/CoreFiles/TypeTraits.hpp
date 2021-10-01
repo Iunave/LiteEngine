@@ -2,6 +2,7 @@
 
 #include "Definitions.hpp"
 #include <type_traits>
+#include <cstdint>
 
 namespace TypeTrait
 {
@@ -204,6 +205,7 @@ namespace TypeTrait
     {
     };
 
+
     template<typename T>
     concept IsSigned = std::is_signed<T>::value;
 
@@ -214,6 +216,12 @@ namespace TypeTrait
     concept AreLogicallyComparable = requires(A lhs, B rhs)
     {
         lhs == rhs;
+    };
+
+    template<typename FunctionT, typename ParamT>
+    concept FunctionHasParameter = requires(FunctionT&& Function, ParamT Parameter)
+    {
+        Function(Parameter);
     };
 
     template<typename To, typename From>

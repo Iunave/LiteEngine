@@ -31,22 +31,18 @@ class TWeakPtr;
 
 namespace PtrPri
 {
-    template<typename OtherType, typename... Ts>
-    concept IsOtherPointer = requires()
+    enum class ESharedMode
     {
-        TypeTrait::IsAnyOf<TypeTrait::Pure<OtherType>, Ts...>;
-    };
-
-    template<typename ThisPtrType, typename OtherPtrType>
-    concept InitReqs = requires()
-    {
-       TypeTrait::IsBaseOf<ThisPtrType, OtherPtrType>
-       || ((TypeTrait::IsTrivial<ThisPtrType> && TypeTrait::IsTrivial<OtherPtrType>) && (sizeof(ThisPtrType) == sizeof(OtherPtrType)));
+        Strong,
+        Weak
     };
 
     template<typename Type>
     class INTERNAL_LINKAGE TPointerBase
     {
+        template<typename, typename, template<typename, EThreadMode> typename, EThreadMode>
+        friend struct TObjectCastSmartPointerHelper;
+
     public:
 
         TPointerBase(const TPointerBase&) = delete;
@@ -149,7 +145,7 @@ namespace PtrPri
         {
         }
 
-        FReferenceCounterWrapper(ENoInit NoInit)
+        FReferenceCounterWrapper(ENoInit)
         {
         }
 
@@ -178,12 +174,6 @@ namespace PtrPri
     };
 
     uint32 NewReferenceCounter();
-
-    enum class ESharedMode
-    {
-        Strong,
-        Weak
-    };
 
     template<EThreadMode ThreadMode, ESharedMode SharedMode>
     class INTERNAL_LINKAGE TSharedBase
@@ -302,13 +292,13 @@ namespace PtrPri
 template<typename Type>
 class TUniquePtr final : public PtrPri::TPointerBase<Type>
 {
-    using TPointer = PtrPri::TPointerBase<Type>;
-
     template<typename InType, typename... VarArgs>
     friend TUniquePtr<InType> MakeUnique(VarArgs&&...);
 
     template<typename Base, typename Derived, typename... VarArgs>
     friend TUniquePtr<Base> MakeUnique(VarArgs&&... Args);
+
+    using TPointer = PtrPri::TPointerBase<Type>;
 
 public:
 
@@ -420,7 +410,6 @@ class TSharedPtr final : public PtrPri::TPointerBase<Type>, public PtrPri::TShar
 
     using TPointer = PtrPri::TPointerBase<Type>;
     using TShared = PtrPri::TSharedBase<ThreadMode, PtrPri::ESharedMode::Strong>;
-    using TWeakEquiv = TWeakPtr<Type, ThreadMode>;
 
 public:
 
@@ -434,8 +423,7 @@ public:
     {
     }
 
-    template<typename InPtrType = Type>
-    explicit TSharedPtr(InPtrType* InPtr NONNULL)
+    explicit TSharedPtr(PtrType* InPtr NONNULL)
         : TPointer{InPtr}
         , TShared{PtrPri::NewReferenceCounter()}
     {
@@ -453,13 +441,6 @@ public:
     {
     }
 
-    TSharedPtr(const TWeakEquiv& Other)
-        : TPointer{Other.Pointer}
-        , TShared{Other.ReferenceCounter}
-    {
-        this->AddReference();
-    }
-
     TSharedPtr(const TSharedPtr& Other)
         : TPointer{Other.Pointer}
         , TShared{Other.ReferenceCounter}
@@ -472,6 +453,14 @@ public:
         , TShared{Other.ReferenceCounter}
     {
         Other.ReferenceCounter = OFFSET_NONE;
+    }
+
+    template<typename OtherPtrType> requires(TypeTrait::IsStaticCastable<PtrType*, OtherPtrType*>)
+    TSharedPtr(const TWeakPtr<OtherPtrType, ThreadMode>& Other)
+        : TPointer{static_cast<PtrType*>(Other.Pointer)}
+        , TShared{Other.ReferenceCounter}
+    {
+        this->AddReference();
     }
 
     template<typename OtherPtrType> requires(TypeTrait::IsStaticCastable<PtrType*, OtherPtrType*>)
@@ -495,11 +484,12 @@ public:
         RemoveReferenceAndDelete();
     }
 
-    TSharedPtr& operator=(const TWeakEquiv& Other)
+    template<typename OtherPtrType> requires(TypeTrait::IsStaticCastable<PtrType*, OtherPtrType*>)
+    TSharedPtr& operator=(const TWeakPtr<OtherPtrType, ThreadMode>& Other)
     {
         RemoveReferenceAndDelete();
 
-        this->Pointer = Other.Pointer;
+        this->Pointer = static_cast<PtrType*>(Other.Pointer);
         this->ReferenceCounter = Other.ReferenceCounter;
         this->AddReference();
 
@@ -556,7 +546,7 @@ public:
         return *this;
     }
 
-    template<typename OtherType> requires(PtrPri::IsOtherPointer<OtherType, TSharedPtr, TWeakEquiv>)
+    template<typename OtherType>
     auto operator<=>(const OtherType& Other) const
     {
         return this->Pointer <=> Other.Pointer;
@@ -620,13 +610,13 @@ private:
 template<typename Type, typename... VarArgs>
 inline TSharedPtr<Type, EThreadMode::Default> MakeShared(VarArgs&&... Args)
 {
-    return TSharedPtr<Type, EThreadMode::Default>{new Type{MoveIfPossible(Args)...}};
+    return TSharedPtr<Type, EThreadMode::Default>{new Type{MoveIfPossible(Args)...}, PtrPri::NewReferenceCounter()};
 }
 
 template<typename Type, EThreadMode ThreadMode, typename... VarArgs>
 inline TSharedPtr<Type, ThreadMode> MakeShared(VarArgs&&... Args)
 {
-    return TSharedPtr<Type, ThreadMode>{new Type{MoveIfPossible(Args)...}};
+    return TSharedPtr<Type, ThreadMode>{new Type{MoveIfPossible(Args)...}, PtrPri::NewReferenceCounter()};
 }
 
 template<typename Type>
@@ -646,7 +636,6 @@ class TWeakPtr final : public PtrPri::TPointerBase<Type>, public PtrPri::TShared
 
     using TPointer = PtrPri::TPointerBase<Type>;
     using TShared = PtrPri::TSharedBase<ThreadMode, PtrPri::ESharedMode::Weak>;
-    using TSharedEquiv = TSharedPtr<Type, ThreadMode>;
 
 public:
 
@@ -672,13 +661,6 @@ public:
     {
     }
 
-    TWeakPtr(const TSharedEquiv& Other)
-     : TPointer{Other.Pointer}
-     , TShared{Other.ReferenceCounter}
-    {
-        this->AddReference();
-    }
-
     TWeakPtr(const TWeakPtr& Other)
         : TPointer{Other.Pointer}
         , TShared{Other.ReferenceCounter}
@@ -693,16 +675,41 @@ public:
         Other.ReferenceCounter = OFFSET_NONE;
     }
 
+    template<typename OtherPtrType> requires(TypeTrait::IsStaticCastable<PtrType*, OtherPtrType*>)
+    TWeakPtr(const TWeakPtr<OtherPtrType, ThreadMode>& Other)
+        : TPointer{static_cast<PtrType*>(Other.Pointer)}
+        , TShared{Other.ReferenceCounter}
+    {
+        this->AddReference();
+    }
+
+    template<typename OtherPtrType> requires(TypeTrait::IsStaticCastable<PtrType*, OtherPtrType*>)
+    TWeakPtr(TWeakPtr<OtherPtrType, ThreadMode>&& Other)
+        : TPointer{static_cast<PtrType*>(Other.Pointer)}
+        , TShared{Other.ReferenceCounter}
+    {
+        Other.ReferenceCounter = OFFSET_NONE;
+    }
+
+    template<typename OtherPtrType> requires(TypeTrait::IsStaticCastable<PtrType*, OtherPtrType*>)
+    TWeakPtr(const TSharedPtr<OtherPtrType, ThreadMode>& Other)
+        : TPointer{static_cast<PtrType*>(Other.Pointer)}
+        , TShared{Other.ReferenceCounter}
+    {
+        this->AddReference();
+    }
+
     ~TWeakPtr()
     {
         this->RemoveReference();
     }
 
-    TWeakPtr& operator=(const TSharedEquiv& Other)
+    template<typename OtherPtrType> requires(TypeTrait::IsStaticCastable<PtrType*, OtherPtrType*>)
+    TWeakPtr& operator=(const TSharedPtr<OtherPtrType, ThreadMode>& Other)
     {
         this->RemoveReference();
 
-        this->Pointer = Other.Ptr();
+        this->Pointer = static_cast<PtrType*>(Other.Pointer);
         this->ReferenceCounter = Other.ReferenceCounter;
         this->AddReference();
 
@@ -732,7 +739,7 @@ public:
         return *this;
     }
 
-    template<typename OtherType> requires(PtrPri::IsOtherPointer<OtherType, TWeakPtr, TSharedEquiv>)
+    template<typename OtherType>
     auto operator<=>(const OtherType& Other) const
     {
         return this->Pointer <=> Other.Pointer;

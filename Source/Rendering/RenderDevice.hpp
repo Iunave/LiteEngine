@@ -1,136 +1,79 @@
 #pragma once
 
-#include "Definitions.hpp"
-#include "VulkanCommon.hpp"
-#include "SmartPointer.hpp"
-#include "Array.hpp"
+#include "CoreFiles/Definitions.hpp"
+#include "CoreFiles/Array.hpp"
 
-class FRenderWindow;
+#include <vulkan/vulkan.hpp>
 
-struct FSwapChainSupportDetails
+namespace Render
 {
-    Vk::SurfaceCapabilitiesKHR SurfaceCapabilities;
-
-    TDynamicArray<Vk::SurfaceFormatKHR> SurfaceFormats;
-
-    TDynamicArray<Vk::PresentModeKHR> PresentModes;
-};
-
-struct FQueueFamilyIndices
-{
-    UINLINE FQueueFamilyIndices();
-
-    template<typename... Ts>
-    static bool CheckValidity(Ts... Indices)
+    struct FSwapChainSupportDetails
     {
-        return ((Indices != UINT32_MAX) && ...);
-    }
+        Vk::SurfaceCapabilitiesKHR SurfaceCapabilities;
+        TDynamicArray<Vk::SurfaceFormatKHR> SurfaceFormats;
+        TDynamicArray<Vk::PresentModeKHR> PresentModes;
+    };
 
-    uint32 Graphic;
-    uint32 Compute;
-    uint32 Protected;
-    uint32 SparseBinding;
-    uint32 Transfer;
-    uint32 Presentation;
-};
+    struct FQueueFamilyIndices
+    {
+        FQueueFamilyIndices();
 
-class FRenderDevice final : private FNonCopyable
-{
-public:
+        template<typename... Ts>
+        static bool CheckValidity(Ts... Indices)
+        {
+            return ((Indices != UINT32_MAX) && ...);
+        }
 
-#if USE_VULKAN_VALIDATION_LAYERS
-    FRenderDevice(TDynamicArray<const char8*>&& RequiredDeviceExtensions, TDynamicArray<const char8*>&& RequestedValidationLayers);
-#else
-    FRenderDevice(TArray<const char8*>&& RequiredDeviceExtensions);
-#endif
-    virtual ~FRenderDevice() override;
+        uint32 Graphic;
+        uint32 Compute;
+        uint32 Protected;
+        uint32 SparseBinding;
+        uint32 Transfer;
+        uint32 Presentation;
+    };
 
-public:
+    class FDeviceManager final
+    {
+    public:
 
-    void Initialize();
+        FDeviceManager();
+        ~FDeviceManager();
 
-    void ShutDown();
+        TDynamicArray<Vk::ExtensionProperties> FindPhysicalDeviceProperties();
+        TDynamicArray<Vk::QueueFamilyProperties> FindQueueFamilyProperties();
 
-#if USE_VULKAN_VALIDATION_LAYERS
-    UINLINE const TDynamicArray<const char8*>& GetValidationLayers() const;
-#endif
-    UINLINE const TDynamicArray<const char8*>& GetDeviceExtensions() const;
+        void PopulateQueueFamilyIndices();
 
-    UINLINE Vk::Instance GetVulkanInstance() const;
-    UINLINE Vk::PhysicalDevice GetPhysicalDevice() const;
-    UINLINE Vk::Device GetLogicalDevice() const;
-    UINLINE Vk::SurfaceKHR GetSurface() const;
-    UINLINE Vk::Queue GetGraphicsQueue() const;
-    UINLINE Vk::Queue GetPresentationQueue() const;
-    UINLINE Vk::CommandPool GetCommandPool() const;
-    UINLINE FQueueFamilyIndices GetQueueFamilyIndices() const;
-    UINLINE const FSwapChainSupportDetails& GetSwapChainSupportDetails() const;
+        bool DoesPhysicalDeviceSupportExtensions() const;
+        bool DoesPhysicalDeviceSupportFeatures() const;
+        bool DoesPhysicalDeviceSupportSwapChain() const;
 
-protected:
+        Vk::SurfaceCapabilitiesKHR FindSurfaceCapabilities();
+        TDynamicArray<Vk::SurfaceFormatKHR> FindSurfaceFormats();
+        TDynamicArray<Vk::PresentModeKHR> FindSurfacePresentModes();
 
-    void CreateInstance();
+        void PopulateSwapChainSupportDetails();
 
-#if USE_VULKAN_VALIDATION_LAYERS
-    Vk::Result SetupDebugMessenger();
-#endif
+        void PickPhysicalDevice(Vk::Instance VulkanInstance);
+        void DestroyPhysicalDevice();
 
-    void CreateSurface();
+        void CreateLogicalDevice(const TDynamicArray<const char8*>& ValidationLayers);
+        void DestroyLogicalDevice();
 
-    void ChoosePhysicalDevice();
+        Vk::PhysicalDevice GetPhysicalDeviceHandle() const {return PhysicalDeviceHandle;}
+        Vk::Device GetLogicalDeviceHandle() const {return LogicalDeviceHandle;}
 
-    void CreateLogicalDevice();
+    private:
 
-    void CreateQueues();
+        Vk::PhysicalDevice PhysicalDeviceHandle;
+        Vk::Device LogicalDeviceHandle;
 
-    void CreateCommandPool();
+        Vk::Queue GraphicsQueue;
+        Vk::Queue PresentationQueue;
 
-public:
+        FQueueFamilyIndices QueueFamilyIndices;
+        FSwapChainSupportDetails SwapChainSupportDetails;
 
-    bool DoesDeviceSupportExtensions() const;
-
-    TDynamicArray<Vk::PhysicalDevice> FindAvailablePhysicalDevices() const;
-
-    static TDynamicArray<Vk::LayerProperties> FindAvailableValidationLayers();
-
-    TDynamicArray<Vk::ExtensionProperties> FindAvailableExtensions() const;
-
-    TDynamicArray<Vk::QueueFamilyProperties> FindQueueFamilyProperties() const;
-
-    FQueueFamilyIndices QueryQueueFamilyIndices() const;
-
-    Vk::SurfaceCapabilitiesKHR FindSurfaceCapabilities() const;
-
-    TDynamicArray<Vk::SurfaceFormatKHR> FindSurfaceFormats() const;
-
-    TDynamicArray<Vk::PresentModeKHR> FindSurfacePresentModes() const;
-
-    FSwapChainSupportDetails QuerySwapChainSupportDetails() const;
-
-    TDynamicArray<Vk::CommandBuffer> BeginCommandBuffers(const int64 NumCommandBuffers) const;
-
-    void EndCommandBuffers(TDynamicArray<Vk::CommandBuffer>& CommandBuffers) const;
-
-protected:
-
-    TDynamicArray<const char8*> DeviceExtensions;
-
-#if USE_VULKAN_VALIDATION_LAYERS
-    TDynamicArray<const char8*> ValidationLayers;
-
-    Vk::DebugUtilsMessengerEXT DebugMessenger;
-#endif
-
-    Vk::Instance VulkanInstance;
-    Vk::PhysicalDevice PhysicalDevice;
-    Vk::Device LogicalDevice;
-
-    Vk::SurfaceKHR Surface;
-
-    Vk::Queue GraphicsQueue;
-    Vk::Queue PresentationQueue;
-
-    Vk::CommandPool CommandPool;
-
-    FQueueFamilyIndices QueueFamilyIndices;
-    FSwapChainSupportDetails SwapChainSupportDetails;
-};
+        TDynamicArray<const char8*> DeviceExtensions;
+    };
+}

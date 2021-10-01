@@ -15,6 +15,9 @@ namespace Math
     template<typename T>
     inline constexpr T e{static_cast<T>(2.71828182845904523536028747135266249775724709369995)};
 
+    inline constexpr uint64 Float64One{0b0011111111110000000000000000000000000000000000000000000000000000};
+    inline constexpr uint32 Float32One{0b00111111100000000000000000000000};
+
     //used to `and` away the sign
     template<typename T> requires(std::is_signed_v<T>)
     inline consteval T SignMask()
@@ -144,7 +147,10 @@ namespace Math
         }
     }
 
-    //searches for the first bit that is 1 starting from the LSB
+    /**
+     * searches for the first bit that is 1 starting from the LSB
+     * \returns the index of the first set bit + 1
+     */
     template<typename T> requires(std::is_integral_v<T>)
     inline constexpr int32 FindFirstSet(T Arg)
     {

@@ -29,7 +29,6 @@ inline constexpr TLogCategory LogThread{fmt::color::dark_olive_green, "Thread: "
 inline constexpr TLogCategory LogMemory{fmt::color::golden_rod, "Memory: "};
 inline constexpr TLogCategory LogGLFW{fmt::color::brown, "GLFW: "};
 inline constexpr TLogCategory LogVulkan{fmt::color::medium_violet_red, "Vulkan: "};
-inline constexpr TLogCategory LogVulkanVL{fmt::color::orange_red, "Vulkan_VL: "};
 
 //normal log
 #define LOG(category, string, ...)\
@@ -40,7 +39,13 @@ Thread::GLogMutex.Unlock()
 //logs a warning
 #define LOGW(category, string, ...)\
 Thread::GLogMutex.Lock();\
-fmt::print(fmt::fg(fmt::color::dark_red), ((category).PreMessageString + string "\n").Data() __VA_OPT__(,) __VA_ARGS__);\
+fmt::print(fmt::fg(fmt::color::yellow), ("!!!" + category.PreMessageString + string "!!!\n").Data() __VA_OPT__(,) __VA_ARGS__);\
+Thread::GLogMutex.Unlock()
+
+//logs an error
+#define LOGE(category, string, ...)\
+Thread::GLogMutex.Lock();\
+fmt::print(fmt::fg(fmt::color::red), ("!!!" + category.PreMessageString + string "!!!\n").Data() __VA_OPT__(,) __VA_ARGS__);\
 Thread::GLogMutex.Unlock()
 
 //rewrites the line todo need to find a way to save the cursor position
@@ -53,6 +58,7 @@ Thread::GLogMutex.Unlock()
 
 #define LOG(Category, string, ...)
 #define LOGW(Category, string, ...)
+#define LOGE(Category, string, ...)
 #define LOGR(category, string, ...)
 
 #endif //DEBUG

@@ -9,38 +9,6 @@
 class FRenderDevice;
 class FRenderSwapChain;
 
-struct FRenderConfigInfo : private FNonCopyable
-{
-    FRenderConfigInfo(Vk::Extent2D ImageExtent, Vk::RenderPass InRenderPass);
-
-    Vk::RenderPass RenderPass;
-
-    Vk::PipelineInputAssemblyStateCreateInfo AssemblyStateInfo;
-
-    Vk::PipelineVertexInputStateCreateInfo VertexInputInfo;
-
-    Vk::Viewport Viewport;
-    Vk::Rect2D Scissor;
-
-    Vk::PipelineViewportStateCreateInfo ViewportInfo;
-
-    Vk::PipelineRasterizationStateCreateInfo RasterizerInfo;
-
-    Vk::PipelineMultisampleStateCreateInfo MultisamplerInfo;
-
-    Vk::PipelineDepthStencilStateCreateInfo DepthStencilInfo;
-
-    Vk::PipelineColorBlendAttachmentState ColorBlendAttachmentState;
-
-    Vk::PipelineColorBlendStateCreateInfo ColorBlendInfo;
-
-    TStaticArray<Vk::DynamicState, 2> DynamicStates;
-
-    Vk::PipelineDynamicStateCreateInfo DynamicStateInfo;
-
-    Vk::PipelineLayoutCreateInfo PipelineLayoutInfo;
-};
-
 class FRenderPipeline final : private FNonCopyable
 {
 public:

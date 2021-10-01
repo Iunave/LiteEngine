@@ -228,32 +228,32 @@ namespace Thread
     void FThread::Create(void*(*FunctionPtr)(void*), void* Argument)
     {
         const int32 CreateResult{pthread_create(&ThreadHandle, &Attribute.ThreadAttribute, FunctionPtr, Argument)};
-        LOG(LogThread, "{} started [{}]", StrUtil::IntToHex(ThreadHandle), CreateResultToString(CreateResult));
+        LOG(LogThread, "{} started [{}]", (void*)ThreadHandle, CreateResultToString(CreateResult));
     }
 
     void FThread::Join()
     {
         const int32 JoinResult{pthread_join(ThreadHandle, nullptr)};
-        LOG(LogThread, "{} joined with {} [{}]", StrUtil::IntToHex(pthread_self()), StrUtil::IntToHex(ThreadHandle), JoinResultToString(JoinResult));
+        LOG(LogThread, "{} joined with {} [{}]", (void*)pthread_self(), (void*)ThreadHandle, JoinResultToString(JoinResult));
     }
 
     bool FThread::TryJoin()
     {
         const int32 JoinResult{pthread_tryjoin_np(ThreadHandle, nullptr)};
-        LOG(LogThread, "{} tried to join with {} [{}]", StrUtil::IntToHex(pthread_self()), StrUtil::IntToHex(ThreadHandle), TryJoinResultToString(JoinResult));
+        LOG(LogThread, "{} tried to join with {} [{}]", (void*)pthread_self(), (void*)ThreadHandle, TryJoinResultToString(JoinResult));
         return JoinResult == 0;
     }
 
     bool FThread::TimedJoin(timespec Timeout)
     {
         const int32 JoinResult{pthread_timedjoin_np(ThreadHandle, nullptr, &Timeout)};
-        LOG(LogThread, "{} tried to join with {} [{}]", StrUtil::IntToHex(pthread_self()), StrUtil::IntToHex(ThreadHandle), TryJoinResultToString(JoinResult));
+        LOG(LogThread, "{} tried to join with {} [{}]", (void*)pthread_self(), (void*)ThreadHandle, TryJoinResultToString(JoinResult));
         return JoinResult == 0;
     }
 
     void FThread::Detach()
     {
         const int32 DetachResult{pthread_detach(ThreadHandle)};
-        LOG(LogThread, "{} has detached [{}]", StrUtil::IntToHex(ThreadHandle), DetachResultToString(DetachResult));
+        LOG(LogThread, "{} has detached [{}]", (void*)ThreadHandle, DetachResultToString(DetachResult));
     }
 }

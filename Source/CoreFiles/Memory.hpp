@@ -4,6 +4,7 @@
 #include <malloc.h>
 #ifdef __unix__
 #include <sys/mman.h>
+
 #endif
 
 enum class EMemProtect : int32
@@ -92,29 +93,44 @@ namespace Memory
 #endif
     }
 
-    /// \param Size size in bytes to allocate \returns a pointer to the allocated block of memory
+    /**
+     * \param StoredType type of the element to allocate
+     * \param Num number of elements to allocate
+     * \returns pointer to new memory allocation
+     */
     template<typename StoredType = void>
     NODISCARD INLINE StoredType* Allocate(const uint64 Size)
     {
-        return reinterpret_cast<StoredType*>(::malloc(Size));
+        return static_cast<StoredType*>(::malloc(Size));
     }
 
-    /// \param Num number of elements to allocate for \param Size size of the element
+    /**
+     * \param StoredType type of the element to allocate
+     * \param Num number of elements to allocate
+     * \returns pointer to new memory allocation
+     */
     template<typename StoredType>
     NODISCARD INLINE StoredType* ZeroAllocate(const uint64 Num)
     {
-        return reinterpret_cast<StoredType*>(::calloc(Num, sizeof(StoredType)));
+        return static_cast<StoredType*>(::calloc(Num, sizeof(StoredType)));
     }
 
-    /// \param Source pointer to existing block of memory or nullptr \param Size new size of memory block \returns pointer to location of memory block
+    /**
+     * \param Source pointer to existing block of memory or nullptr
+     * \param Size new size of memory block in bytes
+     * \returns pointer to new location of memory block
+     */
     template<typename StoredType = void>
     NODISCARD INLINE StoredType* ReAllocate(StoredType* Source, const uint64 Size)
     {
         return reinterpret_cast<StoredType*>(::realloc(Source, Size));
     }
 
-    template<typename PointerType = void>
-    NODISCARD INLINE uint64 AllocatedSize(PointerType* Source)
+   /**
+    * \param Source pointer to memory allocated by Memory::Allocate or Memory::ZeroAllocate
+    * \returns the size of the allocation in bytes (may be larger than the requested size)
+    */
+    NODISCARD INLINE uint64 AllocatedSize(void* Source)
     {
         return ::malloc_usable_size(Source);
     }
@@ -124,7 +140,9 @@ namespace Memory
     {
         ::free(Location);
     }
+
 #ifdef __unix__
+
     template<typename StoredType = void>
     NODISCARD INLINE StoredType* Map(StoredType* Address, uint64 Length, EMemProtect Protect, EMapFlags MapFlags, int32 FileDescriptor = -1, int32 Offset = 0)
     {

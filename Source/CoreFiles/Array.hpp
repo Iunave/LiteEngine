@@ -11,11 +11,14 @@
 #define WITH_ARRAY_OFFSET_CHECKS DEBUG
 #endif
 
+template<typename, int64>
+class TStaticArray;
+
+template<typename, int64>
+class TCountedStaticArray;
+
 template<typename>
 class TDynamicArray;
-
-template<typename, int64 NumElements>
-class TStaticArray;
 
 namespace TypeTrait
 {
@@ -24,6 +27,12 @@ namespace TypeTrait
 
     template<typename T, int64 N>
     struct IsStaticArray<TStaticArray<T, N>> : public TrueType{};
+
+    template<typename>
+    struct IsCountedStaticArray : public FalseType{};
+
+    template<typename T, int64 N>
+    struct IsCountedStaticArray<TCountedStaticArray<T, N>> : public TrueType{};
 
     template<typename>
     struct IsDynamicArray : public FalseType{};
@@ -81,18 +90,20 @@ public:
 
     constexpr TStaticArray(void) = default;
 
-    constexpr explicit TStaticArray(const ElementType* NONNULL ElementPtr, int64 Num)
+    constexpr explicit TStaticArray(const ElementType* NONNULL ElementPtr, int64 InNum)
     {
+        ASSERT(InNum >= 0 && InNum <= Num());
+
         if constexpr(TypeTrait::IsTriviallyConstructible<ElementType>)
         {
-            Memory::Copy(Array, ElementPtr, Num);
+            Memory::Copy(Array, ElementPtr, InNum * sizeof(ElementType));
         }
         else
         {
-            while(Num > 0)
+            while(InNum > 0)
             {
-                --Num;
-                Array[Num] = ElementPtr[Num];
+                --InNum;
+                Array[InNum] = ElementPtr[InNum];
             }
         }
     }
@@ -103,24 +114,25 @@ public:
     {
     }
 
-    explicit constexpr TStaticArray(const ElementType* Value)
+    explicit constexpr TStaticArray(const ElementType* NONNULL Value)
     {
         Memory::Copy(Array, Value, Num() * sizeof(ElementType));
     }
 
-    explicit constexpr TStaticArray(const uint8 Value)
+    explicit constexpr TStaticArray(EInit ZeroInit)
     {
-        if(__builtin_is_constant_evaluated() && (sizeof(ElementType) == 1))
-        {
-            for(int64 Index{0}; Index < Num(); ++Index)
-            {
-                Array[Index] = Value;
-            }
-        }
-        else
-        {
-            Memory::Set(Array, Value, Num() * sizeof(ElementType));
-        }
+        Memory::Set(Array, 0u, Num() * sizeof(ElementType));
+    }
+
+    constexpr TStaticArray(const TStaticArray& Other)
+    {
+        Memory::Copy(Array, Other.Array, Num() * sizeof(ElementType));
+    }
+
+    constexpr TStaticArray& operator=(const TStaticArray& Other)
+    {
+        Memory::Copy(Array, Other.Array, Num() * sizeof(ElementType));
+        return *this;
     }
 
     constexpr bool IsIndexValid(const int64 Index) const
@@ -212,7 +224,9 @@ public:
         return TMutableIterator{&Array[NumElements]};
     }
 
-    ElementType Array[NumElements]; //public because constexpr
+private:
+
+    ElementType Array[NumElements];
 };
 
 template<typename ElementType, typename... Elements>
@@ -220,6 +234,243 @@ TStaticArray(ElementType, Elements...)->TStaticArray<ElementType, sizeof...(Elem
 
 template<typename ElementType>
 TStaticArray(ElementType)->TStaticArray<ElementType, 1>;
+
+/*
+ * a static array that keeps track of the valid elements
+ */
+template<typename ElementType, int64 NumElements>
+class TCountedStaticArray final
+{
+private:
+
+    using TConstIterator = TRangedIterator<const ElementType>;
+    using TMutableIterator = TRangedIterator<ElementType>;
+
+public:
+
+    constexpr TCountedStaticArray()
+        : LastIndex{-1}
+    {
+    }
+
+    explicit constexpr TCountedStaticArray(const ElementType* NONNULL ElementPtr, int64 InNum)
+        : LastIndex{InNum - 1}
+    {
+        ASSERT(InNum >= 0 && InNum <= Num());
+
+        if constexpr(TypeTrait::IsTriviallyConstructible<ElementType>)
+        {
+            Memory::Copy(Array, ElementPtr, InNum * sizeof(ElementType));
+        }
+        else
+        {
+            while(InNum > 0)
+            {
+                --InNum;
+                Array[InNum] = ElementPtr[InNum];
+            }
+        }
+    }
+
+    explicit constexpr TCountedStaticArray(const ElementType* NONNULL Value)
+        : LastIndex{NumElements - 1}
+    {
+        Memory::Copy(Array, Value, Num() * sizeof(ElementType));
+    }
+
+    template<typename... Initializers> requires(sizeof...(Initializers) == NumElements)
+    explicit constexpr TCountedStaticArray(Initializers&&... InElements)
+        : Array{MoveIfPossible(InElements)...}
+        , LastIndex{sizeof...(InElements) - 1}
+    {
+    }
+
+    explicit constexpr TCountedStaticArray(EInit ZeroInit)
+        : LastIndex{-1}
+    {
+        Memory::Set(Array, 0u, NumElements * sizeof(ElementType));
+    }
+
+    constexpr TCountedStaticArray(const TCountedStaticArray& Other)
+        : LastIndex{Other.LastIndex}
+    {
+        Memory::Copy(Array, Other.Array, Num() * sizeof(ElementType));
+    }
+
+    constexpr TCountedStaticArray& operator=(const TCountedStaticArray& Other)
+    {
+        this->LastIndex = Other.LastIndex;
+        Memory::Copy(Array, Other.Array, Num());
+        return *this;
+    }
+
+    template<typename AppendType>
+    constexpr void Append(AppendType&& NewElement)
+    {
+        ASSERT(Num() < NumElements, "no more space left");
+
+        ++LastIndex;
+        Array[LastIndex] = MoveIfPossible(NewElement);
+    }
+
+    template<typename AppendType>
+    constexpr void PushBack(AppendType&& NewElement)
+    {
+        ASSERT(Num() < NumElements, "no more space left");
+
+        Memory::Move(Array, Array + 1, Num() * sizeof(ElementType));
+
+        ++LastIndex;
+        Array[LastIndex] = MoveIfPossible(NewElement);
+    }
+
+    constexpr void RemoveAtSwap(const int64 TargetIndex)
+    {
+        ASSERT(IsIndexValid(TargetIndex));
+
+        Array[TargetIndex] = Move(Array[LastIndex]);
+        --LastIndex;
+    }
+
+    constexpr void RemoveAtCollapse(const int64 TargetIndex, const int64 NumToRemove = 1)
+    {
+        ASSERT(NumToRemove >= 0 && (TargetIndex + NumToRemove) <= Num());
+
+        DestroyElements(TargetIndex, NumToRemove);
+
+        const uint64 NumBytesToMove{sizeof(ElementType) * (Num() - TargetIndex - NumToRemove)};
+
+        Memory::Move(&Array[TargetIndex], &Array[TargetIndex + 1], NumBytesToMove);
+
+        LastIndex -= NumToRemove;
+    }
+
+    constexpr void ResizeTo(const int64 NewSize)
+    {
+        ASSERT(NewSize >= 0 && NewSize <= NumElements);
+        LastIndex = NewSize - 1;
+    }
+
+    constexpr bool IsIndexValid(const int64 Index) const
+    {
+        return Index >= 0 && Index <= LastIndex;
+    }
+
+    template<typename ReturnType = int64> requires(TypeTrait::IsInteger<ReturnType>)
+    constexpr ReturnType Num() const
+    {
+        return LastIndex + 1;
+    }
+
+    constexpr bool IsEmpty() const
+    {
+        return LastIndex == -1;
+    }
+
+    template<typename ReturnType = int64> requires(TypeTrait::IsInteger<ReturnType>)
+    constexpr ReturnType UsedSize() const
+    {
+        return Num() * sizeof(ElementType);
+    }
+
+    constexpr ElementType* GetData()
+    {
+        return &Array[0];
+    }
+
+    constexpr const ElementType* GetData() const
+    {
+        return &Array[0];
+    }
+
+    constexpr ElementType* Data()
+    {
+        return &Array[0];
+    }
+
+    constexpr const ElementType* Data() const
+    {
+        return &Array[0];
+    }
+
+    constexpr ElementType* operator-(const int64 DecrementAmount)
+    {
+        return Array - DecrementAmount;
+    }
+
+    constexpr ElementType* operator+(const int64 DecrementAmount)
+    {
+        return Array + DecrementAmount;
+    }
+
+    constexpr const ElementType* operator-(const int64 DecrementAmount) const
+    {
+        return Array - DecrementAmount;
+    }
+
+    constexpr const ElementType* operator+(const int64 DecrementAmount) const
+    {
+        return Array + DecrementAmount;
+    }
+
+    constexpr ElementType& operator[](const int64 Index)
+    {
+        ASSERT(IsIndexValid(Index));
+        return Array[Index];
+    }
+
+    constexpr const ElementType& operator[](const int64 Index) const
+    {
+        ASSERT(IsIndexValid(Index));
+        return Array[Index];
+    }
+
+    constexpr TConstIterator begin() const
+    {
+        return TConstIterator{Array};
+    }
+
+    constexpr TMutableIterator begin()
+    {
+        return TMutableIterator{Array};
+    }
+
+    constexpr TConstIterator end() const
+    {
+        return TConstIterator{&Array[Num()]};
+    }
+
+    constexpr TMutableIterator end()
+    {
+        return TMutableIterator{&Array[Num()]};
+    }
+
+private:
+
+    void DestroyElements(int64 StartIndex, int64 NumToDestroy)
+    {
+        if constexpr(!TypeTrait::IsTriviallyDestructible<ElementType>)
+        {
+            NumToDestroy = StartIndex + NumToDestroy;
+
+            while(StartIndex < NumToDestroy)
+            {
+                Array[StartIndex].ElementType::~ElementType();
+                ++StartIndex;
+            }
+        }
+    }
+
+    ElementType Array[NumElements];
+
+    int64 LastIndex;
+};
+
+template<typename ElementType, typename... Elements>
+TCountedStaticArray(ElementType, Elements...)->TCountedStaticArray<ElementType, sizeof...(Elements) + 1>;
+
+template<typename ElementType>
+TCountedStaticArray(ElementType)->TCountedStaticArray<ElementType, 1>;
 
 /*
  * this namespace contains some numbers that control how the array allocates and deallocates memory
@@ -249,6 +500,10 @@ namespace ArrayConstants
     }
 }
 
+/*
+ * an array that allocates dynamically grows and shrinks
+ * remember that storing pointers to elements in the array is dangerous as they might move
+ */
 template<typename ElementType>
 class alignas(16) TDynamicArray final
 {
@@ -367,7 +622,7 @@ public:
     //used to reserve a set amount
     explicit TDynamicArray(const int64 NumElementsToAllocate, EChooseConstructor)
         : ElementPointer{Memory::Allocate<ElementType>(NumElementsToAllocate * ElementSize())}
-        , LastIndex(-1)
+        , LastIndex{-1}
     {
     }
 
@@ -642,12 +897,7 @@ public:
     {
         ASSERT(IsIndexValid(TargetIndex));
 
-        if constexpr(!TypeTrait::IsTriviallyDestructible<ElementType>)
-        {
-            ElementPointer[TargetIndex].ElementType::~ChannelType();
-        }
-
-        Memory::Copy(&ElementPointer[TargetIndex], &ElementPointer[LastIndex], ElementSize()); //destination and source might be the same here, but thats ok?
+        ElementPointer[TargetIndex] = Move(ElementPointer[LastIndex]);
 
         --LastIndex;
 
@@ -845,23 +1095,38 @@ public:
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "NotImplementedFunctions"
 
-    int64 FindIndex(ConstElementType ElementToFind) const requires(TypeTrait::AreLogicallyComparable<ElementType, ElementType>)
+    template<typename ReturnType = int64, typename FunctionType> requires(TypeTrait::IsInteger<ReturnType> && TypeTrait::FunctionHasParameter<FunctionType, ReturnType>)
+    ReturnType Find(FunctionType&& Function)
     {
-        for(int64 Index{0}; Index < Num(); ++Index)
+        for(ReturnType Index{0}; Index < Num<ReturnType>(); ++Index)
         {
-            if(ElementToFind == ElementPointer[Index])
+            if(Function(Index))
             {
                 return Index;
             }
         }
-        return INDEX_NONE;
+        return -1;
     }
 
-    ElementType* Find(ConstElementType ElementToFind) const requires(TypeTrait::AreLogicallyComparable<ElementType, ElementType>)
+    template<typename ReturnType = ElementType*, typename FunctionType> requires(TypeTrait::IsInteger<ReturnType> && TypeTrait::FunctionHasParameter<FunctionType, ElementType>)
+    ReturnType Find(FunctionType&& Function)
+    {
+        for(ReturnType Index{0}; Index < Num<ReturnType>(); ++Index)
+        {
+            if(Function(ElementPointer[Index]))
+            {
+                return Index;
+            }
+        }
+        return -1;
+    }
+
+    template<typename ReturnType = ElementType*, typename FunctionType> requires(TypeTrait::AreTypesEqual<ReturnType, ElementType*> && TypeTrait::FunctionHasParameter<FunctionType, ReturnType>)
+    ReturnType Find(FunctionType&& Function)
     {
         for(int64 Index{0}; Index < Num(); ++Index)
         {
-            if(ElementToFind == ElementPointer[Index])
+            if(Function(Index))
             {
                 return ElementPointer + Index;
             }
@@ -869,8 +1134,34 @@ public:
         return nullptr;
     }
 
-    template<typename FunctionType>
-    ElementType* FindByFunction(FunctionType&& Function)
+    template<typename ReturnType = ElementType*, typename FunctionType> requires(TypeTrait::AreTypesEqual<ReturnType, ElementType*> && TypeTrait::FunctionHasParameter<FunctionType, ElementType>)
+    ReturnType Find(FunctionType&& Function)
+    {
+        for(int64 Index{0}; Index < Num(); ++Index)
+        {
+            if(Function(ElementPointer[Index]))
+            {
+                return ElementPointer + Index;
+            }
+        }
+        return nullptr;
+    }
+
+    template<typename ReturnType = ElementType*, typename FunctionType> requires(TypeTrait::AreTypesEqual<ReturnType, ElementType*> && TypeTrait::FunctionHasParameter<FunctionType, ReturnType>)
+    const ReturnType Find(FunctionType&& Function) const
+    {
+        for(int64 Index{0}; Index < Num(); ++Index)
+        {
+            if(Function(Index))
+            {
+                return ElementPointer + Index;
+            }
+        }
+        return nullptr;
+    }
+
+    template<typename ReturnType = ElementType*, typename FunctionType> requires(TypeTrait::AreTypesEqual<ReturnType, ElementType*> && TypeTrait::FunctionHasParameter<FunctionType, ElementType>)
+    const ReturnType Find(FunctionType&& Function) const
     {
         for(int64 Index{0}; Index < Num(); ++Index)
         {
@@ -1071,48 +1362,36 @@ namespace ArrUtil
 
         return ResultArray;
     }
+
+    template<typename Type, int64 Num>
+    inline constexpr void RemoveDuplicates(TCountedStaticArray<Type, Num>& Array)
+    {
+        for(uint32 OuterIndex{0}; OuterIndex < Array.template Num<volatile uint32>(); ++OuterIndex)
+        {
+            for(uint32 InnerIndex{OuterIndex + 1}; InnerIndex < Array.template Num<volatile uint32>(); ++InnerIndex)
+            {
+                if(Array[OuterIndex] == Array[InnerIndex])
+                {
+                    Array.RemoveAtSwap(InnerIndex);
+                    --InnerIndex;
+                }
+            }
+        }
+    }
+
+    template<typename Type>
+    inline constexpr void RemoveDuplicates(TDynamicArray<Type>& Array)
+    {
+        for(uint32 OuterIndex{0}; OuterIndex < Array.template Num<volatile uint32>(); ++OuterIndex)
+        {
+            for(uint32 InnerIndex{OuterIndex + 1}; InnerIndex < Array.template Num<volatile uint32>(); ++InnerIndex)
+            {
+                if(Array[OuterIndex] == Array[InnerIndex])
+                {
+                    Array.RemoveAtSwap(InnerIndex);
+                    --InnerIndex;
+                }
+            }
+        }
+    }
 }
-#if DEBUG
-namespace fmt
-{
-    template<int64 Num>
-    struct formatter<TStaticArray<char8, Num>> : public formatter<const char8*>
-    {
-        template<typename FormatContext>
-        auto format(const TStaticArray<char8, Num>& p, FormatContext& ctx)
-        {
-            return formatter<const char8*>::format(p.GetData(), ctx);
-        }
-    };
-
-    template<int64 Num>
-    struct formatter<TStaticArray<const char8, Num>> : public formatter<const char8*>
-    {
-        template<typename FormatContext>
-        auto format(const TStaticArray<char8, Num>& p, FormatContext& ctx)
-        {
-            return formatter<const char8*>::format(p.GetData(), ctx);
-        }
-    };
-
-    template<>
-    struct formatter<TDynamicArray<char8>> : public formatter<const char8*>
-    {
-        template<typename FormatContext>
-        auto format(const TDynamicArray<char8>& p, FormatContext& ctx)
-        {
-            return formatter<const char8*>::format(p.GetData(), ctx);
-        }
-    };
-
-    template<>
-    struct formatter<TDynamicArray<const char8>> : public formatter<const char8*>
-    {
-        template<typename FormatContext>
-        auto format(const TDynamicArray<char8>& p, FormatContext& ctx)
-        {
-            return formatter<const char8*>::format(p.GetData(), ctx);
-        }
-    };
-}
-#endif //DEBUG

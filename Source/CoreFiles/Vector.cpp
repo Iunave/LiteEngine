@@ -2,6 +2,8 @@
 #include "Math.hpp"
 #include "String.hpp"
 
+#include <fmt/core.h>
+
 const constinit FVector FVector::Zero{0.0, 0.0, 0.0};
 const constinit FVector FVector::Up{0.0, 0.0, 1.0};
 const constinit FVector FVector::Down{0.0, 0.0, -1.0};

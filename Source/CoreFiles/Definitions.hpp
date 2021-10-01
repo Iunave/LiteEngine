@@ -88,6 +88,7 @@ static_assert(sizeof(float128) == 16);
 #define CRASH_TRAP __builtin_trap()
 
 #define STACK_ALLOCATE(size) __builtin_alloca(size)
+#define STACK_ALLOCATE_ELEMENT(element, num) static_cast<element*>(__builtin_alloca(num * sizeof(element)))
 
 #define CHOOSE_EXPR(cond, truecase, falsecase) __builtin_choose_expr(cond, truecase, falsecase)
 
@@ -102,7 +103,10 @@ static_assert(sizeof(float128) == 16);
 
 #define STRINGIFY_FIRST_ARG(first, ...) #first
 
-#define NUM_ARGS(...) __VA_OPT__(PP_NARG_(__VA_ARGS__,PP_RSEQ_N())) 0
+#define ARGS_CASE(...) 0
+#define MULTIPLE_ARGS_CASE(...) PP_NARG_(__VA_ARGS__,PP_RSEQ_N())
+
+#define NUM_ARGUMENTS(...) __VA_OPT__(MULTIPLE_)##ARGS_CASE(__VA_ARGS__)
 #define PP_NARG_(...) PP_ARG_N(__VA_ARGS__)
 #define PP_ARG_N( \
           _1, _2, _3, _4, _5, _6, _7, _8, _9,_10, \

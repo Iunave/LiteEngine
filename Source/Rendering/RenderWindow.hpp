@@ -3,44 +3,56 @@
 #include "Definitions.hpp"
 #include "String.hpp"
 
+#include <vulkan/vulkan.hpp>
+
 namespace vk
 {
     class Extent2D;
+    class Instance;
+    class SurfaceKHR;
 }
 
 struct GLFWwindow;
 
-class FRenderWindow final : private FNonCopyable
+namespace Render
 {
-public:
+    struct FWindowDimensions
+    {
+        int32 CoordinateWidth;
+        int32 CoordinateHeight;
+        int32 PixelWidth;
+        int32 PixelHeight;
+    };
 
-    FRenderWindow();
+    class FRenderWindow final
+    {
+    public:
 
-    void CreateWindow(int32 Width, int32 Height, FString<ss60> WindowName, const bool bFullScreen = false);
+        FRenderWindow();
+        ~FRenderWindow();
 
-    void CloseWindow();
+        void CreateWindow(int32 Width, int32 Height, FString<ss60> InWindowName, const bool bFullScreen = false);
+        void CloseWindow();
 
-    virtual ~FRenderWindow() override = default;
+        void CreateSurface(Vk::Instance VulkanInstance);
+        void DestroySurface(Vk::Instance VulkanInstance);
 
-    bool ShouldClose() const;
+        bool ShouldClose() const;
 
-    UINLINE int32 GetCoordinateWidth() const;
-    UINLINE int32 GetCoordinateHeight() const;
-    UINLINE int32 GetPixelWidth() const;
-    UINLINE int32 GetPixelHeight() const;
-    UINLINE Vk::Extent2D GetImageExtent() const;
-    UINLINE const FString<ss60>& GetWindowName() const;
-    UINLINE GLFWwindow* GetWindow() const;
+        FWindowDimensions GetWindowDimensions() const {return WindowDimensions;}
+        Vk::Extent2D GetImageExtent() const {return Vk::Extent2D{static_cast<uint32>(WindowDimensions.PixelHeight), static_cast<uint32>(WindowDimensions.PixelWidth)};}
+        const FString<ss60>& GetWindowName() const {return WindowName;}
+        GLFWwindow* GetWindowHandle() const {return WindowHandle;}
+        Vk::SurfaceKHR GetSurfaceHandle() const {return SurfaceHandle;}
 
-protected:
+    protected:
 
-    int32 CoordinateWidth;
-    int32 CoordinateHeight;
-    int32 PixelWidth;
-    int32 PixelHeight;
+        FWindowDimensions WindowDimensions;
 
-    FString<ss60> Name;
+        FString<ss60> WindowName;
 
-    GLFWwindow* Window;
+        GLFWwindow* WindowHandle;
 
-};
+        Vk::SurfaceKHR SurfaceHandle;
+    };
+}

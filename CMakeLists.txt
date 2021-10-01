@@ -1,17 +1,17 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(LiteEngine VERSION 1.0)
-add_compile_definitions(PROJECT_NAME="LiteEngine")
 
-set(CompilerPath=/home/user/Programs/llvm-project-llvmorg-12.0.0/build/bin/clang++)
+set(CompilerPath /home/user/Programs/llvm-project-llvmorg-12.0.0/build/bin/clang++)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_COMPILER ${CompilerPath})
 
 include_directories(Source/CoreFiles)
+include_directories(Source)
 
 set(CMAKE_UNITY_BUILD 0)
-add_compile_definitions(UNITY_BUILD=false)
+add_compile_definitions(UNITY_BUILD=${CMAKE_UNITY_BUILD})
 
 add_subdirectory(Source/Rendering/glfw-3.3.3)
 add_subdirectory(Source/Format)
@@ -63,9 +63,9 @@ set(ActorFilesSrc
 )
 
 set(InterfaceFilesSrc
-        Source/CoreFiles/Interface/Damageable.cpp
-        Source/CoreFiles/Interface/IniConfig.cpp
-        Source/CoreFiles/Interface/Tick.cpp
+    Source/CoreFiles/Interface/Damageable.cpp
+    Source/CoreFiles/Interface/IniConfig.cpp
+    Source/CoreFiles/Interface/Tick.cpp
 )
 
 set(RenderFilesSrc
@@ -74,50 +74,98 @@ set(RenderFilesSrc
 )
 
 set(GeneralCompilerFlags
-        -std=c++20
-        -O3
-        -mfma
-        -msse
-        -msse2
-        -msse3
-        -msse4.1
-        -msse4.2
-        -fvectorize
-        -mno-vzeroupper
-        -ffast-math
-        -funsafe-math-optimizations
-        -fno-rtti
-        -mlong-double-128
-        -Wall
-        -Wextra
-        -Wpedantic
-        -pedantic-errors
-        -Wno-gnu-zero-variadic-macro-arguments
+    -std=c++20
+    -O3
+    -mfma
+    -msse
+    -msse2
+    -msse3
+    -msse4.1
+    -msse4.2
+    -fvectorize
+    -mno-vzeroupper
+    -ffast-math
+    -funsafe-math-optimizations
+    -fno-rtti
+    -fno-exceptions
+    -mlong-double-128
+    -Wall
+    -Wextra
+    -Wpedantic
+    -pedantic-errors
+    -Wno-gnu-zero-variadic-macro-arguments
 )
 
-add_compile_definitions(DEBUG=true)
+set(CMAKE_PROJECT_NAME LiteEngine)
+set(CMAKE_ENGINE_NAME LiteEngine)
+set(CMAKE_ENGINE_VERSION 1)
 
-add_executable(LiteEngine Source/CoreFiles/ChooseExecutableMain.cpp)
-target_compile_options(LiteEngine PRIVATE ${GeneralCompilerFlags})
+set(LauncherExecutableName "${CMAKE_PROJECT_NAME}_launcher")
 
-add_executable(LiteEngine_avx2 ${CoreFilesSrc} ${ObjectFilesSrc} ${ThreadFilesSrc} ${ActorFilesSrc} ${InterfaceFilesSrc} ${RenderFilesSrc})
-target_compile_options(LiteEngine_avx2 PRIVATE ${GeneralCompilerFlags} -mavx -mavx2)
-add_dependencies(LiteEngine LiteEngine_avx2)
+#arguments for ${LauncherExecutableName} are: debug = run debug version, avx256 = run avx256 version, avx512 = run avx512 version, benchmark=N = run program N times
+add_executable(${LauncherExecutableName} Source/CoreFiles/ChooseExecutableMain.cpp)
 
-#target_link_libraries(LiteEngine_avx2 PRIVATE ubsan)
-target_link_libraries(LiteEngine_avx2 PRIVATE fmt)
-target_link_libraries(LiteEngine_avx2 PRIVATE glfw)
-target_link_libraries(LiteEngine_avx2 PRIVATE vulkan)
-target_link_libraries(LiteEngine_avx2 PRIVATE pthread)
+target_compile_options(${LauncherExecutableName} PRIVATE ${GeneralCompilerFlags})
 
-add_executable(LiteEngine_avx512 ${CoreFilesSrc} ${ObjectFilesSrc} ${ThreadFilesSrc} ${ActorFilesSrc} ${InterfaceFilesSrc} ${RenderFilesSrc})
-target_compile_options(LiteEngine_avx512 PRIVATE ${GeneralCompilerFlags} -mavx -mavx2 -mavx512f -mavx512dq -mavx512bw)
-add_dependencies(LiteEngine LiteEngine_avx512)
-
-target_link_libraries(LiteEngine_avx512 PRIVATE fmt)
-target_link_libraries(LiteEngine_avx512 PRIVATE glfw)
-target_link_libraries(LiteEngine_avx512 PRIVATE vulkan)
-target_link_libraries(LiteEngine_avx512 PRIVATE pthread)
+target_compile_definitions(${LauncherExecutableName} PRIVATE PROJECT_NAME="${CMAKE_PROJECT_NAME}")
+target_compile_definitions(${LauncherExecutableName} PRIVATE ENGINE_NAME="${CMAKE_ENGINE_NAME}")
+target_compile_definitions(${LauncherExecutableName} PRIVATE ENGINE_VERSION=${CMAKE_ENGINE_VERSION})
 
 add_custom_target(CompileShaders ALL COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/CompileShaders.sh WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-add_dependencies(LiteEngine CompileShaders)
+
+add_dependencies(${LauncherExecutableName} CompileShaders)
+
+set(ExecutableName)
+set(CompileOptions)
+
+macro(MakeExecutable bDebug avx_version)
+
+    if(${bDebug})
+        if("${avx_version}" STREQUAL "avx256")
+
+            set(ExecutableName "${CMAKE_PROJECT_NAME}_avx256_debug")
+            set(CompileOptions ${GeneralCompilerFlags} -mavx -mavx2)
+
+        elseif("${avx_version}" STREQUAL "avx512")
+
+            set(ExecutableName "${CMAKE_PROJECT_NAME}_avx512_debug")
+            set(CompileOptions ${GeneralCompilerFlags} -mavx -mavx2 -mavx512f -mavx512dq -mavx512bw)
+
+        endif()
+    else()
+        if("${avx_version}" STREQUAL "avx256")
+
+            set(ExecutableName "${CMAKE_PROJECT_NAME}_avx256")
+            set(CompileOptions ${GeneralCompilerFlags} -mavx -mavx2 -s)
+
+        elseif("${avx_version}" STREQUAL "avx512")
+
+            set(ExecutableName "${CMAKE_PROJECT_NAME}_avx512")
+            set(CompileOptions ${GeneralCompilerFlags} -mavx -mavx2 -mavx512f -mavx512dq -mavx512bw -s)
+
+        endif()
+    endif()
+
+    add_executable(${ExecutableName} ${CoreFilesSrc} ${ObjectFilesSrc} ${ThreadFilesSrc} ${ActorFilesSrc} ${InterfaceFilesSrc} ${RenderFilesSrc})
+
+    target_compile_options(${ExecutableName} PRIVATE ${CompileOptions})
+
+    target_compile_definitions(${ExecutableName} PRIVATE EXECUTABLE_NAME="${ExecutableName}")
+    target_compile_definitions(${ExecutableName} PRIVATE DEBUG=${bDebug})
+    target_compile_definitions(${ExecutableName} PRIVATE PROJECT_NAME="${CMAKE_PROJECT_NAME}")
+    target_compile_definitions(${ExecutableName} PRIVATE ENGINE_NAME="${CMAKE_ENGINE_NAME}")
+    target_compile_definitions(${ExecutableName} PRIVATE ENGINE_VERSION=${CMAKE_ENGINE_VERSION})
+
+    target_link_libraries(${ExecutableName} PRIVATE fmt)
+    target_link_libraries(${ExecutableName} PRIVATE glfw)
+    target_link_libraries(${ExecutableName} PRIVATE vulkan)
+    target_link_libraries(${ExecutableName} PRIVATE pthread)
+
+    add_dependencies(${LauncherExecutableName} ${ExecutableName})
+
+endmacro(MakeExecutable)
+
+MakeExecutable(false avx256)
+MakeExecutable(false avx512)
+MakeExecutable(true avx256)
+MakeExecutable(true avx512)

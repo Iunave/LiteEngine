@@ -3,6 +3,8 @@
 #include "Math.hpp"
 #include "String.hpp"
 
+#include <fmt/core.h>
+
 const constinit FQuaternion FQuaternion::Identity{0, 0, 0, 1};
 const constinit FQuaternion FQuaternion::Up{0, 0, 1, 0};
 const constinit FQuaternion FQuaternion::Down{0, 0, -1, 0};

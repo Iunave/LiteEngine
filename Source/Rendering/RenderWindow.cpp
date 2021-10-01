@@ -1,25 +1,33 @@
 #include "RenderWindow.hpp"
-#include "VulkanCommon.hpp"
 #include "Log.hpp"
+
+#include <vulkan/vulkan.hpp>
 
 #define GLFW_INCLUDE_NONE
 #include "GLFW/glfw3.h"
 
+using namespace Render;
+
 FRenderWindow::FRenderWindow()
-    : CoordinateWidth{0}
-    , CoordinateHeight{0}
-    , PixelWidth{0}
-    , PixelHeight{0}
-    , Name{"unnamed"}
-    , Window{nullptr}
+    : WindowDimensions{0, 0, 0, 0}
+    , WindowName{"unnamed"}
+    , WindowHandle{NULL_HANDLE}
+    , SurfaceHandle{NULL_HANDLE}
 {
+}
+
+
+FRenderWindow::~FRenderWindow()
+{
+    ASSERT(WindowHandle == nullptr, "window was not destroyed");
+    ASSERT(!SurfaceHandle, "surface was not destroyed");
 }
 
 void FRenderWindow::CreateWindow(int32 Width, int32 Height, FString<ss60> WindowName, const bool bFullScreen)
 {
-    CoordinateWidth = Width;
-    CoordinateHeight = Height;
-    Name = Move(WindowName);
+    WindowDimensions.CoordinateWidth = Width;
+    WindowDimensions.CoordinateHeight = Height;
+    WindowName = Move(WindowName);
 
     if(glfwInit())
     {
@@ -36,66 +44,58 @@ void FRenderWindow::CreateWindow(int32 Width, int32 Height, FString<ss60> Window
             ASSERT(Monitor);
         }
 
-        Window = glfwCreateWindow(CoordinateWidth, CoordinateHeight, Name.RawString(), Monitor, nullptr);
+        WindowHandle = glfwCreateWindow(WindowDimensions.CoordinateWidth, WindowDimensions.CoordinateHeight, WindowName.RawString(), Monitor, nullptr);
 
         if(bFullScreen)
         {
-            glfwGetWindowSize(Window, &CoordinateWidth, &CoordinateHeight);
+            glfwGetWindowSize(WindowHandle, &WindowDimensions.CoordinateWidth, &WindowDimensions.CoordinateHeight);
         }
 
-        glfwGetFramebufferSize(Window, &PixelWidth, &PixelHeight);
+        glfwGetFramebufferSize(WindowHandle, &WindowDimensions.PixelWidth, &WindowDimensions.PixelHeight);
     }
 
-    ASSERT(Window);
-    LOG(LogGLFW, "created window with width: {} height: {} fullscreen: {}", CoordinateWidth, CoordinateHeight, Math::ChooseVar<const char8*>(bFullScreen, "true", "false"));
+    ASSERT(WindowHandle);
+    LOG(LogGLFW, "created window with width: {} height: {} fullscreen: {}", WindowDimensions.CoordinateWidth, WindowDimensions.CoordinateHeight, Math::ChooseVar<const char8*>(bFullScreen, "true", "false"));
 }
 
 void FRenderWindow::CloseWindow()
 {
-    if(Window)
+    if(WindowHandle)
     {
-        glfwDestroyWindow(Window);
+        glfwDestroyWindow(WindowHandle);
+        WindowHandle = nullptr;
     }
 
     glfwTerminate();
 }
 
+void FRenderWindow::CreateSurface(Vk::Instance VulkanInstance)
+{
+    VkSurfaceKHR SurfaceHandleResult{NULL_HANDLE};
+
+    Vk::Result Result{static_cast<Vk::Result>(glfwCreateWindowSurface(VulkanInstance, WindowHandle, nullptr, &SurfaceHandleResult))};
+    ASSERT(Result == Vk::Result::eSuccess, "could not create surface [{}]", Vk::to_string(Result));
+
+    LOG(LogVulkan, "created surface");
+
+    SurfaceHandle = SurfaceHandleResult;
+}
+
+void FRenderWindow::DestroySurface(Vk::Instance VulkanInstance)
+{
+    if(!SurfaceHandle)
+    {
+        LOGW(LogVulkan, "failed to destroy surface [its already invalid]");
+        return;
+    }
+
+    VulkanInstance.destroySurfaceKHR(SurfaceHandle);
+    SurfaceHandle = NULL_HANDLE;
+
+    LOG(LogVulkan, "destroyed surface");
+}
+
 bool FRenderWindow::ShouldClose() const
 {
-    return glfwWindowShouldClose(Window);
-}
-
-int32 FRenderWindow::GetCoordinateWidth() const
-{
-    return CoordinateWidth;
-}
-
-int32 FRenderWindow::GetCoordinateHeight() const
-{
-    return CoordinateHeight;
-}
-
-int32 FRenderWindow::GetPixelWidth() const
-{
-    return PixelWidth;
-}
-
-int32 FRenderWindow::GetPixelHeight() const
-{
-    return PixelHeight;
-}
-
-Vk::Extent2D FRenderWindow::GetImageExtent() const
-{
-    return Vk::Extent2D{static_cast<uint32>(PixelHeight), static_cast<uint32>(PixelWidth)};
-}
-
-const FString<ss60>& FRenderWindow::GetWindowName() const
-{
-    return Name;
-}
-
-GLFWwindow* FRenderWindow::GetWindow() const
-{
-    return Window;
+    return glfwWindowShouldClose(WindowHandle);
 }

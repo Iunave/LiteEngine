@@ -2,6 +2,8 @@
 #include "Math.hpp"
 #include "String.hpp"
 
+#include <fmt/core.h>
+
 const constinit FColor FColor::Red{1.0, 0.0, 0.0};
 const constinit FColor FColor::Yellow{1.0, 1.0, 0.0};
 const constinit FColor FColor::Green{0.0, 1.0, 0.0};
@@ -47,10 +49,7 @@ bool FColor::operator==(FColor Other) const
 
 FColor::operator RGBA8I() const
 {
-    float64_4 ColorClamped{Color};
-    Simd::Clamp(ColorClamped, 0.0_float64_4, 1.0_float64_4);
-
-    const float64_4 Multiplied{ColorClamped * MaxColorValue8};
+    const float64_4 Multiplied{Color * MaxColorValue8};
     const uint8_4 ConvertedVector{Simd::ConvertVector<uint8_4>(Multiplied)};
 
     RGBA8I Result;
@@ -60,10 +59,7 @@ FColor::operator RGBA8I() const
 
 FColor::operator RGBA16I() const
 {
-    float64_4 ColorClamped{Color};
-    Simd::Clamp(ColorClamped, 0.0_float64_4, 1.0_float64_4);
-
-    const float64_4 Multiplied{ColorClamped * MaxColorValue16};
+    const float64_4 Multiplied{Color * MaxColorValue16};
     const uint16_4 ConvertedVector{Simd::ConvertVector<uint16_4>(Multiplied)};
 
     RGBA16I Result;

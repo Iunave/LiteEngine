@@ -38,7 +38,6 @@
 #define TEMPLATE_ARG(f, n) f n
 #define TEMPLATE_NAME(f, n) n
 
-
 #define DECLARE_CLASS(Class, ...)\
 class Class
 
@@ -72,7 +71,7 @@ namespace Rtti\
     template<> \
     struct TObjectInfo<Class>\
     {\
-        inline static constexpr FStaticString GetObjectName()\
+        inline static constexpr FString<ss60> GetObjectName()\
         {\
             return #Class;\
         }\
@@ -91,7 +90,7 @@ namespace Rtti\
     template<FOR_EACH2(TEMPLATE_ARG, __VA_ARGS__)> \
     struct TObjectInfo<Class<FOR_EACH2(TEMPLATE_NAME, __VA_ARGS__)>>\
     {\
-        inline static constexpr FStaticString GetObjectName()\
+        inline static constexpr FString<ss60> GetObjectName()\
         {\
             return #Class;\
         }\
@@ -126,43 +125,45 @@ DECLARE_CLASS##__VA_OPT__(_TEMPLATE)(Class, __VA_ARGS__)
  */
 #define OBJECT_BASES(...)\
 public:\
+\
     static constexpr TypeTrait::AddPointersToTupleArgs<__VA_ARGS__> GetDirectBaseClasses()\
     {\
         return {};\
     }\
 \
+    static constexpr uint64 NumDirectBaseClasses()\
+    {\
+        return NUM_ARGUMENTS(__VA_ARGS__);\
+    }\
+\
     static constexpr uint64 NumTotalBaseClasses()\
     {\
-        auto NumDirectBaseClasses = []<typename... Ts>()\
-        {\
-            return sizeof...(Ts);\
-        };\
-\
         auto FoldNumTotalBaseClasses = []<typename... Ts>()\
         {\
             return (0 + ... + Ts::NumTotalBaseClasses());\
         };\
 \
-        return NumDirectBaseClasses.template operator()<__VA_ARGS__>() + FoldNumTotalBaseClasses.template operator()<__VA_ARGS__>();\
+        return NumDirectBaseClasses() + FoldNumTotalBaseClasses.template operator()<__VA_ARGS__>();\
     }\
 \
-    virtual uint32 GetObjectId() const __VA_OPT__(override)\
+    virtual uint32 GetObjectID() const __VA_OPT__(override)\
     {\
         using ThisType = TypeTrait::RemoveCV<TypeTrait::RemovePointer<decltype(this)>>;\
         return Rtti::TObjectInfo<ThisType>::GetObjectTypeID();\
     }\
 \
-    virtual int64 OffsetThisFromId(const uint32 TargetId) const __VA_OPT__(override)\
+    virtual int64 OffsetThisFromID(const uint32 TargetId) const __VA_OPT__(override)\
     {\
         using ThisType = TypeTrait::RemoveCV<TypeTrait::RemovePointer<decltype(this)>>;\
         return Rtti::OffsetFromID<ThisType>(reinterpret_cast<int64>(this), TargetId);\
     }\
 \
-    virtual FStaticString GetClassName() const __VA_OPT__(override)\
+    virtual FString<ss60> GetClassName() const __VA_OPT__(override)\
     {\
         using ThisType = TypeTrait::RemoveCV<TypeTrait::RemovePointer<decltype(this)>>;\
         return Rtti::TObjectInfo<ThisType>::GetObjectName();\
     }\
+\
 private:
 
 namespace Rtti
@@ -187,16 +188,6 @@ namespace Rtti
     template<typename Class>
     struct TObjectInfo
     {
-        inline static constexpr FStaticString GetObjectName()
-        {
-            return "default_implementation";
-        }
-
-        inline static uint32 GetObjectTypeID()
-        {
-            static const uint32 TypeId{GenerateTypeID()};
-            return TypeId;
-        }
     };
 
     template<typename Derived, uint64 Index>
@@ -254,7 +245,7 @@ namespace Rtti
         constexpr uint64 NumRegisterElements{Simd::NumElements<VectorIDType>()};
         constexpr uint64 NumComparisons{CalculateNumComparisons<IDArrayType<Class>::Num(), 1>()};
         constexpr uint64 NumElementIterations{NumRegisterElements * NumComparisons};
-        constexpr auto ValidMask{Simd::Mask<VectorIDType>() >> (NumElementIterations - IDArrayType<Class>::Num())}; //mask out the garbage results with this
+        constexpr Simd::MaskType<VectorIDType> ValidMask{Simd::Mask<VectorIDType>() >> (NumElementIterations - IDArrayType<Class>::Num())}; //mask out the garbage results with this
 
         int64 ResultPtr{0};
 
@@ -264,11 +255,8 @@ namespace Rtti
             VectorIDType StoredIDs{Simd::LoadUnaligned<VectorIDType>(IDArray + Index)};
             StoredIDs &= 0x0000FFFF; //mask out the offset part
 
-#if defined(AVX512)
-            uint16 ComparisonMask{Simd::MoveMask(TargetID == StoredIDs)};
-#elif defined(AVX256)
-            int32 ComparisonMask{Simd::MoveMask(TargetID == StoredIDs)};
-#endif
+            Simd::MaskType<VectorIDType> ComparisonMask{Simd::MoveMask(TargetID == StoredIDs)};
+
             if(Index == (NumElementIterations - NumRegisterElements)) //this should be optimized out
             {
                 ComparisonMask &= ValidMask;
@@ -302,7 +290,7 @@ inline TargetType ObjectCast(BaseType* BasePointer)
         else
         {
             const uint32 TargetId{Rtti::TObjectInfo<TargetTypeClass>::GetObjectTypeID()};
-            return reinterpret_cast<TargetType>(BasePointer->OffsetThisFromId(TargetId));
+            return reinterpret_cast<TargetType>(BasePointer->OffsetThisFromID(TargetId));
         }
     }
 
@@ -318,7 +306,7 @@ inline TargetType ObjectCastExact(BaseType* BasePointer)
     {
         const uint32 TargetId{Rtti::TObjectInfo<TargetTypeClass>::GetObjectTypeID()};
 
-        if(BasePointer->GetObjectId() == TargetId)
+        if(BasePointer->GetObjectID() == TargetId)
         {
             return static_cast<TargetType>(BasePointer);
         }
@@ -338,7 +326,7 @@ inline TargetType NONNULL ObjectCastChecked(BaseType* BasePointer NONNULL)
     {
 #if DEBUG
         const uint32 TargetId{Rtti::TObjectInfo<TargetTypeClass>::GetObjectTypeID()};
-        ASSERT(BasePointer->OffsetThisFromId(TargetId));
+        ASSERT(BasePointer->OffsetThisFromID(TargetId) != nullptr);
 
         return static_cast<TargetType>(BasePointer);
 #else
@@ -348,7 +336,7 @@ inline TargetType NONNULL ObjectCastChecked(BaseType* BasePointer NONNULL)
     else
     {
         const uint32 TargetId{Rtti::TObjectInfo<TargetTypeClass>::GetObjectTypeID()};
-        return reinterpret_cast<TargetType>(BasePointer->OffsetThisFromId(TargetId));
+        return reinterpret_cast<TargetType>(BasePointer->OffsetThisFromID(TargetId));
     }
 }
 
@@ -361,7 +349,7 @@ namespace PtrPri
         {
             using TargetPointerClass = PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode>;
 
-            TargetType CastPointer{::ObjectCast<TargetType>(BasePointer.Ptr())};
+            TargetType CastPointer{::ObjectCast<TargetType>(BasePointer.Pointer)};
 
             if(CastPointer != nullptr)
             {
@@ -395,7 +383,7 @@ namespace PtrPri
         {
             using TargetPointerClass = PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode>;
 
-            TargetType CastPointer{::ObjectCastChecked<TargetType>(BasePointer.Ptr())};
+            TargetType CastPointer{::ObjectCastChecked<TargetType>(BasePointer.Pointer)};
 
             BasePointer.AddReference();
 
@@ -428,7 +416,7 @@ OBJECT_CLASS(OObject)
 };
 
 template<typename ObjectClass> requires(TypeTrait::IsObjectClass<ObjectClass>)
-inline FStaticString GetClassNameSafe(const ObjectClass* const Object)
+inline FString<ss60> GetClassNameSafe(const ObjectClass* const Object)
 {
     if(Object)
     {
