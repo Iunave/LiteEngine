@@ -104,7 +104,7 @@ initialized.  Set this with @ref glfwInitHint.
 
 @subsubsection init_hints_values Supported and default values
 
-Initialization hint             | Default value | Supported values
+Initialization hint             | OVulkanManager value | Supported values
 ------------------------------- | ------------- | ----------------
 @ref GLFW_JOYSTICK_HAT_BUTTONS  | `GLFW_TRUE`   | `GLFW_TRUE` or `GLFW_FALSE`
 @ref GLFW_COCOA_CHDIR_RESOURCES | `GLFW_TRUE`   | `GLFW_TRUE` or `GLFW_FALSE`

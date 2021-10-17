@@ -46,74 +46,77 @@ template<FOR_EACH2(TEMPLATE_ARG, __VA_ARGS__)> \
 class Class
 
 #define SPECIALIZE_TYPE_TRAIT(Class, ...)\
-namespace TypeTrait\
+template<> \
+struct ::TypeTrait::TIsObjectClass<Class>\
 {\
-    template<> \
-    struct TIsObjectClass<Class>\
-    {\
-        static constexpr bool Value{true};\
-    };\
-}
+    static constexpr bool Value{true};\
+};
 
 #define SPECIALIZE_TYPE_TRAIT_TEMPLATE(Class, ...)\
-namespace TypeTrait\
+template<FOR_EACH2(TEMPLATE_ARG, __VA_ARGS__)> \
+struct ::TypeTrait::TIsObjectClass<Class<FOR_EACH2(TEMPLATE_NAME, __VA_ARGS__)>>\
 {\
-    template<FOR_EACH2(TEMPLATE_ARG, __VA_ARGS__)> \
-    struct TIsObjectClass<Class<FOR_EACH2(TEMPLATE_NAME, __VA_ARGS__)>>\
-    {\
-        static constexpr bool Value{true};\
-    };\
-}
+    static constexpr bool Value{true};\
+};
 
 #define SPECIALIZE_INFO(Class, ...)\
-namespace Rtti\
+template<> \
+struct ::Rtti::TObjectInfo<Class>\
 {\
-    template<> \
-    struct TObjectInfo<Class>\
+    inline static constexpr FString<SS60> GetObjectName()\
     {\
-        inline static constexpr FString<ss60> GetObjectName()\
-        {\
-            return #Class;\
-        }\
+        return #Class;\
+    }\
 \
-        inline static uint32 GetObjectTypeID()\
-        {\
-            static const uint32 TypeId{GenerateTypeID()};\
-            return TypeId;\
-        }\
-    };\
-}
+    inline static uint32 GetObjectTypeID()\
+    {\
+        static const uint32 TypeId{GenerateTypeID()};\
+        return TypeId;\
+    }\
+};
 
 #define SPECIALIZE_INFO_TEMPLATE(Class, ...)\
-namespace Rtti\
+template<FOR_EACH2(TEMPLATE_ARG, __VA_ARGS__)> \
+struct ::Rtti::TObjectInfo<Class<FOR_EACH2(TEMPLATE_NAME, __VA_ARGS__)>>\
 {\
-    template<FOR_EACH2(TEMPLATE_ARG, __VA_ARGS__)> \
-    struct TObjectInfo<Class<FOR_EACH2(TEMPLATE_NAME, __VA_ARGS__)>>\
+    inline static constexpr FString<SS60> GetObjectName()\
     {\
-        inline static constexpr FString<ss60> GetObjectName()\
-        {\
-            return #Class;\
-        }\
+        return #Class;\
+    }\
 \
-        inline static uint32 GetObjectTypeID()\
-        {\
-            static const uint32 TypeId{GenerateTypeID()};\
-            return TypeId;\
-        }\
-    };\
-}
+    inline static uint32 GetObjectTypeID()\
+    {\
+        static const uint32 TypeId{GenerateTypeID()};\
+        return TypeId;\
+    }\
+};
 
 /*
  * used to register a class in the type system
  * example usage:
  * OBJECT_CLASS(OMyClass) : public OObject ...
- * OBJECT_CLASS(OMyClass, int, NTTP, typename T) : public OObject ...
+ * OBJECT_CLASS(OMyClass, int, NTTP, typename, Type) : public OObject ...
  */
 #define OBJECT_CLASS(Class, ...)\
-DECLARE_CLASS##__VA_OPT__(_TEMPLATE)(Class, __VA_ARGS__);\
-SPECIALIZE_TYPE_TRAIT##__VA_OPT__(_TEMPLATE)(Class, __VA_ARGS__)\
-SPECIALIZE_INFO##__VA_OPT__(_TEMPLATE)(Class, __VA_ARGS__)\
-DECLARE_CLASS##__VA_OPT__(_TEMPLATE)(Class, __VA_ARGS__)
+DECLARE_CLASS##__VA_OPT__(_TEMPLATE)(Class __VA_OPT__(,) __VA_ARGS__);\
+SPECIALIZE_TYPE_TRAIT##__VA_OPT__(_TEMPLATE)(Class __VA_OPT__(,) __VA_ARGS__)\
+SPECIALIZE_INFO##__VA_OPT__(_TEMPLATE)(Class __VA_OPT__(,) __VA_ARGS__)
+
+/*
+ * used to register a class in the type system
+ * example usage:
+ * OBJECT_CLASS(MyNamespace, OMyClass) : public OObject ...
+ * OBJECT_CLASS(OMyClass, int, NTTP, typename, Type) : public OObject ...
+ */
+#define OBJECT_CLASS_NAMESPACED(Namespace, Class, ...)\
+namespace Namespace\
+{\
+DECLARE_CLASS##__VA_OPT__(_TEMPLATE)(Class __VA_OPT__(,) __VA_ARGS__);\
+}\
+\
+SPECIALIZE_TYPE_TRAIT##__VA_OPT__(_TEMPLATE)(Namespace::Class __VA_OPT__(,) __VA_ARGS__)\
+SPECIALIZE_INFO##__VA_OPT__(_TEMPLATE)(Namespace::Class __VA_OPT__(,) __VA_ARGS__)
+
 
 /*
  * The arguments for the OBJECT_BASES(...) macro is all the direct base classes (if they are objects themselves)
@@ -158,7 +161,7 @@ public:\
         return Rtti::OffsetFromID<ThisType>(reinterpret_cast<int64>(this), TargetId);\
     }\
 \
-    virtual FString<ss60> GetClassName() const __VA_OPT__(override)\
+    virtual FString<SS60> GetClassName() const __VA_OPT__(override)\
     {\
         using ThisType = TypeTrait::RemoveCV<TypeTrait::RemovePointer<decltype(this)>>;\
         return Rtti::TObjectInfo<ThisType>::GetObjectName();\
@@ -411,12 +414,13 @@ INLINE PointerClass<TypeTrait::RemovePointer<TargetType>, ThreadMode> ObjectCast
 }
 
 OBJECT_CLASS(OObject)
+class OObject
 {
     OBJECT_BASES()
 };
 
 template<typename ObjectClass> requires(TypeTrait::IsObjectClass<ObjectClass>)
-inline FString<ss60> GetClassNameSafe(const ObjectClass* const Object)
+inline FString<SS60> GetClassNameSafe(const ObjectClass* const Object)
 {
     if(Object)
     {

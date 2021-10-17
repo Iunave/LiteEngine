@@ -1,53 +1,62 @@
 #pragma once
 
 #include "CoreFiles/Definitions.hpp"
-
+#include "CoreFiles/Array.hpp"
 #include <vulkan/vulkan.hpp>
+/*
+struct GLFWwindow;
+struct FWindowDimensions;
+struct FSwapChainSupportDetails;
+struct FQueueFamilyIndices;
 
-namespace Render
+struct FSwapChainData
 {
-    struct FSwapChainData
-    {
-        Vk::Extent2D ImageExtent;
-        Vk::SurfaceFormatKHR SurfaceFormat;
-        Vk::PresentModeKHR PresentMode;
-    };
+    Vk::Extent2D ImageExtent;
+    Vk::SurfaceFormatKHR SurfaceFormat;
+    Vk::PresentModeKHR PresentMode;
+};
 
-    class FSwapChainManager final
-    {
-    public:
-
-        TDynamicArray<Vk::Image> FindSwapChainImages(Vk::Device LogicalDevice, Vk::SwapchainKHR SwapChain);
-        TDynamicArray<Vk::ImageView> CreateImageViews(Vk::Device LogicalDevice, const TDynamicArray<Vk::Image>& SourceImages);
-
-        void DestroyImageViews(Vk::Device LogicalDevice, TDynamicArray<Vk::ImageView>& ImageViews);
-        void DestroyImages(Vk::Device LogicalDevice, TDynamicArray<Vk::Image>& Images);
-
-        Vk::Extent2D ChooseImageExtent(const Vk::SurfaceCapabilitiesKHR SurfaceCapabilities);
-        Vk::SurfaceFormatKHR ChooseSurfaceFormat(const TDynamicArray<Vk::SurfaceFormatKHR>& SurfaceFormats);
-        Vk::PresentModeKHR ChoosePresentationMode(const TDynamicArray<Vk::PresentModeKHR>& PresentModes);
-
-        Vk::SwapchainKHR CreateSwapChain(Vk::Device LogicalDevice, Vk::SurfaceKHR Surface, Vk::SwapchainKHR OldSwapChain = NULL_HANDLE);
-        void DestroySwapChain(Vk::SwapchainKHR SwapChain, Vk::Device LogicalDevice);
-
-        Vk::SurfaceKHR CreateSurface(Vk::Instance VulkanInstance, GLFWwindow* RenderWindow);
-        void DestroySurface(Vk::Instance VulkanInstance, Vk::SurfaceKHR Surface);
-
-    private:
-
-        Vk::SwapchainKHR SwapChainHandle;
-
-        FSwapChainData SwapChainData;
-    };
-}
-
-class FRenderSwapChain final : private FNonCopyable
+class FRenderSwapChainManager final
 {
 public:
 
-    FRenderSwapChain(TSharedPtr<FRenderSwapChain> InOldSwapChain);
+    FRenderSwapChainManager();
+    ~FRenderSwapChainManager();
 
-    virtual ~FRenderSwapChain() override;
+    void PopulateImages(Vk::Device LogicalDevice);
+    void DestroyImages(Vk::Device LogicalDevice);
+
+    void CreateImageViews(Vk::Device LogicalDevice);
+    void DestroyImageViews(Vk::Device LogicalDevice);
+
+    static Vk::Extent2D ChooseImageExtent(const Vk::SurfaceCapabilitiesKHR& SurfaceCapabilities, FWindowDimensions Dimensions);
+    static Vk::SurfaceFormatKHR ChooseSurfaceFormat(const TDynamicArray<Vk::SurfaceFormatKHR>& SurfaceFormats);
+    static Vk::PresentModeKHR ChoosePresentationMode(const TDynamicArray<Vk::PresentModeKHR>& PresentModes);
+
+    void PopulateSwapChainData(const FSwapChainSupportDetails& SwapChainSupportDetails, FWindowDimensions WindowDimensions);
+
+    void CreateSwapChain(Vk::Device LogicalDevice, Vk::SurfaceKHR Surface, const FSwapChainSupportDetails& SwapChainSupportDetails, const FQueueFamilyIndices& QueueIndices, Vk::SwapchainKHR OldSwapChain = NULL_HANDLE);
+    void DestroySwapChain(Vk::Device LogicalDevice);
+
+    FSwapChainData GetSwapChainData() const {return SwapChainData;}
+
+private:
+
+    Vk::SwapchainKHR SwapChainHandle;
+    FSwapChainData SwapChainData;
+
+    TDynamicArray<Vk::Image> Images;
+    TDynamicArray<Vk::ImageView> ImageViews;
+};
+
+
+class FRenderSwapChainManager final : private FNonCopyable
+{
+public:
+
+    FRenderSwapChainManager(TSharedPtr<FRenderSwapChainManager> InOldSwapChain);
+
+    virtual ~FRenderSwapChainManager() override;
 
     void Initialize();
 
@@ -103,3 +112,4 @@ protected:
 
     TDynamicArray<Vk::CommandBuffer> CommandBuffers;
 };
+*/

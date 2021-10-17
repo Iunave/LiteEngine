@@ -16,7 +16,7 @@ struct TLogCategory
     }
 
     const fmt::color MessageColor;
-    const FString<ss60> PreMessageString;
+    const FString<SS60> PreMessageString;
 };
 
 F2DCoordinate<int32> GetTerminalCursorPosition(); //todo does not even work

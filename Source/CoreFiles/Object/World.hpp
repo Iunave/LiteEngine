@@ -6,7 +6,8 @@
 #include "SmartPointer.hpp"
 #include "Level.hpp"
 
-OBJECT_CLASS(OWorld) final : public OObject
+OBJECT_CLASS(OWorld)
+class OWorld final : public OObject
 {
     OBJECT_BASES(OObject)
 public:

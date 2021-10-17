@@ -70,6 +70,12 @@ set(InterfaceFilesSrc
 
 set(RenderFilesSrc
     Source/Rendering/VulkanRenderer.cpp
+    Source/Rendering/RenderSettings.cpp
+    Source/Rendering/RenderDebug.cpp
+    Source/Rendering/RenderDevice.cpp
+    Source/Rendering/RenderInstance.cpp
+    Source/Rendering/RenderPipeline.cpp
+    Source/Rendering/RenderSwapChain.cpp
     Source/Rendering/RenderWindow.cpp
 )
 
@@ -87,12 +93,13 @@ set(GeneralCompilerFlags
     -ffast-math
     -funsafe-math-optimizations
     -fno-rtti
-    -fno-exceptions
+    #-fno-exceptions
     -mlong-double-128
     -Wall
     -Wextra
     -Wpedantic
     -pedantic-errors
+    -Ofast
     -Wno-gnu-zero-variadic-macro-arguments
 )
 

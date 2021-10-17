@@ -2,8 +2,9 @@
 #include "Math.hpp"
 #include "Simd.hpp"
 #include <unistd.h>
+#include <charconv>
 
-namespace StrUtil
+namespace StrUtl
 {
     const char8* GetDirectoryName()
     {
@@ -284,20 +285,115 @@ namespace StrUtil
         return String;
     }
 
+    template<typename TargetType> requires(TypeTrait::IsInteger<TargetType>)
+    TargetType ToValue(const char8* Begin, const char8* End)
+    {
+        TargetType ResultValue{0};
+        TargetType PositionValue{1};
+
+        while(End >= Begin)
+        {
+            const char8 Character{*End};
+
+            if constexpr(TypeTrait::IsSigned<TargetType>)
+            {
+                if EXPECT(End == Begin, false)
+                {
+                    if(Character == '-')
+                    {
+                        ResultValue = -ResultValue;
+                        break;
+                    }
+                    else if(Character == '+')
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if EXPECT(!(Character >= '0' && Character <= '9'), false)
+            {
+                throw FRuntimeError{"error converting string to value, invalid character [{}]", Character};
+            }
+
+            TargetType CharacterValue{static_cast<TargetType>(Character - '0')};
+            CharacterValue *= PositionValue;
+
+            ResultValue += CharacterValue;
+
+            PositionValue *= 10;
+            --End;
+        }
+
+        return ResultValue;
+    }
+
+    template<typename TargetType> requires(TypeTrait::IsFloatingPoint<TargetType>)
+    TargetType ToValue(const char8* Begin, const char8* End) //todo
+    {
+        TargetType ResultValue{0};
+        TargetType PositionValue{1};
+
+        while(End >= Begin)
+        {
+            const char8 Character{*End};
+
+            if EXPECT(End == Begin, false)
+            {
+                if(Character == '-')
+                {
+                    ResultValue = -ResultValue;
+                    break;
+                }
+                else if(Character == '+')
+                {
+                    break;
+                }
+            }
+
+            if EXPECT(!(Character >= '0' && Character <= '9'), false)
+            {
+                throw FRuntimeError{"error converting string to value, invalid character [{}]", Character};
+            }
+
+            TargetType CharacterValue{static_cast<TargetType>(Character - '0')};
+            CharacterValue *= PositionValue;
+
+            ResultValue += CharacterValue;
+
+            PositionValue *= 10;
+            --End;
+        }
+
+        return ResultValue;
+    }
+
 }
 
-template TStaticArray<char8, 3> StrUtil::IntToHex(uint8);
-template TStaticArray<char8, 3> StrUtil::IntToHex(int8);
-template TStaticArray<char8, 5> StrUtil::IntToHex(uint16);
-template TStaticArray<char8, 5> StrUtil::IntToHex(int16);
-template TStaticArray<char8, 9> StrUtil::IntToHex(uint32);
-template TStaticArray<char8, 9> StrUtil::IntToHex(int32);
-template TStaticArray<char8, 17> StrUtil::IntToHex(unsigned long);
-template TStaticArray<char8, 17> StrUtil::IntToHex(signed long);
-template TStaticArray<char8, 17> StrUtil::IntToHex(uint64);
-template TStaticArray<char8, 17> StrUtil::IntToHex(int64);
-template TStaticArray<char8, 33> StrUtil::IntToHex(uint128);
-template TStaticArray<char8, 33> StrUtil::IntToHex(int128);
+template char8 StrUtl::ToValue(const char8*, const char8*);
+template int8 StrUtl::ToValue(const char8*, const char8*);
+template uint8 StrUtl::ToValue(const char8*, const char8*);
+template int16 StrUtl::ToValue(const char8*, const char8*);
+template uint16 StrUtl::ToValue(const char8*, const char8*);
+template int32 StrUtl::ToValue(const char8*, const char8*);
+template uint32 StrUtl::ToValue(const char8*, const char8*);
+template int64 StrUtl::ToValue(const char8*, const char8*);
+template uint64 StrUtl::ToValue(const char8*, const char8*);
+template float32 StrUtl::ToValue(const char8*, const char8*);
+template float64 StrUtl::ToValue(const char8*, const char8*);
+
+template TStaticArray<char8, 3> StrUtl::IntToHex(uint8);
+template TStaticArray<char8, 3> StrUtl::IntToHex(int8);
+template TStaticArray<char8, 5> StrUtl::IntToHex(uint16);
+template TStaticArray<char8, 5> StrUtl::IntToHex(int16);
+template TStaticArray<char8, 9> StrUtl::IntToHex(uint32);
+template TStaticArray<char8, 9> StrUtl::IntToHex(int32);
+template TStaticArray<char8, 17> StrUtl::IntToHex(unsigned long);
+template TStaticArray<char8, 17> StrUtl::IntToHex(signed long);
+template TStaticArray<char8, 17> StrUtl::IntToHex(uint64);
+template TStaticArray<char8, 17> StrUtl::IntToHex(int64);
+template TStaticArray<char8, 33> StrUtl::IntToHex(uint128);
+template TStaticArray<char8, 33> StrUtl::IntToHex(int128);
 
 template<uint64 VectorSize, EStackSize StackSize, uint64 OriginalVectorSize = VectorSize, uint64 Iterations = 1>
 consteval uint64 CalculateNumIterations()
@@ -355,7 +451,7 @@ template<EStackSize InStackSize>
 FString<InStackSize>::FString(const FString& Other)
     : TerminatorIndex{Other.TerminatorIndex}
 {
-    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == ss0)
+    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == SS0)
     {
         CharacterArray.Heap = Memory::Allocate<char8>(Num());
         Memory::Copy(CharacterArray.Heap, Other.CharacterArray.Heap, Num());
@@ -370,7 +466,7 @@ template<EStackSize InStackSize>
 FString<InStackSize>::FString(FString&& Other)
     : TerminatorIndex{Other.TerminatorIndex}
 {
-    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == ss0)
+    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == SS0)
     {
         CharacterArray.Heap = Other.CharacterArray.Heap;
         Other.TerminatorIndex = 0;
@@ -384,13 +480,13 @@ FString<InStackSize>::FString(FString&& Other)
 template<EStackSize InStackSize>
 FString<InStackSize>& FString<InStackSize>::operator=(const FString& Other)
 {
-    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == ss0)
+    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == SS0)
     {
-        if EXPECT(this->ActiveArray() == EActiveArray::Heap,StackSize == ss0)
+        if EXPECT(this->ActiveArray() == EActiveArray::Heap, StackSize == SS0)
         {
             if(Other.Num() > Memory::AllocatedSize(CharacterArray.Heap))
             {
-                CharacterArray.Heap = Memory::ReAllocate(CharacterArray.Heap, Other.Num());
+                CharacterArray.Heap = Memory::Reallocate(CharacterArray.Heap, Other.Num());
             }
         }
         else
@@ -417,7 +513,7 @@ FString<InStackSize>& FString<InStackSize>::operator=(const FString& Other)
 template<EStackSize InStackSize>
 FString<InStackSize>& FString<InStackSize>::operator=(FString&& Other)
 {
-    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == ss0)
+    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == SS0)
     {
         TerminatorIndex = Other.TerminatorIndex;
         CharacterArray.Heap = Other.CharacterArray.Heap;
@@ -451,7 +547,7 @@ bool FString<InStackSize>::CompareEqual(const char8* String, const uint32 NumCha
 
     if EXPECT(this->Num() == NumChars, false)
     {
-        if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
+        if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == SS0)
         {
             return Memory::Compare(this->RawString(), String, Num()) == 0;
         }
@@ -514,11 +610,11 @@ FString<InStackSize>& FString<InStackSize>::Assign_Stack(const char8* String, co
 template<EStackSize InStackSize>
 FString<InStackSize>& FString<InStackSize>::Assign_Heap(const char8* String, const uint32 NumChars)
 {
-    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
+    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == SS0)
     {
         if(NumChars > Memory::AllocatedSize(CharacterArray.Heap))
         {
-            CharacterArray.Heap = Memory::ReAllocate(CharacterArray.Heap, NumChars + ReserveSize);
+            CharacterArray.Heap = Memory::Reallocate(CharacterArray.Heap, NumChars + ReserveSize);
         }
     }
     else
@@ -538,11 +634,11 @@ FString<InStackSize>& FString<InStackSize>::Concat_Assign(const char8* String, c
 {
     const uint32 NewSize{(Num() - 1) + NumChars};
 
-    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
+    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == SS0)
     {
         if(NewSize > Memory::AllocatedSize(CharacterArray.Heap))
         {
-            CharacterArray.Heap = Memory::ReAllocate(CharacterArray.Heap, NewSize + ReserveSize);
+            CharacterArray.Heap = Memory::Reallocate(CharacterArray.Heap, NewSize + ReserveSize);
         }
 
         Memory::Copy(&CharacterArray.Heap[TerminatorIndex], String, NumChars);
@@ -587,11 +683,11 @@ FString<InStackSize>& FString<InStackSize>::Concat_Assign(const FStaticString& S
     const uint32 NumChars{String.Num()};
     const uint32 NewSize{(Num() - 1) + NumChars};
 
-    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
+    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == SS0)
     {
         if(NewSize > Memory::AllocatedSize(CharacterArray.Heap))
         {
-            CharacterArray.Heap = Memory::ReAllocate(CharacterArray.Heap, NewSize + ReserveSize);
+            CharacterArray.Heap = Memory::Reallocate(CharacterArray.Heap, NewSize + ReserveSize);
         }
 
         Memory::Copy(&CharacterArray.Heap[TerminatorIndex], String.RawString(), NumChars);
@@ -636,11 +732,11 @@ FString<InStackSize>& FString<InStackSize>::PushBack_Assign(const char8* String,
 {
     const uint32 NewSize{TerminatorIndex + NumChars};
 
-    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
+    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == SS0)
     {
         if(NewSize > Memory::AllocatedSize(CharacterArray.Heap))
         {
-            CharacterArray.Heap = Memory::ReAllocate(CharacterArray.Heap, NewSize + ReserveSize);
+            CharacterArray.Heap = Memory::Reallocate(CharacterArray.Heap, NewSize + ReserveSize);
         }
 
         Memory::Move(&CharacterArray.Heap[NumChars - 1], CharacterArray.Heap, Num());
@@ -688,7 +784,7 @@ FString<InStackSize>& FString<InStackSize>::Erase_Assign(const uint32 Begin, con
     const uint32 NumCharsLeftAtEnd{Num() - End};
     const uint32 NewSize{Begin + NumCharsLeftAtEnd};
 
-    if EXPECT(NewSize > StackSize, StackSize == ss0)
+    if EXPECT(NewSize > StackSize, StackSize == SS0)
     {
         Memory::Copy(&CharacterArray.Heap[Begin], &CharacterArray.Heap[End], NumCharsLeftAtEnd);
     }
@@ -736,11 +832,11 @@ FString<InStackSize>& FString<InStackSize>::Replace_Assign(const uint32 Begin, c
     const uint32 NewSize{Math::Max(Begin + NumChars, Num())};
     const uint32 ReplacementSize{NumChars - (NewSize < Num())};
 
-    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
+    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == SS0)
     {
         if EXPECT(NewSize > Memory::AllocatedSize(CharacterArray.Heap), false)
         {
-            CharacterArray.Heap = Memory::ReAllocate(CharacterArray.Heap, NewSize + ReserveSize);
+            CharacterArray.Heap = Memory::Reallocate(CharacterArray.Heap, NewSize + ReserveSize);
         }
 
         Memory::Copy(&CharacterArray.Heap[Begin], String, ReplacementSize);
@@ -778,11 +874,11 @@ FString<InStackSize>& FString<InStackSize>::Insert_Assign(const uint32 Begin, co
     const uint32 NewSize{Math::Max(Begin + NumChars + 1, Num())};
     const uint32 InsertionSize{NumChars - (NewSize < Num())}; //lewd
 
-    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
+    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == SS0)
     {
         if EXPECT(NewSize > Memory::AllocatedSize(CharacterArray.Heap), false)
         {
-            CharacterArray.Heap = Memory::ReAllocate(CharacterArray.Heap, NewSize + ReserveSize);
+            CharacterArray.Heap = Memory::Reallocate(CharacterArray.Heap, NewSize + ReserveSize);
         }
 
         Memory::Copy(&CharacterArray.Heap[Begin + InsertionSize], &CharacterArray.Heap[Begin], InsertionSize);
@@ -832,13 +928,13 @@ FString<InStackSize> FString<InStackSize>::Insert_New(const uint32 Begin, const 
 template<EStackSize InStackSize>
 char8* FString<InStackSize>::FindSubstring(const char8* String, const uint32 NumChars)
 {
-    return StrUtil::FindSubString(Data(), Num(), String, NumChars);
+    return StrUtl::FindSubString(Data(), Num(), String, NumChars);
 }
 
 template<EStackSize InStackSize>
 const char8* FString<InStackSize>::FindSubstring(const char8* String, const uint32 NumChars) const
 {
-    return StrUtil::FindSubString(Data(), Num(), String, NumChars);
+    return StrUtl::FindSubString(Data(), Num(), String, NumChars);
 }
 
 template<EStackSize InStackSize>
@@ -851,17 +947,17 @@ void FString<InStackSize>::Empty()
 
     TerminatorIndex = 0;
 
-    if constexpr(StackSize > ss0)
+    if constexpr(StackSize > SS0)
     {
         CharacterArray.Stack[TerminatorIndex] = NULL_CHAR;
     }
 }
 
-template class FString<ss0>;
-template class FString<ss60>;
-template class FString<ss124>;
-template class FString<ss252>;
-template class FString<ss508>;
+template class FString<SS0>;
+template class FString<SS60>;
+template class FString<SS124>;
+template class FString<SS256>;
+template class FString<SS508>;
 
 char8_32 FStaticString::CombineStrings(const char8_32 Lower, const char8_32 Upper, const uint32 LowEnd)
 {

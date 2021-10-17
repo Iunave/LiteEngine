@@ -3,31 +3,29 @@
 #include "CoreFiles/Array.hpp"
 
 #include <vulkan/vulkan.hpp>
-
-namespace Render
+/*
+class FRenderDebugManager final
 {
-    class FDebugManager final
-    {
-    public:
+public:
 
-        FDebugManager();
-        ~FDebugManager();
+    FRenderDebugManager();
+    ~FRenderDebugManager();
 
-        static VKAPI_ATTR uint32 VKAPI_CALL VulkanDebugCallback(Vk::DebugUtilsMessageSeverityFlagBitsEXT MessageSeverity, Vk::DebugUtilsMessageTypeFlagsEXT MessageType, const Vk::DebugUtilsMessengerCallbackDataEXT* CallbackData, void* UserData);
+    static VKAPI_ATTR uint32 VKAPI_CALL VulkanDebugCallback(Vk::DebugUtilsMessageSeverityFlagBitsEXT MessageSeverity, Vk::DebugUtilsMessageTypeFlagsEXT MessageType, const Vk::DebugUtilsMessengerCallbackDataEXT* CallbackData, void* UserData);
 
-        static Vk::DebugUtilsMessengerCreateInfoEXT MakeDebugUtilsMessengerCreateInfo();
+    static Vk::DebugUtilsMessengerCreateInfoEXT MakeDebugUtilsMessengerCreateInfo();
 
-        void CreateMessenger(Vk::Instance VulkanInstance);
-        void DestroyMessenger(Vk::Instance VulkanInstance);
+    void CreateMessenger(Vk::Instance VulkanInstance);
+    void DestroyMessenger(Vk::Instance VulkanInstance);
 
-        void PopulateValidationLayers();
+    void PopulateValidationLayers();
 
-        Vk::DebugUtilsMessengerEXT GetDebugMessengerHandle() const {return DebugMessengerHandle;}
-        const TDynamicArray<const char8*>& GetValidationLayers() const {return ValidationLayers;}
+    Vk::DebugUtilsMessengerEXT GetDebugMessengerHandle() const {return DebugMessengerHandle;}
+    const TDynamicArray<const char8*>& GetValidationLayers() const {return ValidationLayers;}
 
-    private:
+private:
 
-        Vk::DebugUtilsMessengerEXT DebugMessengerHandle;
-        TDynamicArray<const char8*> ValidationLayers;
-    };
-}
+    Vk::DebugUtilsMessengerEXT DebugMessengerHandle;
+    TDynamicArray<const char8*> ValidationLayers;
+};
+*/

@@ -22,9 +22,11 @@ namespace Thread
 {
     extern const int64 NumRealThreads;
 
-    inline const ThreadType MainThreadId{pthread_self()};
+    inline ThreadType MainThreadID{0};
+    inline ThreadType AudioThreadID{0};
 
     bool IsInMainThread();
+    bool IsInAudioThread();
 
     class FMutex final
     {
@@ -196,6 +198,8 @@ namespace Thread
         bool TimedJoin(timespec Timeout);
 
         void Detach();
+
+        void Cancel();
 
     private:
 

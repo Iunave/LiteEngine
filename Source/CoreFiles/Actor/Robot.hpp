@@ -9,7 +9,8 @@ class ABuildComponent;
 class AMovementComponent;
 class AWeaponComponent;
 
-OBJECT_CLASS(ARobot) : public AActor
+OBJECT_CLASS(ARobot)
+class ARobot : public AActor
 {
     OBJECT_BASES(AActor)
 public:

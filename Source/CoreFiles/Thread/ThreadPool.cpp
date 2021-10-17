@@ -9,7 +9,7 @@ ORunnable::ORunnable()
 
 ORunnable::~ORunnable()
 {
-    ENSURE(TaskProgress >= 2, "task: {}, is queued or running but was never completed", GetClassName());
+    ENSURE(TaskProgress != Queued || TaskProgress != Running, "task: {}, is queued or running but was never completed", GetClassName());
 }
 
 void ORunnable::PreRun()
@@ -24,9 +24,12 @@ void ORunnable::PostRun()
     TaskProgress = Completed;
 }
 
-void ORunnable::WaitForCompletion(bool bEvenIfNotInQueue)  const
+void ORunnable::WaitForCompletion() const
 {
-    //todo
+    while(TaskProgress != Completed)
+    {
+        pthread_yield();
+    }
 }
 
 void* ThreadWork(void* Argument)
@@ -57,7 +60,7 @@ Thread::FTaskQueue::~FTaskQueue()
 ORunnable* Thread::FTaskQueue::NextTask()
 {
     --QueuedTaskCount;
-    ORunnable* TaskToReturn{QueuedTasks[QueuedTaskCount]};
+    ORunnable* TaskToReturn{QueuedTasks[QueuedTaskCount.Value()]};
     ++FreeTaskCount;
 
     return TaskToReturn;
@@ -97,7 +100,7 @@ void Thread::FThreadPool::AddTask(ORunnable* NewTask)
     }
 
     --TaskQueue.FreeTaskCount;
-    TaskQueue.QueuedTasks[TaskQueue.QueuedTaskCount] = NewTask;
+    TaskQueue.QueuedTasks[TaskQueue.QueuedTaskCount.Value()] = NewTask;
     ++TaskQueue.QueuedTaskCount;
 
     TaskQueue.TaskAddMutex.Unlock();

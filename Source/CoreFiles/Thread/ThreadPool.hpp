@@ -1,5 +1,9 @@
 #pragma once
 
+#include <Interface/IniConfig.hpp>
+#include <Rendering/RenderSettings.hpp>
+
+
 #include "Definitions.hpp"
 #include "Thread/Thread.hpp"
 #include "String.hpp"
@@ -13,6 +17,7 @@ namespace Thread
 }
 
 OBJECT_CLASS(ORunnable)
+class ORunnable
 {
     OBJECT_BASES()
 
@@ -22,19 +27,18 @@ public:
 
     enum ETaskProgress : uint8
     {
-        Queued = 0,
-        Running = 1,
-        Idle = 2,
+        Idle = 0,
+        Queued = 1,
+        Running = 2,
         Completed = 3
     };
 
     ORunnable();
-
     virtual ~ORunnable();
 
     virtual void Run() = 0;
 
-    void WaitForCompletion(bool bEvenIfNotInQueue = true) const;
+    void WaitForCompletion() const;
 
     INLINE ETaskProgress GetTaskProgress() const
     {

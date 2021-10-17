@@ -1,18 +1,21 @@
 #include "RenderInstance.hpp"
+#include "RenderDebug.hpp"
+#include "CoreFiles/Log.hpp"
 
-using namespace Render;
-
-FInstanceManager::FInstanceManager()
+#define GLFW_INCLUDE_NONE
+#include "GLFW/glfw3.h"
+/*
+FRenderInstanceManager::FRenderInstanceManager()
     : VulkanInstanceHandle{NULL_HANDLE}
 {
 }
 
-FInstanceManager::~FInstanceManager()
+FRenderInstanceManager::~FRenderInstanceManager()
 {
     ASSERT(!VulkanInstanceHandle, "vulkan instance handle was not destroyed");
 }
 
-void FInstanceManager::PopulateExtensionLayers()
+void FRenderInstanceManager::PopulateExtensionLayers()
 {
     uint32 GLFWExtensionCount{0};
     const char8** GLFWExtensionNames{glfwGetRequiredInstanceExtensions(&GLFWExtensionCount)};
@@ -33,33 +36,14 @@ void FInstanceManager::PopulateExtensionLayers()
 #endif
 }
 
-TDynamicArray<Vk::PhysicalDevice> FInstanceManager::FindAvailablePhysicalDevices() const
-{
-    TDynamicArray<Vk::PhysicalDevice> PhysicalDeviceArray{};
-
-    uint32 PhysicalDeviceCount{0};
-    Vk::Result EnumerateResult{VulkanInstanceHandle.enumeratePhysicalDevices(&PhysicalDeviceCount, nullptr)};
-    ASSERT(EnumerateResult == Vk::Result::eSuccess, "failed to enumerate physical devices: {}", Vk::to_string(EnumerateResult));
-
-    if(PhysicalDeviceCount > 0)
-    {
-        PhysicalDeviceArray.ResizeTo(PhysicalDeviceCount);
-
-        EnumerateResult = VulkanInstanceHandle.enumeratePhysicalDevices(&PhysicalDeviceCount, PhysicalDeviceArray.GetData());
-        ASSERT(EnumerateResult == Vk::Result::eSuccess, "failed to enumerate physical devices: {}", Vk::to_string(EnumerateResult));
-    }
-
-    return PhysicalDeviceArray;
-}
-
-void FInstanceManager::CreateInstance(const TDynamicArray<const char8*>& ValidationLayers)
+void FRenderInstanceManager::CreateInstance(const TDynamicArray<const char8*>& ValidationLayers)
 {
     Vk::ApplicationInfo ApplicationInfo{};
     ApplicationInfo.pApplicationName = PROJECT_NAME;
-    ApplicationInfo.applicationVersion = Data::VulkanVersion,
+    ApplicationInfo.applicationVersion = VulkanVersion,
     ApplicationInfo.pEngineName = ENGINE_NAME;
     ApplicationInfo.engineVersion = ENGINE_VERSION;
-    ApplicationInfo.apiVersion = Data::VulkanAPIVersion;
+    ApplicationInfo.apiVersion = VulkanAPIVersion;
 
     Vk::InstanceCreateInfo InstanceInfo;
     InstanceInfo.flags = Vk::InstanceCreateFlagBits{};
@@ -70,7 +54,7 @@ void FInstanceManager::CreateInstance(const TDynamicArray<const char8*>& Validat
     InstanceInfo.ppEnabledExtensionNames = InstanceExtensionLayers.Data();
 
 #if DEBUG
-    const Vk::DebugUtilsMessengerCreateInfoEXT DebugMessengerCreateInfo{FDebugManager::MakeDebugUtilsMessengerCreateInfo()};
+    const Vk::DebugUtilsMessengerCreateInfoEXT DebugMessengerCreateInfo{FRenderDebugManager::MakeDebugUtilsMessengerCreateInfo()};
     InstanceInfo.pNext = &DebugMessengerCreateInfo;
 #endif
 
@@ -79,7 +63,7 @@ void FInstanceManager::CreateInstance(const TDynamicArray<const char8*>& Validat
     LOG(LogVulkan, "created vulkan instance");
 }
 
-void FInstanceManager::DestroyInstance()
+void FRenderInstanceManager::DestroyInstance()
 {
     if(!VulkanInstanceHandle)
     {
@@ -92,3 +76,4 @@ void FInstanceManager::DestroyInstance()
 
     LOG(LogVulkan, "destroyed vulkan instance");
 }
+*/

@@ -42,6 +42,7 @@ private:
 
 
 OBJECT_CLASS(OTickable)
+class OTickable
 {
     OBJECT_BASES()
     friend class FTickManager;

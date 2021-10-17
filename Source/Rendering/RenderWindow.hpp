@@ -1,58 +1,70 @@
 #pragma once
 
-#include "Definitions.hpp"
-#include "String.hpp"
+#include "CoreFiles/Definitions.hpp"
+#include "CoreFiles/String.hpp"
+#include "CoreFiles/Object/Object.hpp"
 
 #include <vulkan/vulkan.hpp>
 
-namespace vk
-{
-    class Extent2D;
-    class Instance;
-    class SurfaceKHR;
-}
-
 struct GLFWwindow;
 
-namespace Render
+struct FWindowDimensions
 {
-    struct FWindowDimensions
+    int32 CoordinateWidth;
+    int32 CoordinateHeight;
+    int32 PixelWidth;
+    int32 PixelHeight;
+};
+
+OBJECT_CLASS_NAMESPACED(Render, OWindow)
+class Render::OWindow
+{
+    OBJECT_BASES()
+public:
+
+    static void FrameBufferResizeCallback(GLFWwindow* Window, int32 Width, int32 Height);
+
+    OWindow();
+
+    ~OWindow();
+
+    void CreateWindow(int32 Width, int32 Height, FString<SS60> InWindowName, const bool bFullScreen = false);
+
+    void CloseWindow();
+
+    bool ShouldClose() const;
+
+    bool IsMinimized() const;
+
+    void UpdateWindowDimensions();
+
+    FWindowDimensions GetWindowDimensions() const
     {
-        int32 CoordinateWidth;
-        int32 CoordinateHeight;
-        int32 PixelWidth;
-        int32 PixelHeight;
-    };
+        return WindowDimensions;
+    }
 
-    class FRenderWindow final
+    Vk::Extent2D GetImageExtent() const
     {
-    public:
+        return Vk::Extent2D{static_cast<uint32>(WindowDimensions.PixelHeight), static_cast<uint32>(WindowDimensions.PixelWidth)};
+    }
 
-        FRenderWindow();
-        ~FRenderWindow();
+    const FString<SS60>& GetWindowName() const
+    {
+        return WindowName;
+    }
 
-        void CreateWindow(int32 Width, int32 Height, FString<ss60> InWindowName, const bool bFullScreen = false);
-        void CloseWindow();
+    GLFWwindow* GetWindowHandle() const
+    {
+        return WindowHandle;
+    }
 
-        void CreateSurface(Vk::Instance VulkanInstance);
-        void DestroySurface(Vk::Instance VulkanInstance);
+    bool HasBeenResized;
 
-        bool ShouldClose() const;
+protected:
 
-        FWindowDimensions GetWindowDimensions() const {return WindowDimensions;}
-        Vk::Extent2D GetImageExtent() const {return Vk::Extent2D{static_cast<uint32>(WindowDimensions.PixelHeight), static_cast<uint32>(WindowDimensions.PixelWidth)};}
-        const FString<ss60>& GetWindowName() const {return WindowName;}
-        GLFWwindow* GetWindowHandle() const {return WindowHandle;}
-        Vk::SurfaceKHR GetSurfaceHandle() const {return SurfaceHandle;}
+    FWindowDimensions WindowDimensions;
 
-    protected:
+    FString<SS60> WindowName;
 
-        FWindowDimensions WindowDimensions;
-
-        FString<ss60> WindowName;
-
-        GLFWwindow* WindowHandle;
-
-        Vk::SurfaceKHR SurfaceHandle;
-    };
-}
+    GLFWwindow* WindowHandle;
+};

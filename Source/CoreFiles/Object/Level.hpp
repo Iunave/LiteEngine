@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Interface/IniConfig.hpp>
+
 #include "Definitions.hpp"
 #include "Array.hpp"
 #include "SmartPointer.hpp"
@@ -8,6 +10,7 @@
 class AActor;
 
 OBJECT_CLASS(OLevel)
+class OLevel
 {
     OBJECT_BASES()
 public:

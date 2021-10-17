@@ -1081,7 +1081,7 @@ namespace Simd
 #endif //AVX256
 
     template<typename RegisterType>
-    NODISCARD INLINE constexpr RegisterType LoadUnaligned(const ElementType<RegisterType>* RESTRICT NONNULL Data)
+    NODISCARD INLINE constexpr RegisterType LoadUnaligned(const ElementType<RegisterType>* const RESTRICT NONNULL Data)
     {
         struct PACKED MAY_ALIAS FSource
         {
@@ -1092,13 +1092,13 @@ namespace Simd
     }
 
     template<typename RegisterType>
-    NODISCARD INLINE constexpr RegisterType LoadAligned(const ElementType<RegisterType>* RESTRICT NONNULL Data)
+    NODISCARD INLINE constexpr RegisterType LoadAligned(const ElementType<RegisterType>* const RESTRICT NONNULL Data)
     {
         return *reinterpret_cast<const RegisterType*>(Data);
     }
 
     template<typename RegisterType>
-    INLINE constexpr void StoreUnaligned(ElementType<RegisterType>* Target, const RegisterType Data)
+    INLINE constexpr void StoreUnaligned(ElementType<RegisterType>* const Target, const RegisterType Data)
     {
         struct PACKED MAY_ALIAS FSource
         {

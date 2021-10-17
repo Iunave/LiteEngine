@@ -76,16 +76,16 @@ FColor::operator RGBA32F() const
     return Result;
 }
 
-FString<ss124> StrUtil::ToString(FColor Source)
+FString<SS124> StrUtl::ToString(FColor Source)
 {
-    FString<ss124> String{};
+    FString < SS124 > String{};
 
     const char8* End{fmt::format_to(String.Data(), "R={:+f} G={:+f} B={:+f} A={:+f}", Source.R(), Source.G(), Source.B(), Source.A())};
 
     String.TerminatorIndex = static_cast<uint32>(End - String.CharacterArray.Stack);
     String[String.TerminatorIndex] = NULL_CHAR;
 
-    ASSERT(String.TerminatorIndex < ss124);
+    ASSERT(String.TerminatorIndex < SS124);
 
     return String;
 }

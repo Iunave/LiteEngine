@@ -4,6 +4,9 @@
 #include <type_traits>
 #include <cstdint>
 
+#define MAKE_TYPE_SPECIALIZATION(Name, In, Out) template<> struct Name<In>{using Type = Out;};
+#define MAKE_VALUE_SPECIALIZATION(Name, In, Out) template<> struct Name<In>{inline static constexpr bool Value{Out};};
+
 namespace TypeTrait
 {
     struct TrueType
@@ -100,55 +103,34 @@ namespace TypeTrait
     };
 
     template<typename T>
-    const constinit bool IsBitwiseComparable = IsBitwiseComparableImpl<T>::Value;
+    concept IsBitwiseComparable = IsBitwiseComparableImpl<T>::Value;
 
     template<typename T>
-    struct RemoveCVImpl
-    {
-        using Type = T;
-    };
+    struct RemoveCVImpl{using Type = T;};
 
     template<typename T>
-    struct RemoveCVImpl<const T>
-    {
-        using Type = T;
-    };
+    using RemoveCV = typename RemoveCVImpl<T>::Type;
 
     template<typename T>
-    struct RemoveCVImpl<volatile T>
-    {
-        using Type = T;
-    };
+    struct RemoveCVImpl<const T>{using Type = T;};
 
     template<typename T>
-    struct RemoveCVImpl<const volatile T>
-    {
-        using Type = T;
-    };
+    struct RemoveCVImpl<volatile T>{using Type = T;};
 
     template<typename T>
-    struct RemoveReferenceImpl
-    {
-        using Type = T;
-    };
+    struct RemoveCVImpl<const volatile T>{using Type = T;};
 
     template<typename T>
-    struct RemoveReferenceImpl<T&>
-    {
-        using Type = T;
-    };
-
-    template<typename T>
-    struct RemoveReferenceImpl<T&&>
-    {
-        using Type = T;
-    };
+    struct RemoveReferenceImpl{using Type = T;};
 
     template<typename T>
     using RemoveReference = typename RemoveReferenceImpl<T>::Type;
 
     template<typename T>
-    using RemoveCV = typename RemoveCVImpl<T>::Type;
+    struct RemoveReferenceImpl<T&>{using Type = T;};
+
+    template<typename T>
+    struct RemoveReferenceImpl<T&&>{using Type = T;};
 
     template<typename A, typename B>
     inline const constinit bool AreBitwiseComparable = (AreTypesEqual<RemoveCV<A>, RemoveCV<B>>) && (IsBitwiseComparable<RemoveCV<A>>);
@@ -196,15 +178,40 @@ namespace TypeTrait
     using AddPointersToTupleArgs = std::tuple<VarArgs*...>;
 
     template<typename... Ts>
-    struct AreAllUniqueImpl
-    {
-    };
+    struct AreAllUniqueImpl{};
 
     template<typename T>
-    struct AreAllUniqueImpl<T>
-    {
-    };
+    struct AreAllUniqueImpl<T>{};
 
+    template<typename T>
+    struct AddUnsignedImpl{using Type = T;};
+
+    template<typename T>
+    using AddUnsigned = typename AddUnsignedImpl<T>::Type;
+
+    MAKE_TYPE_SPECIALIZATION(AddUnsignedImpl, int8, uint8)
+    MAKE_TYPE_SPECIALIZATION(AddUnsignedImpl, const int8, const uint8)
+    MAKE_TYPE_SPECIALIZATION(AddUnsignedImpl, int16, uint16)
+    MAKE_TYPE_SPECIALIZATION(AddUnsignedImpl, const int16, const uint16)
+    MAKE_TYPE_SPECIALIZATION(AddUnsignedImpl, int32, uint32)
+    MAKE_TYPE_SPECIALIZATION(AddUnsignedImpl, const int32, const uint32)
+    MAKE_TYPE_SPECIALIZATION(AddUnsignedImpl, int64, uint64)
+    MAKE_TYPE_SPECIALIZATION(AddUnsignedImpl, const int64, const uint64)
+
+    template<typename T>
+    struct AddSignedImpl{using Type = T;};
+
+    template<typename T>
+    using AddSigned = typename AddSignedImpl<T>::Type;
+
+    MAKE_TYPE_SPECIALIZATION(AddSignedImpl, uint8, int8)
+    MAKE_TYPE_SPECIALIZATION(AddSignedImpl, const uint8, const int8)
+    MAKE_TYPE_SPECIALIZATION(AddSignedImpl, uint16, int16)
+    MAKE_TYPE_SPECIALIZATION(AddSignedImpl, const uint16, const int16)
+    MAKE_TYPE_SPECIALIZATION(AddSignedImpl, uint32, int32)
+    MAKE_TYPE_SPECIALIZATION(AddSignedImpl, const uint32, const int32)
+    MAKE_TYPE_SPECIALIZATION(AddSignedImpl, uint64, int64)
+    MAKE_TYPE_SPECIALIZATION(AddSignedImpl, const uint64, const int64)
 
     template<typename T>
     concept IsSigned = std::is_signed<T>::value;
@@ -256,8 +263,6 @@ namespace TypeTrait
 
     template<typename T>
     using RawType = TypeTrait::RemoveCV<TypeTrait::RemoveReference<TypeTrait::RemovePointer<T>>>;
-
-
 
     template<typename Class>
     struct TIsObjectClass

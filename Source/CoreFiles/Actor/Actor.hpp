@@ -6,6 +6,7 @@
 #include "Quaternion.hpp"
 
 OBJECT_CLASS(AActor)
+class AActor
 {
     OBJECT_BASES()
 public:
@@ -26,7 +27,7 @@ public:
         return WorldRelationInfo.Rotation;
     }
 
-private:
+protected:
 
     FWorldRelationInfo WorldRelationInfo;
 

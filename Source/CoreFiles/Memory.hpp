@@ -4,6 +4,7 @@
 #include <malloc.h>
 #ifdef __unix__
 #include <sys/mman.h>
+#include <unistd.h>
 
 #endif
 
@@ -95,7 +96,7 @@ namespace Memory
 
     /**
      * \param StoredType type of the element to allocate
-     * \param Num number of elements to allocate
+     * \param Num number of bytes
      * \returns pointer to new memory allocation
      */
     template<typename StoredType = void>
@@ -121,7 +122,7 @@ namespace Memory
      * \returns pointer to new location of memory block
      */
     template<typename StoredType = void>
-    NODISCARD INLINE StoredType* ReAllocate(StoredType* Source, const uint64 Size)
+    NODISCARD INLINE StoredType* Reallocate(StoredType* Source, const uint64 Size)
     {
         return reinterpret_cast<StoredType*>(::realloc(Source, Size));
     }

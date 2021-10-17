@@ -10,11 +10,11 @@
 
 enum EStackSize : uint32
 {
-    ss0 = 0,
-    ss60 = 60,
-    ss124 = 124,
-    ss252 = 252,
-    ss508 = 508
+    SS0 = 0,
+    SS60 = 60,
+    SS124 = 124,
+    SS256 = 252,
+    SS508 = 508
 };
 
 template<EStackSize>
@@ -26,7 +26,7 @@ class FQuaternion;
 class FVector;
 class FColor;
 
-namespace StrUtil
+namespace StrUtl
 {
     const char8* GetDirectoryName();
 
@@ -53,9 +53,15 @@ namespace StrUtil
 
     FStaticString& ToLowerCase(FStaticString& String LIFETIME_BOUND);
 
-    extern FString<ss124> ToString(FQuaternion);
-    extern FString<ss124> ToString(FVector);
-    extern FString<ss124> ToString(FColor);
+    extern FString<SS124> ToString(FQuaternion);
+    extern FString<SS124> ToString(FVector);
+    extern FString<SS124> ToString(FColor);
+
+    template<typename TargetType> requires(TypeTrait::IsInteger<TargetType>)
+    extern TargetType ToValue(const char8* Begin, const char8* End);
+
+    template<typename TargetType> requires(TypeTrait::IsFloatingPoint<TargetType>)
+    extern TargetType ToValue(const char8* Begin, const char8* End);
 }
 
 template<uint64 Num>
@@ -75,17 +81,17 @@ struct TTemplateString
  * not trivially copyable
  * now with constexpr, yay!
  */
-template<EStackSize InStackSize = ss60>
+template<EStackSize InStackSize = SS60>
 class PACKED alignas(static_cast<uint32>(InStackSize) + 4) FString final
 {
 private:
 
-    friend FString& StrUtil::ToUpperCase(FString&);
-    friend FString& StrUtil::ToLowerCase(FString&);
+    friend FString& StrUtl::ToUpperCase(FString&);
+    friend FString& StrUtl::ToLowerCase(FString&);
 
-    friend FString<ss124> StrUtil::ToString(FQuaternion);
-    friend FString<ss124> StrUtil::ToString(FVector);
-    friend FString<ss124> StrUtil::ToString(FColor);
+    friend FString<SS124> StrUtl::ToString(FQuaternion);
+    friend FString<SS124> StrUtl::ToString(FVector);
+    friend FString<SS124> StrUtl::ToString(FColor);
 
     using TConstIterator = TRangedIterator<const char8>;
     using TMutableIterator = TRangedIterator<char8>;
@@ -118,7 +124,7 @@ public:
     constexpr FString()
         : TerminatorIndex{0}
     {
-        if constexpr(StackSize > ss0)
+        if constexpr(StackSize > SS0)
         {
             CharacterArray.Stack[TerminatorIndex] = NULL_CHAR;
         }
@@ -149,7 +155,7 @@ public:
 
     constexpr ~FString()
     {
-        if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == ss0)
+        if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == SS0)
         {
             Memory::Free(CharacterArray.Heap);
         }
@@ -591,8 +597,8 @@ class alignas(32) FStaticString final
 {
 private:
 
-    friend FStaticString& StrUtil::ToUpperCase(FStaticString&);
-    friend FStaticString& StrUtil::ToLowerCase(FStaticString&);
+    friend FStaticString& StrUtl::ToUpperCase(FStaticString&);
+    friend FStaticString& StrUtl::ToLowerCase(FStaticString&);
 
     using TConstIterator = TRangedIterator<const char8>;
     using TMutableIterator = TRangedIterator<char8>;
@@ -612,8 +618,8 @@ public:
     {
     }
 
-    explicit FStaticString(char8_32 String)
-        : Characters{Move(String)}
+    explicit constexpr FStaticString(char8_32 String)
+        : Characters(String)
     {
     }
 

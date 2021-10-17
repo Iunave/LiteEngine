@@ -1,8 +1,8 @@
 
 #include <Interface/Damageable.hpp>
+#include <Interface/IniConfig.hpp>
 #include <Actor/BuildComponent/BuildComponent.hpp>
 #include <Actor/Robot.hpp>
-
 
 #include "Definitions.hpp"
 #include "Object/Object.hpp"
@@ -15,7 +15,8 @@
 #include "Rendering/VulkanRenderer.hpp"
 
 
-OBJECT_CLASS(OFoo) : public OTickable
+OBJECT_CLASS(OFoo)
+class OFoo : public OTickable
 {
     OBJECT_BASES(OTickable)
 public:
@@ -28,29 +29,22 @@ public:
 
 };
 
+void InitializeVariables()
+{
+    Thread::MainThreadID = pthread_self();
+}
+
 int32 main()
 {
     LOG(LogProgram, "running: {}", EXECUTABLE_NAME);
     LOG(LogProgram, "entered main with thread-ID: {}", (void*)pthread_self());
 
-    TSharedPtr<OTickable> Foo{MakeShared<OFoo>()};
-    TSharedPtr<OFoo> Tickable{ObjectCast<OFoo*>(Foo)};
-    LOG(LogProgram, "{}", Tickable->lol);
+    InitializeVariables();
 
-    FColor Color1{0.3, 0.6, 1.6, 0.04};
-    LOG(LogProgram, "{}", StrUtil::ToString(Color1));
-    RGBA16I Color2{static_cast<RGBA16I>(Color1)};
-    LOG(LogProgram, "{} {} {} {}", Color2.R, Color2.G, Color2.B, Color2.A);
+    const char8* String{"-84003"};
 
-    TCountedStaticArray<int32, 10> Array{1, 3, 5, 5, 2, 0, 3, 1, 3, 5};
-
-    ArrUtil::RemoveDuplicates(Array);
-    LOG(LogProgram, "num {}", Array.Num());
-
-    for(int32 I : Array)
-    {
-        LOG(LogProgram, "{}", I);
-    }
+    int64 Val = StrUtl::ToValue<int64>(String, String + 5);
+    LOG(LogProgram, "{}", Val);
 
     Render::Initialize();
     Render::Loop();

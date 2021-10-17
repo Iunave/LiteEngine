@@ -3,29 +3,25 @@
 #include "CoreFiles/Array.hpp"
 
 #include <vulkan/vulkan.hpp>
-
-namespace Render
+/*
+class FRenderInstanceManager final
 {
-    class FInstanceManager final
-    {
-    public:
+public:
 
-        FInstanceManager();
-        ~FInstanceManager();
+    FRenderInstanceManager();
+    ~FRenderInstanceManager();
 
-        void CreateInstance(const TDynamicArray<const char8*>& ValidationLayers);
-        void DestroyInstance();
+    void CreateInstance(const TDynamicArray<const char8*>& ValidationLayers);
+    void DestroyInstance();
 
-        void PopulateExtensionLayers();
+    void PopulateExtensionLayers();
 
-        TDynamicArray<Vk::PhysicalDevice> FindAvailablePhysicalDevices() const;
+    Vk::Instance GetVulkanInstanceHandle() const {return VulkanInstanceHandle;}
+    const TDynamicArray<const char8*>& GetInstanceExtensionLayers() const {return InstanceExtensionLayers;}
 
-        Vk::Instance GetVulkanInstanceHandle() const {return VulkanInstanceHandle;}
-        const TDynamicArray<const char8*>& GetInstanceExtensionLayers() const {return InstanceExtensionLayers;}
+private:
 
-    private:
-
-        Vk::Instance VulkanInstanceHandle;
-        TDynamicArray<const char8*> InstanceExtensionLayers;
-    };
-}
+    Vk::Instance VulkanInstanceHandle;
+    TDynamicArray<const char8*> InstanceExtensionLayers;
+};
+*/

@@ -434,8 +434,8 @@ The format syntax is described in :ref:`chrono-specs`.
 
     using namespace std::literals::chrono_literals;
 
-    // Prints "Default format: 42s 100ms":
-    fmt::print("Default format: {} {}\n", 42s, 100ms);
+    // Prints "OVulkanManager format: 42s 100ms":
+    fmt::print("OVulkanManager format: {} {}\n", 42s, 100ms);
 
     // Prints "strftime-like format: 03:15:30":
     fmt::print("strftime-like format: {:%H:%M:%S}\n", 3h + 15min + 30s);

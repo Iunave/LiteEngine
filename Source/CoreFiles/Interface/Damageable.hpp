@@ -7,6 +7,7 @@
 class FColor;
 
 OBJECT_CLASS(IDamageable)
+class IDamageable
 {
     OBJECT_BASES()
 public:
@@ -38,8 +39,6 @@ public:
     }
 
     virtual void TakeDamage(float64 DamageAmount) = 0;
-
-    virtual void TakeRepair(float64 RepairAmount) = 0;
 
     NODISCARD FColor ConvertArmourToColor() const;
 

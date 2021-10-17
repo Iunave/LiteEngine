@@ -80,16 +80,16 @@ bool FVector::operator==(FVector Other) const
     return ComparisonResult == MaskXYZ || ComparisonResult == MaskXYZW;
 }
 
-FString<ss124> StrUtil::ToString(FVector Source)
+FString<SS124> StrUtl::ToString(FVector Source)
 {
-    FString<ss124> String{};
+    FString < SS124 > String{};
 
     const char8* End{fmt::format_to(String.Data(), "X={:+f} Y={:+f} Z={:+f}", Source.X(), Source.Y(), Source.Z())};
 
     String.TerminatorIndex = static_cast<uint32>(End - String.CharacterArray.Stack);
     String[String.TerminatorIndex] = NULL_CHAR;
 
-    ASSERT(String.TerminatorIndex < ss124);
+    ASSERT(String.TerminatorIndex < SS124);
 
     return String;
 }

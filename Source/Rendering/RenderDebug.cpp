@@ -1,18 +1,26 @@
 #include "RenderDebug.hpp"
+#include "CoreFiles/Log.hpp"
 
-using namespace Render;
+#ifndef VK_KHR_VALIDATION_LAYER_NAME
+#define VK_KHR_VALIDATION_LAYER_NAME "VK_LAYER_KHRONOS_validation"
+#endif
+/*
+inline bool operator!(const Vk::Result VulkanResult)
+{
+    return VulkanResult != Vk::Result::eSuccess;
+}
 
-FDebugManager::FDebugManager()
+FRenderDebugManager::FRenderDebugManager()
     : DebugMessengerHandle{NULL_HANDLE}
 {
 }
 
-FDebugManager::~FDebugManager()
+FRenderDebugManager::~FRenderDebugManager()
 {
     ASSERT(!DebugMessengerHandle, "debug messenger handle was not destroyed");
 }
 
-VKAPI_ATTR uint32 VKAPI_CALL FDebugManager::VulkanDebugCallback(Vk::DebugUtilsMessageSeverityFlagBitsEXT MessageSeverity, Vk::DebugUtilsMessageTypeFlagsEXT MessageType, const Vk::DebugUtilsMessengerCallbackDataEXT* CallbackData, void* UserData)
+VKAPI_ATTR uint32 VKAPI_CALL FRenderDebugManager::VulkanDebugCallback(Vk::DebugUtilsMessageSeverityFlagBitsEXT MessageSeverity, Vk::DebugUtilsMessageTypeFlagsEXT MessageType, const Vk::DebugUtilsMessengerCallbackDataEXT* CallbackData, void* UserData)
 {
     switch(MessageSeverity)
     {
@@ -38,7 +46,7 @@ VKAPI_ATTR uint32 VKAPI_CALL FDebugManager::VulkanDebugCallback(Vk::DebugUtilsMe
     return false;
 }
 
-Vk::DebugUtilsMessengerCreateInfoEXT FDebugManager::MakeDebugUtilsMessengerCreateInfo()
+Vk::DebugUtilsMessengerCreateInfoEXT FRenderDebugManager::MakeDebugUtilsMessengerCreateInfo()
 {
     Vk::DebugUtilsMessengerCreateInfoEXT CreateInfo{};
     CreateInfo.messageSeverity = Vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo | Vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | Vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | Vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
@@ -48,7 +56,7 @@ Vk::DebugUtilsMessengerCreateInfoEXT FDebugManager::MakeDebugUtilsMessengerCreat
     return CreateInfo;
 }
 
-void FDebugManager::CreateMessenger(Vk::Instance VulkanInstance)
+void FRenderDebugManager::CreateMessenger(Vk::Instance VulkanInstance)
 {
 #if DEBUG
     const Vk::DebugUtilsMessengerCreateInfoEXT CreateInfo{MakeDebugUtilsMessengerCreateInfo()};
@@ -73,7 +81,7 @@ void FDebugManager::CreateMessenger(Vk::Instance VulkanInstance)
 #endif
 }
 
-void FDebugManager::DestroyMessenger(Vk::Instance VulkanInstance)
+void FRenderDebugManager::DestroyMessenger(Vk::Instance VulkanInstance)
 {
 #if DEBUG
     if(!DebugMessengerHandle)
@@ -91,12 +99,13 @@ void FDebugManager::DestroyMessenger(Vk::Instance VulkanInstance)
     }
 
     Function(VulkanInstance, DebugMessengerHandle.operator VkDebugUtilsMessengerEXT_T*(), nullptr);
+    DebugMessengerHandle = NULL_HANDLE;
 
     LOG(LogVulkan, "destroyed debug messenger");
 #endif
 }
 
-void FDebugManager::PopulateValidationLayers()
+void FRenderDebugManager::PopulateValidationLayers()
 {
 #if DEBUG
     ValidationLayers.Append(VK_KHR_VALIDATION_LAYER_NAME);
@@ -151,3 +160,4 @@ void FDebugManager::PopulateValidationLayers()
     }
 #endif
 }
+*/

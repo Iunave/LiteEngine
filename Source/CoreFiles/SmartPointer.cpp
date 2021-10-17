@@ -26,7 +26,7 @@ public:
         --ReverseCount;
 
         ReadArrayMutex.Lock();
-        Array[ArrayCount] = NewOffset;
+        Array[ArrayCount.Value()] = NewOffset;
         ReadArrayMutex.Unlock();
 
         ++ArrayCount;
@@ -37,7 +37,7 @@ public:
         --ArrayCount;
 
         ReadArrayMutex.Lock();
-        uint32 Offset{Array[ArrayCount]};
+        uint32 Offset{Array[ArrayCount.Value()]};
         ReadArrayMutex.Unlock();
 
         ++ReverseCount;
@@ -110,7 +110,7 @@ namespace PtrPri
             const uint64 NewSize{OldSize + (512 * sizeof(PtrPri::FReferenceCounter))};
             ASSERT((NewSize % sizeof(PtrPri::FReferenceCounter)) == 0);
 
-            StartRefCountPtr = Memory::ReAllocate(StartRefCountPtr, NewSize);
+            StartRefCountPtr = Memory::Reallocate(StartRefCountPtr, NewSize);
 
             FreeRefCounters.PlaceCounterOffset(EndRefCountOffset + 1);
 

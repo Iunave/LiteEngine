@@ -87,7 +87,7 @@ Examples
 .. code:: c++
 
     #include <fmt/core.h>
-    
+
     int main() {
       fmt::print("Hello, world!\n");
     }
@@ -114,13 +114,13 @@ Examples
 
     int main() {
       using namespace std::literals::chrono_literals;
-      fmt::print("Default format: {} {}\n", 42s, 100ms);
+      fmt::print("OVulkanManager format: {} {}\n", 42s, 100ms);
       fmt::print("strftime-like format: {:%H:%M:%S}\n", 3h + 15min + 30s);
     }
 
 Output::
 
-    Default format: 42s 100ms
+    OVulkanManager format: 42s 100ms
     strftime-like format: 03:15:30
 
 **Print a container** (`run <https://godbolt.org/z/MjsY7c>`_)
@@ -302,13 +302,13 @@ Projects using this library
   an open-source library for mathematical programming
 
 * `Aseprite <https://github.com/aseprite/aseprite>`_:
-  animated sprite editor & pixel art tool 
+  animated sprite editor & pixel art tool
 
 * `AvioBook <https://www.aviobook.aero/en>`_: a comprehensive aircraft
   operations suite
-  
+
 * `Blizzard Battle.net <https://battle.net/>`_: an online gaming platform
-  
+
 * `Celestia <https://celestia.space/>`_: real-time 3D visualization of space
 
 * `Ceph <https://ceph.com/>`_: a scalable distributed storage system
@@ -362,7 +362,7 @@ Projects using this library
 
 * `quasardb <https://www.quasardb.net/>`_: a distributed, high-performance,
   associative database
-  
+
 * `Quill <https://github.com/odygrd/quill>`_: asynchronous low-latency logging library
 
 * `QKW <https://github.com/ravijanjam/qkw>`_: generalizing aliasing to simplify

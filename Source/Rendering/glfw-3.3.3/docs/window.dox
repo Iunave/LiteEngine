@@ -496,7 +496,7 @@ These are set with @ref glfwWindowHintString.
 
 @subsubsection window_hints_values Supported and default values
 
-Window hint                   | Default value               | Supported values
+Window hint                   | OVulkanManager value               | Supported values
 ----------------------------- | --------------------------- | ----------------
 GLFW_RESIZABLE                | `GLFW_TRUE`                 | `GLFW_TRUE` or `GLFW_FALSE`
 GLFW_VISIBLE                  | `GLFW_TRUE`                 | `GLFW_TRUE` or `GLFW_FALSE`

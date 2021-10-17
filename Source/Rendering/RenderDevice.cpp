@@ -2,8 +2,7 @@
 #include "CoreFiles/Assert.hpp"
 #include "CoreFiles/Log.hpp"
 
-using namespace Render;
-
+/*
 FQueueFamilyIndices::FQueueFamilyIndices()
     : Graphic{UINT32_MAX}
     , Compute{UINT32_MAX}
@@ -14,20 +13,23 @@ FQueueFamilyIndices::FQueueFamilyIndices()
 {
 }
 
-FDeviceManager::FDeviceManager()
+FRenderDeviceManager::FRenderDeviceManager()
     : PhysicalDeviceHandle{NULL_HANDLE}
     , LogicalDeviceHandle{NULL_HANDLE}
+    , GraphicsQueue{NULL_HANDLE}
+    , PresentationQueue{NULL_HANDLE}
+    , ComputeQueue{NULL_HANDLE}
     , DeviceExtensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME}
 {
 }
 
-FDeviceManager::~FDeviceManager()
+FRenderDeviceManager::~FRenderDeviceManager()
 {
     ASSERT(!PhysicalDeviceHandle, "physical device was never destroyed");
     ASSERT(!LogicalDeviceHandle, "logical device was never destroyed");
 }
 
-TDynamicArray<Vk::ExtensionProperties> FDeviceManager::FindPhysicalDeviceProperties()
+TDynamicArray<Vk::ExtensionProperties> FRenderDeviceManager::FindPhysicalDeviceProperties() const
 {
     TDynamicArray<Vk::ExtensionProperties> FoundExtensions{};
 
@@ -46,7 +48,7 @@ TDynamicArray<Vk::ExtensionProperties> FDeviceManager::FindPhysicalDevicePropert
     return FoundExtensions;
 }
 
-TDynamicArray<Vk::QueueFamilyProperties> FDeviceManager::FindQueueFamilyProperties()
+TDynamicArray<Vk::QueueFamilyProperties> FRenderDeviceManager::FindQueueFamilyProperties() const
 {
     TDynamicArray<Vk::QueueFamilyProperties> QueueProperties{};
 
@@ -63,7 +65,7 @@ TDynamicArray<Vk::QueueFamilyProperties> FDeviceManager::FindQueueFamilyProperti
     return QueueProperties;
 }
 
-void FDeviceManager::PopulateQueueFamilyIndices()
+void FRenderDeviceManager::PopulateQueueFamilyIndices(Vk::SurfaceKHR Surface)
 {
     TDynamicArray<Vk::QueueFamilyProperties> QueueProperties{FindQueueFamilyProperties()};
 
@@ -119,7 +121,7 @@ void FDeviceManager::PopulateQueueFamilyIndices()
     LOG(LogVulkan, "{} has compute queue {}", DeviceName, QueueFamilyIndices.Compute);
 }
 
-bool FDeviceManager::DoesPhysicalDeviceSupportExtensions() const
+bool FRenderDeviceManager::DoesPhysicalDeviceSupportExtensions() const
 {
     if(DeviceExtensions.IsEmpty())
     {
@@ -140,7 +142,7 @@ bool FDeviceManager::DoesPhysicalDeviceSupportExtensions() const
         return false;
     };
 
-    for(const char8* ExtensionName : NeededDeviceExtensions)
+    for(const char8* ExtensionName : DeviceExtensions)
     {
         if(!FindExtension(ExtensionName))
         {
@@ -151,24 +153,29 @@ bool FDeviceManager::DoesPhysicalDeviceSupportExtensions() const
     return true;
 }
 
-bool FDeviceManager::DoesPhysicalDeviceSupportFeatures() const
+bool FRenderDeviceManager::DoesPhysicalDeviceSupportFeatures() const
 {
     const Vk::PhysicalDeviceFeatures& DeviceFeatures{PhysicalDeviceHandle.getFeatures()};
 
     return DeviceFeatures.shaderFloat64 && DeviceFeatures.geometryShader;
 }
 
-bool FDeviceManager::DoesPhysicalDeviceSupportSwapChain() const
+bool FRenderDeviceManager::DoesPhysicalDeviceSupportQueues() const
+{
+    return FQueueFamilyIndices::CheckValidity(QueueFamilyIndices.Graphic, QueueFamilyIndices.Presentation, QueueFamilyIndices.Compute);
+}
+
+bool FRenderDeviceManager::DoesPhysicalDeviceSupportSwapChain() const
 {
     return !SwapChainSupportDetails.SurfaceFormats.IsEmpty() && !SwapChainSupportDetails.PresentModes.IsEmpty();
 }
 
-Vk::SurfaceCapabilitiesKHR FDeviceManager::FindSurfaceCapabilities()
+Vk::SurfaceCapabilitiesKHR FRenderDeviceManager::FindSurfaceCapabilities(Vk::SurfaceKHR Surface)
 {
     return PhysicalDeviceHandle.getSurfaceCapabilitiesKHR(Surface);
 }
 
-TDynamicArray<Vk::SurfaceFormatKHR> FDeviceManager::FindSurfaceFormats()
+TDynamicArray<Vk::SurfaceFormatKHR> FRenderDeviceManager::FindSurfaceFormats(Vk::SurfaceKHR Surface)
 {
     TDynamicArray<Vk::SurfaceFormatKHR> FoundFormats{};
 
@@ -187,7 +194,7 @@ TDynamicArray<Vk::SurfaceFormatKHR> FDeviceManager::FindSurfaceFormats()
     return FoundFormats;
 }
 
-TDynamicArray<Vk::PresentModeKHR> FDeviceManager::FindSurfacePresentModes()
+TDynamicArray<Vk::PresentModeKHR> FRenderDeviceManager::FindSurfacePresentModes(Vk::SurfaceKHR Surface)
 {
     TDynamicArray<Vk::PresentModeKHR> FoundModes{};
 
@@ -206,18 +213,37 @@ TDynamicArray<Vk::PresentModeKHR> FDeviceManager::FindSurfacePresentModes()
     return FoundModes;
 }
 
-void FDeviceManager::PopulateSwapChainSupportDetails()
+void FRenderDeviceManager::PopulateSwapChainSupportDetails(Vk::SurfaceKHR Surface)
 {
-    SwapChainSupportDetails.PresentModes = FindSurfacePresentModes();
-    SwapChainSupportDetails.SurfaceCapabilities = FindSurfaceCapabilities();
-    SwapChainSupportDetails.SurfaceFormats = FindSurfaceFormats();
+    SwapChainSupportDetails.PresentModes = FindSurfacePresentModes(Surface);
+    SwapChainSupportDetails.SurfaceCapabilities = FindSurfaceCapabilities(Surface);
+    SwapChainSupportDetails.SurfaceFormats = FindSurfaceFormats(Surface);
 }
 
-void FDeviceManager::PickPhysicalDevice(Vk::Instance VulkanInstance)
+TDynamicArray<Vk::PhysicalDevice> FRenderDeviceManager::FindAvailablePhysicalDevices(Vk::Instance VulkanInstance)
+{
+    TDynamicArray<Vk::PhysicalDevice> PhysicalDeviceArray{};
+
+    uint32 PhysicalDeviceCount{0};
+    Vk::Result EnumerateResult{VulkanInstance.enumeratePhysicalDevices(&PhysicalDeviceCount, nullptr)};
+    ASSERT(EnumerateResult == Vk::Result::eSuccess, "failed to enumerate physical devices: {}", Vk::to_string(EnumerateResult));
+
+    if(PhysicalDeviceCount > 0)
+    {
+        PhysicalDeviceArray.ResizeTo(PhysicalDeviceCount);
+
+        EnumerateResult = VulkanInstance.enumeratePhysicalDevices(&PhysicalDeviceCount, PhysicalDeviceArray.GetData());
+        ASSERT(EnumerateResult == Vk::Result::eSuccess, "failed to enumerate physical devices: {}", Vk::to_string(EnumerateResult));
+    }
+
+    return PhysicalDeviceArray;
+}
+
+void FRenderDeviceManager::PickPhysicalDevice(Vk::Instance VulkanInstance, Vk::SurfaceKHR Surface)
 {
     TDynamicArray<Vk::PhysicalDevice> AvailablePhysicalDevices{FindAvailablePhysicalDevices(VulkanInstance)};
 
-    auto FindPhysicalDevice = [this, &AvailablePhysicalDevices]<bool(*Check)(Vk::PhysicalDevice)>() -> bool
+    auto FindPhysicalDevice = [this, Surface, &AvailablePhysicalDevices]<bool(*Check)(Vk::PhysicalDevice)>() -> bool
     {
         for(int64 Index{0}; Index < AvailablePhysicalDevices.Num(); ++Index)
         {
@@ -227,11 +253,11 @@ void FDeviceManager::PickPhysicalDevice(Vk::Instance VulkanInstance)
             {
                 if(DoesPhysicalDeviceSupportExtensions() && DoesPhysicalDeviceSupportFeatures())
                 {
-                    PopulateQueueFamilyIndices();
+                    PopulateQueueFamilyIndices(Surface);
 
-                    if(FQueueFamilyIndices::CheckValidity(QueueFamilyIndices.Graphic, QueueFamilyIndices.Presentation, QueueFamilyIndices.Compute))
+                    if(DoesPhysicalDeviceSupportQueues())
                     {
-                        PopulateSwapChainSupportDetails();
+                        PopulateSwapChainSupportDetails(Surface);
 
                         if(DoesPhysicalDeviceSupportSwapChain())
                         {
@@ -254,25 +280,21 @@ void FDeviceManager::PickPhysicalDevice(Vk::Instance VulkanInstance)
 
     if(!FindPhysicalDevice.operator()<IsDiscreteGPU>())
     {
-        if(!FindPhysicalDevice.operator()<nullptr>())
-        {
-            LOGW(LogVulkan, "failed to find a suitable GPU");
-            return;
-        }
+        CHECK(FindPhysicalDevice.operator()<nullptr>(), "failed to find a suitable GPU");
     }
 
     LOG(LogVulkan, "using physical-device: {}", PhysicalDeviceHandle.getProperties().deviceName);
 }
 
-void FDeviceManager::DestroyPhysicalDevice()
+void FRenderDeviceManager::DestroyPhysicalDevice()
 {
     PhysicalDeviceHandle = NULL_HANDLE;
 }
 
-void FDeviceManager::CreateLogicalDevice(const TDynamicArray<const char8*>& ValidationLayers)
+void FRenderDeviceManager::CreateLogicalDevice(const TDynamicArray<const char8*>& ValidationLayers)
 {
     float32 QueuePriority{1.f};
-    TCountedStaticArray<Vk::DeviceQueueCreateInfo, 3> DeviceQueueInfos
+    TCountedArray<Vk::DeviceQueueCreateInfo, 3> DeviceQueueInfos
     {
         Vk::DeviceQueueCreateInfo{{}, QueueFamilyIndices.Graphic, 1u, &QueuePriority},
         Vk::DeviceQueueCreateInfo{{}, QueueFamilyIndices.Compute, 1u, &QueuePriority},
@@ -293,13 +315,13 @@ void FDeviceManager::CreateLogicalDevice(const TDynamicArray<const char8*>& Vali
     DeviceCreateInfo.ppEnabledExtensionNames = DeviceExtensions.Data();
     DeviceCreateInfo.pEnabledFeatures = &DeviceFeatures;
 
-    Vk::Device LogicalDevice{PhysicalDeviceHandle.createDevice(DeviceCreateInfo)};
+    LogicalDeviceHandle = PhysicalDeviceHandle.createDevice(DeviceCreateInfo);
 
+    ASSERT(LogicalDeviceHandle);
     LOG(LogVulkan, "created logical device");
-    return LogicalDevice;
 }
 
-void FDeviceManager::DestroyLogicalDevice()
+void FRenderDeviceManager::DestroyLogicalDevice()
 {
     if(!LogicalDeviceHandle)
     {
@@ -312,3 +334,14 @@ void FDeviceManager::DestroyLogicalDevice()
 
     LOG(LogVulkan, "destroyed logical device");
 }
+
+void FRenderDeviceManager::InitializeQueues()
+{
+    GraphicsQueue = LogicalDeviceHandle.getQueue(QueueFamilyIndices.Graphic, 0);
+    PresentationQueue = LogicalDeviceHandle.getQueue(QueueFamilyIndices.Presentation, 0);
+    ComputeQueue = LogicalDeviceHandle.getQueue(QueueFamilyIndices.Compute, 0);
+
+    ASSERT(GraphicsQueue && PresentationQueue && ComputeQueue);
+    LOG(LogVulkan, "created graphics, presentation and compute queues");
+}
+*/

@@ -1,72 +1,93 @@
 #pragma once
 
-namespace AssertInternal
-{
-    void Crash();
-}
-
-#if DEBUG
-
 #include "Definitions.hpp"
-#include "Thread/Thread.hpp"
 
+#include <exception>
 #include <fmt/core.h>
 #include <fmt/color.h>
 
+template<typename... MessageArgs>
+class FRuntimeError : public std::exception
+{
+public:
+
+    template<typename... Ts>
+    FRuntimeError(const char8* InMessage, Ts&&... Arguments)
+        : Message{fmt::format(InMessage, Arguments...)}
+    {
+    }
+
+    virtual const char8* what() const noexcept
+    {
+        return Message.data();
+    }
+
+private:
+
+    std::string Message;
+};
+
+#if DEBUG
+
 #define PRINT_ASSERTION(reason)\
-Thread::GLogMutex.Lock();\
 fmt::print(fmt::fg(fmt::color::dark_red), "\nassertion failed: {}\n\n{}\nin file: {}\nin line: {}\n", reason, __PRETTY_FUNCTION__, __FILE__, __LINE__);\
-Thread::GLogMutex.Unlock()
 
 #define PRINT_ASSERTION_MSG(reason, message, ...) \
-Thread::GLogMutex.Lock();\
 fmt::print(fmt::fg(fmt::color::dark_red), "\nassertion failed: {}\n" message "\n\n{}\nin file: {}\nin line: {}\n", reason __VA_OPT__(,) __VA_ARGS__, __PRETTY_FUNCTION__, __FILE__, __LINE__);\
-Thread::GLogMutex.Unlock()
 
 //fatal assertion, evaluates expr in release builds
-#define CHECK(expr, ...) \
-do \
-{ \
-    if EXPECT(!(expr), false) \
-    { \
+#define CHECK(expr, ...)\
+[&](void) -> bool\
+{\
+    const bool __expr_value__{!!(expr)};\
+    \
+    if EXPECT(!__expr_value__, false)\
+    {\
         PRINT_ASSERTION##__VA_OPT__(_MSG)(#expr __VA_OPT__(,) __VA_ARGS__); \
-        CRASH_TRAP; \
-    } \
-} \
-while(false)
+        CRASH_TRAP;\
+    }\
+\
+    return __expr_value__;\
+}()
 
-//non-fatal assertion
+//non-fatal assertion, evaluates expr in release builds
 #define ENSURE(expr, ...) \
-do \
-{ \
-    if EXPECT(!(expr), false) \
-    { \
-        PRINT_ASSERTION##__VA_OPT__(_MSG)(#expr __VA_OPT__(,) __VA_ARGS__); \
-    } \
-} \
-while(false)
+[&](void) -> bool\
+{\
+    const bool __expr_value__{!!(expr)};\
+    \
+    if EXPECT(!__expr_value__, false)\
+    {\
+        PRINT_ASSERTION##__VA_OPT__(_MSG)(#expr __VA_OPT__(,) __VA_ARGS__);\
+    }\
+\
+    return __expr_value__;\
+}()
 
 //fatal assertion
-#define ASSERT(expr, ...) \
-do \
-{ \
-    if EXPECT(!(expr), false) \
-    { \
+#define ASSERT(expr, ...)\
+[&](void) -> bool\
+{\
+    const bool __expr_value__{!!(expr)};\
+    \
+    if EXPECT(!__expr_value__, false)\
+    {\
         PRINT_ASSERTION##__VA_OPT__(_MSG)(#expr __VA_OPT__(,) __VA_ARGS__); \
-        CRASH_TRAP; \
-    } \
-} \
-while(false)
+        CRASH_TRAP;\
+    }\
+\
+    return __expr_value__;\
+}()
 
 #else
 
 //fatal assertion, evaluates expr in release builds
-#define CHECK(expr, ...) do { expr; } while(false)
+#define CHECK(expr, ...) expr
 
-//non-fatal assertion
-#define ENSURE(expr, ...)
+//non-fatal assertion, evaluates expr in release builds
+#define ENSURE(expr, ...) expr
 
-//fatal assertion
+//fatal assertion, does not evaluate expr in release builds
 #define ASSERT(expr, ...)
 
 #endif //DEBUG

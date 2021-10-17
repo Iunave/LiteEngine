@@ -319,6 +319,18 @@ namespace Math
         return reinterpret_cast<int64>(BasePointer) - reinterpret_cast<int64>(DerivedPointer);
     }
 
+    template<typename T> requires(TypeTrait::IsInteger<T>)
+    inline T AddIf(const T Left, const T Right, bool Condition)
+    {
+        return Left + (Right & -static_cast<TypeTrait::AddUnsigned<T>>(Condition));
+    }
+
+    template<typename T> requires(TypeTrait::IsInteger<T>)
+    inline T SubIf(const T Left, const T Right, bool Condition)
+    {
+        return Left - (Right & -static_cast<TypeTrait::AddUnsigned<T>>(Condition));
+    }
+
     template<typename ChoiceType, typename... TChoices>
     ChoiceType ChooseVar(const uint64 Condition, TChoices... Choices)
     {

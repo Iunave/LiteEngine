@@ -15,7 +15,7 @@ template<typename, int64>
 class TStaticArray;
 
 template<typename, int64>
-class TCountedStaticArray;
+class TCountedArray;
 
 template<typename>
 class TDynamicArray;
@@ -32,7 +32,7 @@ namespace TypeTrait
     struct IsCountedStaticArray : public FalseType{};
 
     template<typename T, int64 N>
-    struct IsCountedStaticArray<TCountedStaticArray<T, N>> : public TrueType{};
+    struct IsCountedStaticArray<TCountedArray<T, N>> : public TrueType{};
 
     template<typename>
     struct IsDynamicArray : public FalseType{};
@@ -172,33 +172,33 @@ public:
         return &Array[0];
     }
 
-    constexpr ElementType* operator-(const int64 DecrementAmount)
+    constexpr ElementType* operator-(TypeTrait::IsInteger auto DecrementAmount)
     {
         return Array - DecrementAmount;
     }
 
-    constexpr ElementType* operator+(const int64 DecrementAmount)
+    constexpr ElementType* operator+(TypeTrait::IsInteger auto IncrementAmount)
     {
-        return Array + DecrementAmount;
+        return Array + IncrementAmount;
     }
 
-    constexpr const ElementType* operator-(const int64 DecrementAmount) const
+    constexpr const ElementType* operator-(TypeTrait::IsInteger auto DecrementAmount) const
     {
         return Array - DecrementAmount;
     }
 
-    constexpr const ElementType* operator+(const int64 DecrementAmount) const
+    constexpr const ElementType* operator+(TypeTrait::IsInteger auto IncrementAmount) const
     {
-        return Array + DecrementAmount;
+        return Array + IncrementAmount;
     }
 
-    constexpr ElementType& operator[](const int64 Index)
+    constexpr ElementType& operator[](TypeTrait::IsInteger auto Index)
     {
         ASSERT(IsIndexValid(Index));
         return Array[Index];
     }
 
-    constexpr const ElementType& operator[](const int64 Index) const
+    constexpr const ElementType& operator[](TypeTrait::IsInteger auto Index) const
     {
         ASSERT(IsIndexValid(Index));
         return Array[Index];
@@ -239,7 +239,7 @@ TStaticArray(ElementType)->TStaticArray<ElementType, 1>;
  * a static array that keeps track of the valid elements
  */
 template<typename ElementType, int64 NumElements>
-class TCountedStaticArray final
+class TCountedArray final
 {
 private:
 
@@ -248,12 +248,12 @@ private:
 
 public:
 
-    constexpr TCountedStaticArray()
+    constexpr TCountedArray()
         : LastIndex{-1}
     {
     }
 
-    explicit constexpr TCountedStaticArray(const ElementType* NONNULL ElementPtr, int64 InNum)
+    explicit constexpr TCountedArray(const ElementType* NONNULL ElementPtr, int64 InNum)
         : LastIndex{InNum - 1}
     {
         ASSERT(InNum >= 0 && InNum <= Num());
@@ -272,32 +272,32 @@ public:
         }
     }
 
-    explicit constexpr TCountedStaticArray(const ElementType* NONNULL Value)
+    explicit constexpr TCountedArray(const ElementType* NONNULL Value)
         : LastIndex{NumElements - 1}
     {
         Memory::Copy(Array, Value, Num() * sizeof(ElementType));
     }
 
     template<typename... Initializers> requires(sizeof...(Initializers) == NumElements)
-    explicit constexpr TCountedStaticArray(Initializers&&... InElements)
+    explicit constexpr TCountedArray(Initializers&&... InElements)
         : Array{MoveIfPossible(InElements)...}
         , LastIndex{sizeof...(InElements) - 1}
     {
     }
 
-    explicit constexpr TCountedStaticArray(EInit ZeroInit)
+    explicit constexpr TCountedArray(EInit ZeroInit)
         : LastIndex{-1}
     {
         Memory::Set(Array, 0u, NumElements * sizeof(ElementType));
     }
 
-    constexpr TCountedStaticArray(const TCountedStaticArray& Other)
+    constexpr TCountedArray(const TCountedArray& Other)
         : LastIndex{Other.LastIndex}
     {
         Memory::Copy(Array, Other.Array, Num() * sizeof(ElementType));
     }
 
-    constexpr TCountedStaticArray& operator=(const TCountedStaticArray& Other)
+    constexpr TCountedArray& operator=(const TCountedArray& Other)
     {
         this->LastIndex = Other.LastIndex;
         Memory::Copy(Array, Other.Array, Num());
@@ -324,7 +324,7 @@ public:
         Array[LastIndex] = MoveIfPossible(NewElement);
     }
 
-    constexpr void RemoveAtSwap(const int64 TargetIndex)
+    constexpr void RemoveAtSwap(TypeTrait::IsInteger auto TargetIndex)
     {
         ASSERT(IsIndexValid(TargetIndex));
 
@@ -332,7 +332,7 @@ public:
         --LastIndex;
     }
 
-    constexpr void RemoveAtCollapse(const int64 TargetIndex, const int64 NumToRemove = 1)
+    constexpr void RemoveAtCollapse(TypeTrait::IsInteger auto TargetIndex, TypeTrait::IsInteger auto NumToRemove = 1)
     {
         ASSERT(NumToRemove >= 0 && (TargetIndex + NumToRemove) <= Num());
 
@@ -345,13 +345,13 @@ public:
         LastIndex -= NumToRemove;
     }
 
-    constexpr void ResizeTo(const int64 NewSize)
+    constexpr void ResizeTo(TypeTrait::IsInteger auto NewSize)
     {
         ASSERT(NewSize >= 0 && NewSize <= NumElements);
         LastIndex = NewSize - 1;
     }
 
-    constexpr bool IsIndexValid(const int64 Index) const
+    constexpr bool IsIndexValid(TypeTrait::IsInteger auto Index) const
     {
         return Index >= 0 && Index <= LastIndex;
     }
@@ -393,33 +393,33 @@ public:
         return &Array[0];
     }
 
-    constexpr ElementType* operator-(const int64 DecrementAmount)
+    constexpr ElementType* operator-(TypeTrait::IsInteger auto DecrementAmount)
     {
         return Array - DecrementAmount;
     }
 
-    constexpr ElementType* operator+(const int64 DecrementAmount)
+    constexpr ElementType* operator+(TypeTrait::IsInteger auto IncrementAmount)
     {
-        return Array + DecrementAmount;
+        return Array + IncrementAmount;
     }
 
-    constexpr const ElementType* operator-(const int64 DecrementAmount) const
+    constexpr const ElementType* operator-(TypeTrait::IsInteger auto DecrementAmount) const
     {
         return Array - DecrementAmount;
     }
 
-    constexpr const ElementType* operator+(const int64 DecrementAmount) const
+    constexpr const ElementType* operator+(TypeTrait::IsInteger auto IncrementAmount) const
     {
-        return Array + DecrementAmount;
+        return Array + IncrementAmount;
     }
 
-    constexpr ElementType& operator[](const int64 Index)
+    constexpr ElementType& operator[](TypeTrait::IsInteger auto Index)
     {
         ASSERT(IsIndexValid(Index));
         return Array[Index];
     }
 
-    constexpr const ElementType& operator[](const int64 Index) const
+    constexpr const ElementType& operator[](TypeTrait::IsInteger auto Index) const
     {
         ASSERT(IsIndexValid(Index));
         return Array[Index];
@@ -467,10 +467,10 @@ private:
 };
 
 template<typename ElementType, typename... Elements>
-TCountedStaticArray(ElementType, Elements...)->TCountedStaticArray<ElementType, sizeof...(Elements) + 1>;
+TCountedArray(ElementType, Elements...)->TCountedArray<ElementType, sizeof...(Elements) + 1>;
 
 template<typename ElementType>
-TCountedStaticArray(ElementType)->TCountedStaticArray<ElementType, 1>;
+TCountedArray(ElementType)->TCountedArray<ElementType, 1>;
 
 /*
  * this namespace contains some numbers that control how the array allocates and deallocates memory
@@ -675,7 +675,7 @@ public:
         DestroyElements();
 
         LastIndex = -1;
-        ElementPointer = Memory::ReAllocate(ElementPointer, Other.UsedSize());
+        ElementPointer = Memory::Reallocate(ElementPointer, Other.UsedSize());
 
         InitializeFromOther(Other);
 
@@ -950,7 +950,7 @@ public:
     void ReserveUndefined(const int64 NumElementsToReserve)
     {
         int64 NewSize{AllocatedSize() + (NumElementsToReserve * ElementSize())};
-        ElementPointer = Memory::ReAllocate(ElementPointer, NewSize);
+        ElementPointer = Memory::Reallocate(ElementPointer, NewSize);
     }
 
     void ReserveZeroed(const int64 NumElementsToReserve)
@@ -968,7 +968,7 @@ public:
 
         if EXPECT(UnusedSize >= ArrayConstants::UnusedSizeLimit<ElementType>(), bExpectToReAllocate)
         {
-            ElementPointer = Memory::ReAllocate(ElementPointer, UsedSize());
+            ElementPointer = Memory::Reallocate(ElementPointer, UsedSize());
         }
     }
 
@@ -976,7 +976,7 @@ public:
     {
         if EXPECT(AllocatedSize() > UsedSize(), true)
         {
-            ElementPointer = Memory::ReAllocate(ElementPointer, UsedSize());
+            ElementPointer = Memory::Reallocate(ElementPointer, UsedSize());
         }
     }
 
@@ -989,7 +989,7 @@ public:
         DestroyElements(Num() - NumDeallocatedElements);
 
         LastIndex = NewElementNum - 1;
-        ElementPointer = Memory::ReAllocate(ElementPointer, NewElementNum * ElementSize());
+        ElementPointer = Memory::Reallocate(ElementPointer, NewElementNum * ElementSize());
     }
 
     template<bool bDeallocateMemory = true>
@@ -1017,7 +1017,7 @@ public:
         if EXPECT(EndReplacementIndex > LastIndex, false)
         {
             LastIndex = EndReplacementIndex;
-            ElementPointer = Memory::ReAllocate(ElementPointer, LastIndex * ElementSize());
+            ElementPointer = Memory::Reallocate(ElementPointer, LastIndex * ElementSize());
         }
 
         if constexpr(TypeTrait::IsTriviallyConstructible<ElementType>)
@@ -1064,7 +1064,7 @@ public:
 
         if EXPECT(AllocatedSize() < NewNeededSize, sizeof(TargetElementType) > sizeof(ElementType))
         {
-            ResultArray.ElementPointer = reinterpret_cast<TargetElementType*>(Memory::ReAllocate(ElementPointer, NewNeededSize));
+            ResultArray.ElementPointer = reinterpret_cast<TargetElementType*>(Memory::Reallocate(ElementPointer, NewNeededSize));
         }
 
         while(ResultArray.LastIndex < LastIndex)
@@ -1245,7 +1245,7 @@ private:
 
         if EXPECT((BytesToAllocate + UsedSize()) > AllocatedSize(), bExpectToReallocate)
         {
-            ElementPointer = Memory::ReAllocate(ElementPointer, NewSize);
+            ElementPointer = Memory::Reallocate(ElementPointer, NewSize);
         }
     }
 
@@ -1364,7 +1364,7 @@ namespace ArrUtil
     }
 
     template<typename Type, int64 Num>
-    inline constexpr void RemoveDuplicates(TCountedStaticArray<Type, Num>& Array)
+    inline constexpr void RemoveDuplicates(TCountedArray<Type, Num>& Array)
     {
         for(uint32 OuterIndex{0}; OuterIndex < Array.template Num<volatile uint32>(); ++OuterIndex)
         {

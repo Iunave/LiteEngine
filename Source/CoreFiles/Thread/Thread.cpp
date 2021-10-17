@@ -54,6 +54,33 @@ inline const char8* DetachResultToString(int32 Value)
     }
 }
 
+inline const char8* LockResultToString(int32 Value)
+{
+    switch(Value)
+    {
+        case 0: return "success";
+        case EAGAIN: return "ERROR: the  mutex  could  not be acquired because the maximum number of recursive locks for mutex has been exceeded";
+        case EINVAL: return "ERROR: the mutex was created with the  protocol  attribute  having  the value  PTHREAD_PRIO_PROTECT and the calling thread's priority is higher than the mutex's current priority ceiling";
+        case ENOTRECOVERABLE: return "ERROR: the state protected by the mutex is not recoverable";
+        case EOWNERDEAD: return "ERROR: the mutex is a robust mutex and the process containing the previous owning thread terminated while holding the mutex lock. The mutex lock shall be acquired by the calling thread and it is  up to the new owner to make the state consistent";
+        case EDEADLK: return "ERROR: the  mutex  type  is PTHREAD_MUTEX_ERRORCHECK and the current thread already owns the mutex";
+        case EBUSY: return "ERROR: the mutex could not be acquired because it was already locked";
+        case EPERM: return "ERROR: the mutex type is PTHREAD_MUTEX_ERRORCHECK or PTHREAD_MUTEX_RECURSIVE, or the mutex is a robust mutex, and the current thread does not own the mutex";
+        default: return "ERROR: unknown";
+    }
+}
+
+inline const char8* UnlockResultToString(int32 Value)
+{
+    switch(Value)
+    {
+        case 0: return "success";
+        case EINVAL: return "ERROR: the value specified by mutex is not valid";
+        case EPERM: return "ERROR: the current thread does not own the mutex";
+        default: return "ERROR: unknown";
+    }
+}
+
 #endif //DEBUG
 
 namespace Thread
@@ -63,11 +90,22 @@ namespace Thread
     FCondition::FAttributeWrapper FCondition::Attribute{};
     FThread::FAttributeWrapper FThread::Attribute{};
 
+    #if defined(__unix__)
     const int64 NumRealThreads{::sysconf(_SC_NPROCESSORS_CONF)};
+    #elif defined(_WIN32)
+    const int64 NumRealThreads{???}; //todo
+    #endif
 
     bool IsInMainThread()
     {
-        return pthread_self() == MainThreadId;
+        ASSERT(MainThreadID != 0, "main thread ID is not initialized");
+        return pthread_self() == MainThreadID;
+    }
+
+    bool IsInAudioThread()
+    {
+        ASSERT(AudioThreadID != 0, "audio thread ID is not initialized");
+        return pthread_self() == AudioThreadID;
     }
 
     FMutex::FAttributeWrapper::FAttributeWrapper()
@@ -103,17 +141,21 @@ namespace Thread
 
     void FMutex::Lock()
     {
-        CHECK(pthread_mutex_lock(&MutexHandle) == 0);
+        int32 Result{pthread_mutex_lock(&MutexHandle)};
+        ENSURE(Result == 0, "{}", LockResultToString(Result));
     }
 
     bool FMutex::TryLock()
     {
-        return pthread_mutex_trylock(&MutexHandle) == 0;
+        int32 Result{pthread_mutex_trylock(&MutexHandle)};
+        ENSURE(Result == 0, "{}", LockResultToString(Result));
+        return Result == 0;
     }
 
     void FMutex::Unlock()
     {
-        CHECK(pthread_mutex_unlock(&MutexHandle) == 0);
+        int32 Result{pthread_mutex_unlock(&MutexHandle)};
+        ENSURE(Result == 0, "{}", UnlockResultToString(Result));
     }
 
     FBarrier::FAttributeWrapper::FAttributeWrapper()
@@ -255,5 +297,10 @@ namespace Thread
     {
         const int32 DetachResult{pthread_detach(ThreadHandle)};
         LOG(LogThread, "{} has detached [{}]", (void*)ThreadHandle, DetachResultToString(DetachResult));
+    }
+
+    void FThread::Cancel()
+    {
+        pthread_cancel(ThreadHandle);
     }
 }

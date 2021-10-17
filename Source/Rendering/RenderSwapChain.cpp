@@ -1,9 +1,249 @@
 #include "RenderSwapChain.hpp"
-#include "RenderDevice.hpp"
 #include "RenderWindow.hpp"
-#include "EngineGlobals.hpp"
+#include "RenderDevice.hpp"
+#include "CoreFiles/Log.hpp"
+#include "CoreFiles/Math.hpp"
 
-FRenderSwapChain::FRenderSwapChain(TSharedPtr<FRenderSwapChain> InOldSwapChain)
+inline bool operator!(const Vk::Result VulkanResult)
+{
+    return VulkanResult != Vk::Result::eSuccess;
+}
+/*
+FRenderSwapChainManager::FRenderSwapChainManager()
+    : SwapChainHandle{NULL_HANDLE}
+{
+}
+
+FRenderSwapChainManager::~FRenderSwapChainManager()
+{
+    ASSERT(!SwapChainHandle, "swap chain was not destroyed");
+}
+
+void FRenderSwapChainManager::PopulateImages(Vk::Device LogicalDevice)
+{
+    uint32 ImageCount{0};
+    Vk::Result Result{LogicalDevice.getSwapchainImagesKHR(SwapChainHandle, &ImageCount, nullptr)};
+    ASSERT(!!Result, "failed to get swapchain images {}", Vk::to_string(Result));
+
+    if(ImageCount > 0)
+    {
+        Images.ResizeTo(ImageCount);
+
+        Result = LogicalDevice.getSwapchainImagesKHR(SwapChainHandle, &ImageCount, Images.Data());
+        ASSERT(!!Result, "failed to get swapchain images {}", Vk::to_string(Result));
+    }
+
+    LOG(LogVulkan, "populated swapchain images");
+}
+
+void FRenderSwapChainManager::DestroyImages(Vk::Device LogicalDevice)
+{
+    if(!LogicalDevice)
+    {
+        LOGW(LogVulkan, "could not destroy images [logical device is invalid]");
+        return;
+    }
+
+    for(Vk::Image& Image: Images)
+    {
+        if(Image)
+        {
+            LogicalDevice.destroyImage(Image);
+            Image = NULL_HANDLE;
+        }
+    }
+
+    LOGW(LogVulkan, "destroyed images");
+}
+
+void FRenderSwapChainManager::CreateImageViews(Vk::Device LogicalDevice)
+{
+    ImageViews.ResizeTo(Images.Num());
+
+    Vk::ImageViewCreateInfo ImageViewCreateInfo{};
+    ImageViewCreateInfo.viewType = Vk::ImageViewType::e2D;
+    ImageViewCreateInfo.format = SwapChainData.SurfaceFormat.format;
+
+    ImageViewCreateInfo.components.r = Vk::ComponentSwizzle::eIdentity;
+    ImageViewCreateInfo.components.g = Vk::ComponentSwizzle::eIdentity;
+    ImageViewCreateInfo.components.b = Vk::ComponentSwizzle::eIdentity;
+    ImageViewCreateInfo.components.a = Vk::ComponentSwizzle::eIdentity;
+
+    ImageViewCreateInfo.subresourceRange.aspectMask = Vk::ImageAspectFlagBits::eColor;
+    ImageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+    ImageViewCreateInfo.subresourceRange.levelCount = 1;
+    ImageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+    ImageViewCreateInfo.subresourceRange.layerCount = 1;
+
+    for(int64 Index{0}; Index < Images.Num(); ++Index)
+    {
+        ImageViewCreateInfo.image = Images[Index];
+        ImageViews[Index] = LogicalDevice.createImageView(ImageViewCreateInfo);
+
+        ASSERT(ImageViews[Index]);
+    }
+
+    LOG(LogVulkan, "created image views");
+}
+
+void FRenderSwapChainManager::DestroyImageViews(Vk::Device LogicalDevice)
+{
+    if(!LogicalDevice)
+    {
+        LOGW(LogVulkan, "could not destroy image views [logical device is invalid]");
+        return;
+    }
+
+    for(Vk::ImageView& ImageView : ImageViews)
+    {
+        if(ImageView)
+        {
+            LogicalDevice.destroyImageView(ImageView);
+            ImageView = NULL_HANDLE;
+        }
+    }
+
+    LOG(LogVulkan, "destroyed image-views");
+}
+
+Vk::Extent2D FRenderSwapChainManager::ChooseImageExtent(const Vk::SurfaceCapabilitiesKHR& SurfaceCapabilities, FWindowDimensions Dimensions)
+{
+    if(SurfaceCapabilities.currentExtent.width != UINT32_MAX)
+    {
+        return SurfaceCapabilities.currentExtent;
+    }
+
+    const uint32 ClampedWidth{Math::Clamp(static_cast<uint32>(Dimensions.PixelWidth), SurfaceCapabilities.minImageExtent.width, SurfaceCapabilities.maxImageExtent.width)};
+    const uint32 ClampedHeight{Math::Clamp(static_cast<uint32>(Dimensions.PixelHeight), SurfaceCapabilities.minImageExtent.height, SurfaceCapabilities.maxImageExtent.height)};
+
+    return Vk::Extent2D{ClampedWidth, ClampedHeight};
+}
+
+Vk::SurfaceFormatKHR FRenderSwapChainManager::ChooseSurfaceFormat(const TDynamicArray<Vk::SurfaceFormatKHR>& SurfaceFormats)
+{
+    Vk::SurfaceFormatKHR FoundFormat{SurfaceFormats[0]};
+
+    for(int32 Index{1}; Index < SurfaceFormats.Num(); ++Index)
+    {
+        if(FoundFormat.format == Vk::Format::eR8G8B8A8Srgb && FoundFormat.colorSpace == Vk::ColorSpaceKHR::eSrgbNonlinear)
+        {
+            break;
+        }
+
+        FoundFormat = SurfaceFormats[Index];
+    }
+
+    LOG(LogVulkan, "using color-format: {}", Vk::to_string(FoundFormat.format));
+    LOG(LogVulkan, "using color-space: {}", Vk::to_string(FoundFormat.colorSpace));
+
+    return FoundFormat;
+}
+
+Vk::PresentModeKHR FRenderSwapChainManager::ChoosePresentationMode(const TDynamicArray<Vk::PresentModeKHR>& PresentModes)
+{
+    uint32 MailboxFound{0};
+    uint32 ImmediateFound{0};
+
+    for(const Vk::PresentModeKHR Mode : PresentModes)
+    {
+        MailboxFound += (Mode == Vk::PresentModeKHR::eMailbox);
+        ImmediateFound += (Mode == Vk::PresentModeKHR::eImmediate);
+    }
+
+    if(MailboxFound > 0)
+    {
+        LOG(LogVulkan, "using presentation-mode: {}", Vk::to_string(Vk::PresentModeKHR::eMailbox));
+        return Vk::PresentModeKHR::eMailbox;
+    }
+    else if(ImmediateFound > 0)
+    {
+        LOG(LogVulkan, "using presentation-mode: {}", Vk::to_string(Vk::PresentModeKHR::eImmediate));
+        return Vk::PresentModeKHR::eImmediate;
+    }
+    else
+    {
+        LOG(LogVulkan, "using presentation-mode: {}", Vk::to_string(Vk::PresentModeKHR::eFifo));
+        return Vk::PresentModeKHR::eFifo; //is guaranteed to exist
+    }
+}
+
+void FRenderSwapChainManager::PopulateSwapChainData(const FSwapChainSupportDetails& SwapChainSupportDetails, FWindowDimensions WindowDimensions)
+{
+    SwapChainData.ImageExtent = ChooseImageExtent(SwapChainSupportDetails.SurfaceCapabilities, WindowDimensions);
+    SwapChainData.SurfaceFormat = ChooseSurfaceFormat(SwapChainSupportDetails.SurfaceFormats);
+    SwapChainData.PresentMode = ChoosePresentationMode(SwapChainSupportDetails.PresentModes);
+}
+
+void FRenderSwapChainManager::CreateSwapChain(Vk::Device LogicalDevice, Vk::SurfaceKHR Surface, const FSwapChainSupportDetails& SwapChainSupportDetails, const FQueueFamilyIndices& QueueIndices, Vk::SwapchainKHR OldSwapChain)
+{
+    uint32 MinImageCount{SwapChainSupportDetails.SurfaceCapabilities.minImageCount + 1};
+
+    if(SwapChainSupportDetails.SurfaceCapabilities.maxImageCount != 0 && MinImageCount > SwapChainSupportDetails.SurfaceCapabilities.maxImageCount)
+    {
+        MinImageCount = SwapChainSupportDetails.SurfaceCapabilities.maxImageCount;
+    }
+
+    const TStaticArray<uint32, 2> QueueFamilyIndicesArray{QueueIndices.Graphic, QueueIndices.Presentation};
+
+    const Vk::SwapchainCreateFlagsKHR SwapChainCreateFlags{};
+    const Vk::ImageUsageFlags ImageUsageFlags{Vk::ImageUsageFlagBits::eColorAttachment};
+
+    Vk::SwapchainCreateInfoKHR SwapChainCreateInfo{};
+    SwapChainCreateInfo.flags = SwapChainCreateFlags;
+    SwapChainCreateInfo.surface = Surface;
+    SwapChainCreateInfo.minImageCount = MinImageCount;
+    SwapChainCreateInfo.imageColorSpace = SwapChainData.SurfaceFormat.colorSpace;
+    SwapChainCreateInfo.imageFormat = SwapChainData.SurfaceFormat.format;
+    SwapChainCreateInfo.imageExtent = SwapChainData.ImageExtent;
+    SwapChainCreateInfo.imageArrayLayers = 1;
+    SwapChainCreateInfo.imageUsage = ImageUsageFlags;
+    SwapChainCreateInfo.preTransform = SwapChainSupportDetails.SurfaceCapabilities.currentTransform;
+    SwapChainCreateInfo.compositeAlpha = Vk::CompositeAlphaFlagBitsKHR::eOpaque;
+    SwapChainCreateInfo.presentMode = SwapChainData.PresentMode;
+    SwapChainCreateInfo.clipped = true;
+    SwapChainCreateInfo.oldSwapchain = OldSwapChain;
+
+    if(QueueIndices.Graphic == QueueIndices.Presentation)
+    {
+        SwapChainCreateInfo.imageSharingMode = Vk::SharingMode::eExclusive;
+        SwapChainCreateInfo.queueFamilyIndexCount = 0;
+        SwapChainCreateInfo.pQueueFamilyIndices = nullptr;
+    }
+    else
+    {
+        SwapChainCreateInfo.imageSharingMode = Vk::SharingMode::eConcurrent;
+        SwapChainCreateInfo.queueFamilyIndexCount = QueueFamilyIndicesArray.Num();
+        SwapChainCreateInfo.pQueueFamilyIndices = QueueFamilyIndicesArray.Data();
+    }
+
+
+    SwapChainHandle = LogicalDevice.createSwapchainKHR(SwapChainCreateInfo);
+
+    ASSERT(SwapChainHandle);
+    LOG(LogVulkan, "created swapchain");
+}
+
+void FRenderSwapChainManager::DestroySwapChain(Vk::Device LogicalDevice)
+{
+    if(!LogicalDevice)
+    {
+        LOGW(LogVulkan, "could not destroy swap chain [logical device is invalid]");
+        return;
+    }
+
+    if(!SwapChainHandle)
+    {
+        LOGW(LogVulkan, "could not destroy swap chain [swap chain is already invalid]");
+        return;
+    }
+
+    LogicalDevice.destroySwapchainKHR(SwapChainHandle);
+    SwapChainHandle = NULL_HANDLE;
+}
+
+
+
+FRenderSwapChainManager::FRenderSwapChainManager(TSharedPtr<FRenderSwapChainManager> InOldSwapChain)
     : OldSwapChain{Move(InOldSwapChain)}
     , SwapChain{NULL_HANDLE}
     , RenderPass{NULL_HANDLE}
@@ -14,7 +254,7 @@ FRenderSwapChain::FRenderSwapChain(TSharedPtr<FRenderSwapChain> InOldSwapChain)
     }
 }
 
-void FRenderSwapChain::Initialize()
+void FRenderSwapChainManager::Initialize()
 {
     CreateSwapChain();
 
@@ -29,7 +269,7 @@ void FRenderSwapChain::Initialize()
     CreateSyncObjects();
 }
 
-void FRenderSwapChain::ShutDown()
+void FRenderSwapChainManager::ShutDown()
 {
     const Vk::Device LogicalDevice{GRenderDevice.GetLogicalDevice()};
 
@@ -63,26 +303,26 @@ void FRenderSwapChain::ShutDown()
     }
 }
 
-FRenderSwapChain::~FRenderSwapChain()
+FRenderSwapChainManager::~FRenderSwapChainManager()
 {
 }
 
-Vk::SwapchainKHR FRenderSwapChain::GetSwapChain() const
+Vk::SwapchainKHR FRenderSwapChainManager::GetSwapChain() const
 {
     return SwapChain;
 }
 
-Vk::RenderPass FRenderSwapChain::GetRenderPass() const
+Vk::RenderPass FRenderSwapChainManager::GetRenderPass() const
 {
     return RenderPass;
 }
 
-Vk::Extent2D FRenderSwapChain::GetImageExtent() const
+Vk::Extent2D FRenderSwapChainManager::GetImageExtent() const
 {
     return ImageExtent;
 }
 
-TDynamicArray<Vk::Image> FRenderSwapChain::FindSwapChainImages() const
+TDynamicArray<Vk::Image> FRenderSwapChainManager::FindSwapChainImages() const
 {
     const Vk::Device LogicalDevice{GRenderDevice.GetLogicalDevice()};
     ASSERT(LogicalDevice && SwapChain);
@@ -104,7 +344,7 @@ TDynamicArray<Vk::Image> FRenderSwapChain::FindSwapChainImages() const
     return FoundImages;
 }
 
-Vk::Extent2D FRenderSwapChain::ChooseImageExtent(const Vk::SurfaceCapabilitiesKHR SurfaceCapabilities)
+Vk::Extent2D FRenderSwapChainManager::ChooseImageExtent(const Vk::SurfaceCapabilitiesKHR SurfaceCapabilities)
 {
     if(SurfaceCapabilities.currentExtent.width != UINT32_MAX)
     {
@@ -117,7 +357,7 @@ Vk::Extent2D FRenderSwapChain::ChooseImageExtent(const Vk::SurfaceCapabilitiesKH
     return Vk::Extent2D{ClampedWidth, ClampedHeight};
 }
 
-Vk::SurfaceFormatKHR FRenderSwapChain::ChooseSurfaceFormat(const TDynamicArray<Vk::SurfaceFormatKHR>& SurfaceFormats)
+Vk::SurfaceFormatKHR FRenderSwapChainManager::ChooseSurfaceFormat(const TDynamicArray<Vk::SurfaceFormatKHR>& SurfaceFormats)
 {
     Vk::SurfaceFormatKHR FoundFormat{SurfaceFormats[0]};
 
@@ -137,7 +377,7 @@ Vk::SurfaceFormatKHR FRenderSwapChain::ChooseSurfaceFormat(const TDynamicArray<V
     return FoundFormat;
 }
 
-Vk::PresentModeKHR FRenderSwapChain::ChoosePresentationMode(const TDynamicArray<Vk::PresentModeKHR>& PresentModes)
+Vk::PresentModeKHR FRenderSwapChainManager::ChoosePresentationMode(const TDynamicArray<Vk::PresentModeKHR>& PresentModes)
 {
     Vk::PresentModeKHR* FoundMode{nullptr};
 
@@ -164,7 +404,7 @@ Vk::PresentModeKHR FRenderSwapChain::ChoosePresentationMode(const TDynamicArray<
     return *FoundMode;
 }
 
-void FRenderSwapChain::CreateSwapChain()
+void FRenderSwapChainManager::CreateSwapChain()
 {
     ASSERT(GRenderDevice.GetLogicalDevice() && GRenderDevice.GetSurface());
 
@@ -212,7 +452,7 @@ void FRenderSwapChain::CreateSwapChain()
     Images = FindSwapChainImages();
 }
 
-void FRenderSwapChain::CreateImageViews()
+void FRenderSwapChainManager::CreateImageViews()
 {
     const Vk::Device LogicalDevice{GRenderDevice.GetLogicalDevice()};
     ASSERT(LogicalDevice);
@@ -245,12 +485,12 @@ void FRenderSwapChain::CreateImageViews()
     LOG(LogVulkan, "created image views");
 }
 
-void FRenderSwapChain::CreateDepthResources()
+void FRenderSwapChainManager::CreateDepthResources()
 {
 
 }
 
-void FRenderSwapChain::CreateRenderPass()
+void FRenderSwapChainManager::CreateRenderPass()
 {
     Vk::AttachmentDescription ColorAttachment{};
     ColorAttachment.format = SurfaceFormat.format;
@@ -285,7 +525,7 @@ void FRenderSwapChain::CreateRenderPass()
     LOG(LogVulkan, "created render-pass");
 }
 
-void FRenderSwapChain::CreateFrameBuffers()
+void FRenderSwapChainManager::CreateFrameBuffers()
 {
     const Vk::Device LogicalDevice{GRenderDevice.GetLogicalDevice()};
     ASSERT(LogicalDevice);
@@ -310,7 +550,7 @@ void FRenderSwapChain::CreateFrameBuffers()
     LOG(LogVulkan, "created frame-buffers");
 }
 
-void FRenderSwapChain::CreateCommandBuffers()
+void FRenderSwapChainManager::CreateCommandBuffers()
 {
     CommandBuffers.ResizeTo(FrameBuffers.Num());
 
@@ -325,8 +565,9 @@ void FRenderSwapChain::CreateCommandBuffers()
     LOG(LogVulkan, "allocated command-buffers");
 }
 
-void FRenderSwapChain::CreateSyncObjects()
+void FRenderSwapChainManager::CreateSyncObjects()
 {
 
 }
 
+*/
