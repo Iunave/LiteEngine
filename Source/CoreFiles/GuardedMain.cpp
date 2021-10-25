@@ -3,6 +3,7 @@
 #include <Interface/IniConfig.hpp>
 #include <Actor/BuildComponent/BuildComponent.hpp>
 #include <Actor/Robot.hpp>
+#include "Object/Allocator.hpp"
 
 #include "Definitions.hpp"
 #include "Object/Object.hpp"
@@ -41,9 +42,9 @@ int32 main()
 
     InitializeVariables();
 
-    const char8* String{"-84003"};
+    const char8* String{"-845703.42"};
 
-    int64 Val = StrUtl::ToValue<int64>(String, String + 5);
+    float64 Val = StrUtl::ToValue<float64>(String, String + 9);
     LOG(LogProgram, "{}", Val);
 
     Render::Initialize();

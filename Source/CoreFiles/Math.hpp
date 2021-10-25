@@ -331,6 +331,48 @@ namespace Math
         return Left - (Right & -static_cast<TypeTrait::AddUnsigned<T>>(Condition));
     }
 
+    template<typename T>
+    inline bool AddCheckOverflow(const T Left, const T Right, T* OutValue)
+    {
+        if constexpr(TypeTrait::IsInteger<T>)
+        {
+            return __builtin_add_overflow(Left, Right, OutValue);
+        }
+        else if constexpr(TypeTrait::IsFloatingPoint<T>)
+        {
+            *OutValue = (Left + Right);
+            return *OutValue == std::numeric_limits<T>::infinity();
+        }
+    }
+
+    template<typename T>
+    inline bool SubCheckOverflow(const T Left, const T Right, T* OutValue)
+    {
+        if constexpr(TypeTrait::IsInteger<T>)
+        {
+            return __builtin_sub_overflow(Left, Right, OutValue);
+        }
+        else if constexpr(TypeTrait::IsFloatingPoint<T>)
+        {
+            *OutValue = (Left - Right);
+            return *OutValue == std::numeric_limits<T>::infinity();
+        }
+    }
+
+    template<typename T>
+    inline bool MulCheckOverflow(const T Left, const T Right, T* OutValue)
+    {
+        if constexpr(TypeTrait::IsInteger<T>)
+        {
+            return __builtin_mul_overflow(Left, Right, OutValue);
+        }
+        else if constexpr(TypeTrait::IsFloatingPoint<T>)
+        {
+            *OutValue = (Left * Right);
+            return *OutValue == std::numeric_limits<T>::infinity();
+        }
+    }
+
     template<typename ChoiceType, typename... TChoices>
     ChoiceType ChooseVar(const uint64 Condition, TChoices... Choices)
     {

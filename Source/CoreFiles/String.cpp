@@ -311,15 +311,18 @@ namespace StrUtl
                 }
             }
 
-            if EXPECT(!(Character >= '0' && Character <= '9'), false)
+            if(!(Character >= '0' && Character <= '9'))
             {
-                throw FRuntimeError{"error converting string to value, invalid character [{}]", Character};
+                throw Error::InvalidArgument{"error converting string to value [invalid character: {}]", Character};
             }
 
             TargetType CharacterValue{static_cast<TargetType>(Character - '0')};
-            CharacterValue *= PositionValue;
 
-            ResultValue += CharacterValue;
+            if(Math::MulCheckOverflow(CharacterValue, PositionValue, &CharacterValue)
+            || Math::AddCheckOverflow(ResultValue, CharacterValue, &ResultValue))
+            {
+                throw Error::Math{"error converting string to value [overflow]"};
+            }
 
             PositionValue *= 10;
             --End;
@@ -329,41 +332,81 @@ namespace StrUtl
     }
 
     template<typename TargetType> requires(TypeTrait::IsFloatingPoint<TargetType>)
-    TargetType ToValue(const char8* Begin, const char8* End) //todo
+    TargetType ToValue(const char8* Begin, const char8* End)
     {
         TargetType ResultValue{0};
-        TargetType PositionValue{1};
 
-        while(End >= Begin)
+        auto ReadDecimalValues = [&ResultValue, Begin, &End]() mutable -> void
         {
-            const char8 Character{*End};
-
-            if EXPECT(End == Begin, false)
+            while(End >= Begin)
             {
-                if(Character == '-')
-                {
-                    ResultValue = -ResultValue;
-                    break;
-                }
-                else if(Character == '+')
+                if(*Begin == '.')
                 {
                     break;
                 }
+                ++Begin;
             }
 
-            if EXPECT(!(Character >= '0' && Character <= '9'), false)
+            for(int32 NumDecimals{static_cast<int32>(End - Begin)}; NumDecimals > 0; --NumDecimals, --End)
             {
-                throw FRuntimeError{"error converting string to value, invalid character [{}]", Character};
+                const char8 Character{*End};
+
+                if(!(Character >= '0' && Character <= '9'))
+                {
+                    throw Error::InvalidArgument{"error converting string to value, invalid character [{}]", Character};
+                }
+
+                TargetType CharacterValue{static_cast<TargetType>(Character - '0')};
+                const TargetType PositionValue{Math::ToPower(static_cast<TargetType>(10), static_cast<TargetType>(NumDecimals))};
+
+                CharacterValue /= PositionValue;
+                ResultValue += CharacterValue;
             }
 
-            TargetType CharacterValue{static_cast<TargetType>(Character - '0')};
-            CharacterValue *= PositionValue;
+            End = Begin - 1;
+        };
 
-            ResultValue += CharacterValue;
+        auto ReadWholeValues = [&ResultValue, Begin, &End]() -> void
+        {
+            TargetType PositionValue{1};
 
-            PositionValue *= 10;
-            --End;
-        }
+            while(End >= Begin)
+            {
+                const char8 Character{*End};
+
+                if EXPECT(End == Begin, false)
+                {
+                    if(Character == '-')
+                    {
+                        ResultValue = -ResultValue;
+                        break;
+                    }
+                    else if(Character == '+')
+                    {
+                        break;
+                    }
+                }
+
+                if(!(Character >= '0' && Character <= '9'))
+                {
+                    throw Error::InvalidArgument{"error converting string to value, invalid character [{}]", Character};
+                }
+
+                TargetType CharacterValue{static_cast<TargetType>(Character - '0')};
+
+                if(Math::MulCheckOverflow(CharacterValue, PositionValue, &CharacterValue)
+                || Math::AddCheckOverflow(ResultValue, CharacterValue, &ResultValue))
+                {
+                    throw Error::Math{"error converting string to value [overflow]"};
+                }
+
+                PositionValue *= 10;
+                --End;
+            }
+        };
+
+        ReadDecimalValues();
+        ReadWholeValues();
 
         return ResultValue;
     }

@@ -6,10 +6,10 @@
 #include <fmt/core.h>
 #include <fmt/color.h>
 
-struct TLogCategory
+struct FLogCategory
 {
     template<uint64 NumChars>
-    constexpr TLogCategory(const fmt::color InMessageColor, const char8 (&MessageString)[NumChars])
+    constexpr FLogCategory(const fmt::color InMessageColor, const char8 (&MessageString)[NumChars])
         : MessageColor{InMessageColor}
         , PreMessageString{MessageString}
     {
@@ -23,12 +23,12 @@ F2DCoordinate<int32> GetTerminalCursorPosition(); //todo does not even work
 
 #if DEBUG
 
-inline constexpr TLogCategory LogTemp{fmt::color::dark_gray, "Temp: "};
-inline constexpr TLogCategory LogProgram{fmt::color::chocolate, "Program: "};
-inline constexpr TLogCategory LogThread{fmt::color::dark_olive_green, "Thread: "};
-inline constexpr TLogCategory LogMemory{fmt::color::golden_rod, "Memory: "};
-inline constexpr TLogCategory LogGLFW{fmt::color::brown, "GLFW: "};
-inline constexpr TLogCategory LogVulkan{fmt::color::medium_violet_red, "Vulkan: "};
+inline constexpr FLogCategory LogTemp{fmt::color::dark_gray, "Temp: "};
+inline constexpr FLogCategory LogProgram{fmt::color::chocolate, "Program: "};
+inline constexpr FLogCategory LogThread{fmt::color::dark_olive_green, "Thread: "};
+inline constexpr FLogCategory LogMemory{fmt::color::golden_rod, "Memory: "};
+inline constexpr FLogCategory LogGLFW{fmt::color::brown, "GLFW: "};
+inline constexpr FLogCategory LogVulkan{fmt::color::medium_violet_red, "Vulkan: "};
 
 //normal log
 #define LOG(category, string, ...)\

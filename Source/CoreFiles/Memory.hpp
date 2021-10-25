@@ -2,10 +2,10 @@
 
 #include "Definitions.hpp"
 #include <malloc.h>
+
 #ifdef __unix__
 #include <sys/mman.h>
 #include <unistd.h>
-
 #endif
 
 enum class EMemProtect : int32
@@ -143,6 +143,14 @@ namespace Memory
     }
 
 #ifdef __unix__
+
+    uint8* GetProgramBreak() noexcept;
+
+    //returns the previous break end location
+    uint8* SetProgramBreak(uint8* NewBreakLocation) noexcept(false);
+
+    //returns the previous break end location
+    uint8* MoveProgramBreak(int64 MoveAmount) noexcept(false);
 
     template<typename StoredType = void>
     NODISCARD INLINE StoredType* Map(StoredType* Address, uint64 Length, EMemProtect Protect, EMapFlags MapFlags, int32 FileDescriptor = -1, int32 Offset = 0)

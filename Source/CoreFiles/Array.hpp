@@ -425,6 +425,26 @@ public:
         return Array[Index];
     }
 
+    constexpr const ElementType* End() const
+    {
+        return Array + LastIndex;
+    }
+
+    constexpr ElementType* End()
+    {
+        return Array + LastIndex;
+    }
+
+    constexpr const ElementType* Start() const
+    {
+        return Array;
+    }
+
+    constexpr ElementType* Start()
+    {
+        return Array;
+    }
+
     constexpr TConstIterator begin() const
     {
         return TConstIterator{Array};

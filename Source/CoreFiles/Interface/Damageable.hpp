@@ -1,10 +1,8 @@
 #pragma once
 
-#include "Definitions.hpp"
+#include "CoreFiles/Definitions.hpp"
 #include "Object/Object.hpp"
-#include "Color.hpp"
-
-class FColor;
+#include "CoreFiles/Color.hpp"
 
 OBJECT_CLASS(IDamageable)
 class IDamageable

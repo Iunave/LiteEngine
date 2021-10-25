@@ -6,26 +6,47 @@
 #include <fmt/core.h>
 #include <fmt/color.h>
 
-template<typename... MessageArgs>
+
 class FRuntimeError : public std::exception
 {
 public:
 
     template<typename... Ts>
     FRuntimeError(const char8* InMessage, Ts&&... Arguments)
-        : Message{fmt::format(InMessage, Arguments...)}
     {
+        fmt::format_to(StringBuffer, InMessage, Arguments...);
     }
 
     virtual const char8* what() const noexcept
     {
-        return Message.data();
+        return StringBuffer;
     }
 
 private:
 
-    std::string Message;
+    inline static char8 StringBuffer[512];
 };
+
+namespace Error
+{
+    class InvalidArgument : public FRuntimeError
+    {
+    public:
+        using FRuntimeError::FRuntimeError;
+    };
+
+    class Math : public FRuntimeError
+    {
+    public:
+        using FRuntimeError::FRuntimeError;
+    };
+
+    class Memory : public FRuntimeError
+    {
+    public:
+        using FRuntimeError::FRuntimeError;
+    };
+}
 
 #if DEBUG
 

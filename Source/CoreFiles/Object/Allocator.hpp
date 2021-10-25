@@ -1,12 +1,16 @@
 #pragma once
 
 #include "Definitions.hpp"
-/*
-class FObjectAllocationManager final : public FSingleton<FObjectAllocationManager>
+#include "Object.hpp"
+
+class FAllocationManager final : public FSingleton<FAllocationManager>
 {
+    template<typename ObjectClass> requires(TypeTrait::IsObjectClass<ObjectClass>)
+    friend class TObjectIterator;
 public:
 
     static constexpr uint32 ExtraAllocateSize{1024};
+    static constexpr int64 ArenaSize{100000000}; //1 gigabyte
 
     class PACKED FMemoryBlock
     {
@@ -18,6 +22,8 @@ public:
 
         FMemoryBlock* GetNextBlock();
 
+        OObject* GetAllocatedObject();
+
         uint32 AvailableSize() const;
 
         uint32 UsedSize;
@@ -26,41 +32,101 @@ public:
         uint32 OffsetToNext;
     };
 
-    FObjectAllocationManager(const uint32 BytesToAllocate = 500);
+    struct FMemoryArena
+    {
+        FMemoryBlock* StartBlock;
+        FMemoryBlock* EndBlock;
+    };
 
-    ~FObjectAllocationManager();
+    FAllocationManager(const int64 BytesToAllocate = 10000);
 
-    template<typename ObjectClass, typename... ConstructorArgs>
-    ObjectClass* PlaceObject(ConstructorArgs&&... Arguments)
+    ~FAllocationManager();
+
+    template<typename ObjectClass, typename... ConstructorArgs> requires(TypeTrait::IsObjectClass<ObjectClass>)
+    ObjectClass* PlaceData(ConstructorArgs&&... Arguments)
     {
         return new(FindFreeMemory(sizeof(ObjectClass))) ObjectClass{MoveIfPossible(Arguments)...};
     }
 
     //this function does not call the destructor of the object
-    void FreeObject(void* ObjectToFree NONNULL);
+    void FreeObject(OObject* ObjectToFree NONNULL);
 
     INLINE uint64 GetPoolSize() const
     {
         return (EndBlock - StartBlock) * sizeof(FMemoryBlock);
     }
 
-    template<typename Functor>
-    void ForEachObject(Functor Function)
-    {
-        for(FMemoryBlock* Block{StartBlock->GetNextBlock()}; Block != EndBlock; Block = Block->GetNextBlock())
-        {
-            Function(static_cast<void*>(Block + 1));
-        }
-    }
+    void Defragmentate();
 
 private:
 
     //returns a pointer to the end of a free memory block
     uint8* FindFreeMemory(const uint32 ObjectSize);
 
-    FMemoryBlock* StartBlock;
-    FMemoryBlock* EndBlock;
+    FMemoryArena* MakeNewArena();
+
+    uint8* const ProgramBreakStart;
+    uint8* ProgramBreakEnd;
+
+    TCountedArray<FMemoryArena, 64> MemoryArenas;
+
+    FMemoryBlock* const StartBlock; //the very first block, same as ObjectArenas[0].StartBlock
+    FMemoryBlock* EndBlock;  //the very last block, same as ObjectArenas[ObjectArenas.Num() - 1].EndBlock
 };
-*/
+
+template<typename ObjectClass> requires(TypeTrait::IsObjectClass<ObjectClass>)
+class TObjectIterator final
+{
+public:
+
+    TObjectIterator()
+        : BlockPtr{FAllocationManager::Instance().StartBlock}
+        , ObjectPtr{ObjectCast<ObjectClass*>(BlockPtr->GetAllocatedObject())}
+    {
+        if(ObjectPtr == nullptr)
+        {
+            operator++();
+        }
+    }
+
+    TObjectIterator& operator++()
+    {
+        BlockPtr = BlockPtr->GetNextBlock();
+
+        if EXPECT(operator bool(), true)
+        {
+            ObjectPtr = ObjectCast<ObjectClass*>(BlockPtr->GetAllocatedObject());
+
+            if(ObjectPtr == nullptr)
+            {
+                return operator++();
+            }
+        }
+        return *this;
+    }
+
+    NONNULL ObjectClass* operator->()
+    {
+        ASSUME(ObjectPtr != nullptr);
+        return ObjectPtr;
+    }
+
+    ObjectClass& operator*()
+    {
+        ASSUME(ObjectPtr != nullptr);
+        return *ObjectPtr;
+    }
+
+    explicit operator bool() const
+    {
+        return BlockPtr != FAllocationManager::Instance().EndBlock;
+    }
+
+private:
+
+    FAllocationManager::FMemoryBlock* BlockPtr;
+    ObjectClass* ObjectPtr;
+};
+
 
 
