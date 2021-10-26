@@ -6,9 +6,9 @@
 #include "Quaternion.hpp"
 
 OBJECT_CLASS(AActor)
-class AActor
+class AActor : public OObject
 {
-    OBJECT_BASES()
+    OBJECT_BASES(OObject)
 public:
 
     struct FWorldRelationInfo

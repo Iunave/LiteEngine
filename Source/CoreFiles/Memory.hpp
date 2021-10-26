@@ -144,13 +144,13 @@ namespace Memory
 
 #ifdef __unix__
 
-    uint8* GetProgramBreak() noexcept;
+    void* GetProgramBreak();
 
     //returns the previous break end location
-    uint8* SetProgramBreak(uint8* NewBreakLocation) noexcept(false);
+    void* SetProgramBreak(void* NewBreakLocation) THROWS;
 
     //returns the previous break end location
-    uint8* MoveProgramBreak(int64 MoveAmount) noexcept(false);
+    void* MoveProgramBreak(int64 MoveAmount) THROWS;
 
     template<typename StoredType = void>
     NODISCARD INLINE StoredType* Map(StoredType* Address, uint64 Length, EMemProtect Protect, EMapFlags MapFlags, int32 FileDescriptor = -1, int32 Offset = 0)

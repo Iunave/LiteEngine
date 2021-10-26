@@ -86,6 +86,7 @@ static_assert(sizeof(float128) == 16);
 #define ASSUME_ALIGNED(address, alignment) __builtin_assume_aligned(address, alignment)
 #define CLEAR_PADDING(address) __builtin_clear_padding(address)
 #define CRASH_TRAP __builtin_trap()
+#define THROWS noexcept(false)
 
 #define STACK_ALLOCATE(size) __builtin_alloca(size)
 #define STACK_ALLOCATE_ELEMENT(element, num) static_cast<element*>(__builtin_alloca(num * sizeof(element)))

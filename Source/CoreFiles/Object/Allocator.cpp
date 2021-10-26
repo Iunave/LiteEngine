@@ -4,179 +4,116 @@
 #include "Log.hpp"
 #include <new>
 
-FAllocationManager::FMemoryBlock::FMemoryBlock(uint32 InUsedSize, uint32 OffsetPrev, uint32 OffsetNext)
-    : UsedSize{InUsedSize}
-    , OffsetToPrev{OffsetPrev}
-    , OffsetToNext{OffsetNext}
+FObjectAllocationManager::FObjectAllocationManager()
+    : ProgramBreakStart{static_cast<uint8*>(Memory::MoveProgramBreak(ArenaSize))}
+    , ProgramBreakEnd{static_cast<uint8*>(Memory::GetProgramBreak())}
 {
+    LOG(LogMemory, "creating new arena at {} with size {}", reinterpret_cast<void*>(ProgramBreakStart), ArenaSize);
+
+    FMemoryArena StartArena{};
+    StartArena.StartBlock = reinterpret_cast<FMemoryBlock*>(ProgramBreakStart);
+    StartArena.EndBlock = reinterpret_cast<FMemoryBlock*>(ProgramBreakEnd) - 1;
+
+    new(StartArena.StartBlock) FMemoryBlock{0, ArenaSize - sizeof(FMemoryBlock), nullptr, StartArena.EndBlock};
+    new(StartArena.EndBlock) FMemoryBlock{0, 0, StartArena.StartBlock, nullptr};
+
+    MemoryArenas.Append(StartArena);
 }
 
-FAllocationManager::FMemoryBlock* FAllocationManager::FMemoryBlock::GetPrevBlock()
+FObjectAllocationManager::~FObjectAllocationManager()
 {
-    if EXPECT(OffsetToPrev > 0, true)
-    {
-        return reinterpret_cast<FMemoryBlock*>(reinterpret_cast<uint8*>(this) - OffsetToPrev);
-    }
-    return nullptr;
+    ASSERT(StartBlock()->NextBlock == EndBlock(), "not all objects have been freed from the pool");
 }
 
-FAllocationManager::FMemoryBlock* FAllocationManager::FMemoryBlock::GetNextBlock()
+uint8* FObjectAllocationManager::FindFreeMemory(const uint64 ObjectSize)
 {
-    if EXPECT(OffsetToNext > 0, true)
-    {
-        return reinterpret_cast<FMemoryBlock*>(reinterpret_cast<uint8*>(this) + OffsetToNext);
-    }
-    return nullptr;
-}
+    const uint64 RequiredSize{static_cast<uint64>(sizeof(FMemoryBlock) + ObjectSize)};
 
-OObject* FAllocationManager::FMemoryBlock::GetAllocatedObject()
-{
-    return reinterpret_cast<OObject*>(this + 1);
-}
-
-uint32 FAllocationManager::FMemoryBlock::AvailableSize() const
-{
-    return (OffsetToNext - UsedSize) - sizeof(FMemoryBlock);
-}
-
-FAllocationManager::FAllocationManager(const int64 BytesToAllocate)
-    : ProgramBreakStart{Memory::MoveProgramBreak(BytesToAllocate)}
-    , ProgramBreakEnd{Memory::GetProgramBreak()}
-    , StartBlock{reinterpret_cast<FMemoryBlock*>(ProgramBreakStart)}
-    , EndBlock{StartBlock + 1}
-{
-    new(StartBlock) FMemoryBlock{0, 0, sizeof(FMemoryBlock)};
-    new(EndBlock) FMemoryBlock{0, sizeof(FMemoryBlock), 0};
-}
-
-FAllocationManager::~FAllocationManager()
-{
-    ASSERT(StartBlock->GetNextBlock() == EndBlock, "not all objects have been freed from the pool");
-}
-
-uint8* FAllocationManager::FindFreeMemory(const uint32 ObjectSize)
-{
-    const uint32 RequiredSize{static_cast<uint32>(sizeof(FMemoryBlock) + ObjectSize)};
-
-    auto CreateNewAfter = [ObjectSize](FMemoryBlock* CurrentBlock) -> uint8*
+    auto CreateNewAfter = [ObjectSize, RequiredSize](FMemoryBlock* CurrentBlock) -> uint8*
     {
         uint8* const NewBlockLocation{reinterpret_cast<uint8*>(CurrentBlock + 1) + CurrentBlock->UsedSize};
 
-        const uint32 OffsetToNew{static_cast<uint32>(NewBlockLocation - reinterpret_cast<uint8*>(CurrentBlock))};
-        const uint32 OffsetFromNewToNext{CurrentBlock->OffsetToNext - OffsetToNew};
+        new(NewBlockLocation) FMemoryBlock{ObjectSize, CurrentBlock->AvailableSize - RequiredSize, CurrentBlock, CurrentBlock->NextBlock};
 
-        new(NewBlockLocation) FMemoryBlock{ObjectSize, OffsetToNew, OffsetFromNewToNext};
-
-        CurrentBlock->OffsetToNext = OffsetToNew;
+        CurrentBlock->NextBlock = reinterpret_cast<FMemoryBlock*>(NewBlockLocation);
+        CurrentBlock->AvailableSize = 0;
 
         return NewBlockLocation + sizeof(FMemoryBlock);
     };
 
-    auto MoveEndBlock = [this, &CreateNewAfter, RequiredSize]() -> uint8*
+    for(FMemoryBlock* MemoryBlock{StartBlock()}; true; MemoryBlock = MemoryBlock->NextBlock)
     {
-        FMemoryBlock* BlockBeforeEnd{EndBlock->GetPrevBlock()};
-        uint32 ExtraSizeNeeded{RequiredSize - BlockBeforeEnd->AvailableSize()};
-        uint8* NewEndBlockLocation{reinterpret_cast<uint8*>(EndBlock) + ExtraSizeNeeded};
-
-        if EXPECT(NewEndBlockLocation > (ProgramBreakEnd - sizeof(FMemoryBlock)), false)
+        if(MemoryBlock->AvailableSize >= RequiredSize)
         {
-            try
-            {
-                Memory::MoveProgramBreak(Math::Max(ExtraSizeNeeded, ExtraAllocateSize));
-            }
-            catch(Error::Memory& OutOfMemoryError)
-            {
-                Defragmentate();
-
-                BlockBeforeEnd = EndBlock->GetPrevBlock();
-                ExtraSizeNeeded = RequiredSize - BlockBeforeEnd->AvailableSize();
-                NewEndBlockLocation = reinterpret_cast<uint8*>(EndBlock) + ExtraSizeNeeded;
-
-                Memory::SetProgramBreak(NewEndBlockLocation + sizeof(FMemoryBlock));
-            }
-
-            ProgramBreakEnd = Memory::GetProgramBreak();
+            return CreateNewAfter(MemoryBlock);
         }
 
-        BlockBeforeEnd->OffsetToNext = BlockBeforeEnd->UsedSize + sizeof(FMemoryBlock);
-
-        EndBlock = reinterpret_cast<FMemoryBlock*>(NewEndBlockLocation);
-        new(EndBlock) FMemoryBlock{0, sizeof(FMemoryBlock), 0};
-
-        return CreateNewAfter(BlockBeforeEnd);
-    };
-
-    for(int64 ArenaIndex{0}; ArenaIndex < MemoryArenas.Num(); ++ArenaIndex)
-    {
-        FMemoryArena& Arena{MemoryArenas[ArenaIndex]};
-
-        for(FMemoryBlock* MemoryBlock{Arena.EndBlock->GetPrevBlock()}; true; MemoryBlock = MemoryBlock->GetPrevBlock())
+        if EXPECT(MemoryBlock == EndBlock(), false)
         {
-            if EXPECT(MemoryBlock->AvailableSize() >= RequiredSize, false)
-            {
-                return CreateNewAfter(MemoryBlock);
-            }
-
-            if EXPECT(MemoryBlock == Arena.StartBlock && ArenaIndex == MemoryArenas.Num() - 1, false)
-            {
-                MakeNewArena();
-                break;
-            }
+            MakeNewArena();
         }
     }
+    UNREACHABLE;
 }
 
-void FAllocationManager::FreeObject(OObject* ObjectToFree NONNULL)
+void FObjectAllocationManager::FreeObject(OObject* ObjectToFree NONNULL)
 {
     FMemoryBlock* OwningBlock{reinterpret_cast<FMemoryBlock*>(ObjectToFree) - 1};
 
-    FMemoryBlock* PrevBlock{OwningBlock->GetPrevBlock()};
-    FMemoryBlock* NextBlock{OwningBlock->GetNextBlock()};
+    FMemoryBlock* PrevBlock{OwningBlock->PrevBlock};
+    FMemoryBlock* NextBlock{OwningBlock->NextBlock};
 
-    PrevBlock->OffsetToNext += OwningBlock->OffsetToNext;
-    NextBlock->OffsetToPrev += OwningBlock->OffsetToPrev;
+    PrevBlock->NextBlock = OwningBlock->NextBlock;
+    PrevBlock->AvailableSize += OwningBlock->UsedSize + OwningBlock->AvailableSize + sizeof(FMemoryBlock);
+
+    NextBlock->PrevBlock = OwningBlock->PrevBlock;
 }
 
-void FAllocationManager::Defragmentate()
+void FObjectAllocationManager::MakeNewArena()
 {
+    FMemoryArena* LastArena{MemoryArenas.End()};
 
+    uint8* PreviousBreak{static_cast<uint8*>(Memory::MoveProgramBreak(ArenaSize))};
+    ProgramBreakEnd = static_cast<uint8*>(Memory::GetProgramBreak());
+
+    LOG(LogMemory, "creating new arena at {} with size {}", reinterpret_cast<void*>(PreviousBreak), ArenaSize);
+
+    FMemoryArena NewArena{};
+    NewArena.StartBlock = reinterpret_cast<FMemoryBlock*>(PreviousBreak);
+    NewArena.EndBlock = reinterpret_cast<FMemoryBlock*>(ProgramBreakEnd - sizeof(FMemoryBlock));
+
+    new(NewArena.StartBlock) FMemoryBlock{0, ArenaSize - sizeof(FMemoryBlock), LastArena->EndBlock, NewArena.EndBlock};
+    new(NewArena.EndBlock) FMemoryBlock{0, 0, NewArena.StartBlock, nullptr};
+
+    LastArena->EndBlock->NextBlock = NewArena.StartBlock;
+
+    MemoryArenas.Append(NewArena);
 }
 
-FAllocationManager::FMemoryArena* FAllocationManager::MakeNewArena()
+void FObjectAllocationManager::RemoveEmptyArenas()
 {
-    FMemoryArena* PreviousArena{MemoryArenas.End()};
-
-    uint8* PreviousBreak{Memory::MoveProgramBreak(ArenaSize)};
-    ProgramBreakEnd = Memory::GetProgramBreak();
-
-    const uint32 OffsetOldEndToNewStart{static_cast<uint32>(PreviousBreak - reinterpret_cast<uint8*>(EndBlock))};
-
-    if(OffsetOldEndToNewStart == sizeof(FMemoryBlock)) //we can merge the arenas (dont need a new startblock)
+    while(MemoryArenas.Num() > 1)
     {
-        EndBlock->OffsetToNext = ArenaSize - sizeof(FMemoryBlock);
+        FMemoryArena* ArenaToCheck{MemoryArenas.End()};
 
-        uint8* NewEndBlockLocation{ProgramBreakEnd - sizeof(FMemoryBlock)};
-        new(NewEndBlockLocation) FMemoryBlock{0, EndBlock->OffsetToNext, 0};
+        if(ArenaToCheck->StartBlock->NextBlock == ArenaToCheck->EndBlock)
+        {
+            if(ProgramBreakEnd == reinterpret_cast<uint8*>(ArenaToCheck->EndBlock + 1))
+            {
+                FMemoryArena* PreviousArena{ArenaToCheck - 1};
 
-        PreviousArena->EndBlock = reinterpret_cast<FMemoryBlock*>(NewEndBlockLocation);;
-        EndBlock = PreviousArena->EndBlock;
+                ProgramBreakEnd = reinterpret_cast<uint8*>(PreviousArena->EndBlock + 1);
+                Memory::SetProgramBreak(ProgramBreakEnd);
+            }
+
+            LOG(LogMemory, "removing arena at {} with size {}", reinterpret_cast<void*>(MemoryArenas.End()), ArenaSize);
+
+            MemoryArenas.RemoveAtSwap(MemoryArenas.Num() - 1);
+        }
+        else
+        {
+            break;
+        }
     }
-    else
-    {
-        EndBlock->OffsetToNext = OffsetOldEndToNewStart;
-
-        FMemoryArena NewArena{};
-        NewArena.StartBlock = reinterpret_cast<FMemoryBlock*>(PreviousBreak);
-        NewArena.EndBlock = reinterpret_cast<FMemoryBlock*>(ProgramBreakEnd - sizeof(FMemoryBlock));
-
-        new(NewArena.StartBlock) FMemoryBlock{0, OffsetOldEndToNewStart, ArenaSize - sizeof(FMemoryBlock)};
-        new(NewArena.EndBlock) FMemoryBlock{0, ArenaSize - sizeof(FMemoryBlock), 0};
-
-        EndBlock = NewArena.EndBlock;
-
-        MemoryArenas.Append(NewArena);
-    }
-
-    return MemoryArenas.End();
 }
 

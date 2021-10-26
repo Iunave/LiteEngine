@@ -10,9 +10,9 @@
 class AActor;
 
 OBJECT_CLASS(OLevel)
-class OLevel
+class OLevel : public OObject
 {
-    OBJECT_BASES()
+    OBJECT_BASES(OObject)
 public:
 
 protected:

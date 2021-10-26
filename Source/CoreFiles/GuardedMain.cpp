@@ -17,17 +17,20 @@
 
 
 OBJECT_CLASS(OFoo)
-class OFoo : public OTickable
+class OFoo : public OObject
 {
-    OBJECT_BASES(OTickable)
+    OBJECT_BASES(OObject)
 public:
-
-    virtual void Tick(float64 DeltaTime) override
-    {
-    }
-
     int32 lol{43214};
+};
 
+OBJECT_CLASS(OBar)
+class OBar : public OFoo
+{
+    OBJECT_BASES(OFoo)
+public:
+    int32 lol{43214};
+    uint64 wow[428]{};
 };
 
 void InitializeVariables()
@@ -46,6 +49,33 @@ int32 main()
 
     float64 Val = StrUtl::ToValue<float64>(String, String + 9);
     LOG(LogProgram, "{}", Val);
+
+    TSharedPtr<OObject> Obj1{MakeShared<OFoo>()};
+    TSharedPtr<OObject> Obj2{MakeShared<OObject>()};
+    TSharedPtr<OObject> Obj3{MakeShared<OBar>()};
+    TSharedPtr<OObject> Obj4{MakeShared<OFoo>()};
+    TSharedPtr<OObject> Obj5{MakeShared<OBar>()};
+    TSharedPtr<OObject> Obj6{MakeShared<OBar>()};
+    TSharedPtr<OObject> Obj7{MakeShared<OBar>()};
+    TSharedPtr<OObject> Obj8{MakeShared<OBar>()};
+    TSharedPtr<OObject> Obj9{MakeShared<OBar>()};
+    TSharedPtr<OObject> Obj10{MakeShared<OBar>()};
+
+    for(TObjectIterator<OObject> Iterator{}; Iterator; ++Iterator)
+    {
+        LOG(LogProgram, "{}", Iterator->GetClassName());
+    }
+
+    //Obj1.Reset();
+    //Obj4.Reset();
+    //Obj5.Reset();
+
+    LOG(LogProgram, "\n");
+
+    for(TObjectIterator<OObject> Iterator{}; Iterator; ++Iterator)
+    {
+        LOG(LogProgram, "{}", Iterator->GetClassName());
+    }
 
     Render::Initialize();
     Render::Loop();

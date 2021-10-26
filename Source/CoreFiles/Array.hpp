@@ -1386,9 +1386,9 @@ namespace ArrUtil
     template<typename Type, int64 Num>
     inline constexpr void RemoveDuplicates(TCountedArray<Type, Num>& Array)
     {
-        for(uint32 OuterIndex{0}; OuterIndex < Array.template Num<volatile uint32>(); ++OuterIndex)
+        for(uint32 OuterIndex{0}; OuterIndex < Array.template Num<uint32>(); ++OuterIndex)
         {
-            for(uint32 InnerIndex{OuterIndex + 1}; InnerIndex < Array.template Num<volatile uint32>(); ++InnerIndex)
+            for(uint32 InnerIndex{OuterIndex + 1}; InnerIndex < Array.template Num<uint32>(); ++InnerIndex)
             {
                 if(Array[OuterIndex] == Array[InnerIndex])
                 {
@@ -1402,9 +1402,9 @@ namespace ArrUtil
     template<typename Type>
     inline constexpr void RemoveDuplicates(TDynamicArray<Type>& Array)
     {
-        for(uint32 OuterIndex{0}; OuterIndex < Array.template Num<volatile uint32>(); ++OuterIndex)
+        for(uint32 OuterIndex{0}; OuterIndex < Array.template Num<uint32>(); ++OuterIndex)
         {
-            for(uint32 InnerIndex{OuterIndex + 1}; InnerIndex < Array.template Num<volatile uint32>(); ++InnerIndex)
+            for(uint32 InnerIndex{OuterIndex + 1}; InnerIndex < Array.template Num<uint32>(); ++InnerIndex)
             {
                 if(Array[OuterIndex] == Array[InnerIndex])
                 {

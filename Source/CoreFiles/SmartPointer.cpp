@@ -4,7 +4,6 @@
 #include "Simd.hpp"
 #include "Atomic.hpp"
 #include "Math.hpp"
-#include "String.hpp"
 
 #include <new>
 
@@ -25,20 +24,23 @@ public:
     {
         --ReverseCount;
 
-        ReadArrayMutex.Lock();
-        Array[ArrayCount.Value()] = NewOffset;
-        ReadArrayMutex.Unlock();
+        const int32 ArrayCountValue{ReverseCount.Value()};
+
+        PtrPri::StartRefCountPtr[ArrayCountValue].WeakReferenceCount = 1;
+        PtrPri::StartRefCountPtr[ArrayCountValue].StrongReferenceCount = 1;
+
+        Array[ArrayCountValue] = NewOffset;
 
         ++ArrayCount;
+
     }
 
     uint32 TakeCounterOffset()
     {
         --ArrayCount;
 
-        ReadArrayMutex.Lock();
-        uint32 Offset{Array[ArrayCount.Value()]};
-        ReadArrayMutex.Unlock();
+        uint32 Offset{Array[ReverseCount.Value()]};
+        __builtin_printf("\n%i, %i", Offset, ReverseCount.Value());
 
         ++ReverseCount;
 
@@ -147,8 +149,6 @@ namespace PtrPri
 
     uint32 NewReferenceCounter()
     {
-        const uint32 FreeOffset{FreeRefCounters.TakeCounterOffset()};
-        new(StartRefCountPtr + FreeOffset) FReferenceCounter{};
-        return FreeOffset;
+        return FreeRefCounters.TakeCounterOffset();
     }
 }

@@ -417,6 +417,61 @@ OBJECT_CLASS(OObject)
 class OObject
 {
     OBJECT_BASES()
+public:
+
+    OObject() = default;
+    virtual ~OObject() = default;
+};
+
+template<typename ObjectClass> requires(TypeTrait::IsObjectClass<ObjectClass>)
+class TObjectIterator final
+{
+public:
+
+    TObjectIterator()
+        : BlockPtr{FObjectAllocationManager::Instance().StartBlock()}
+        , ObjectPtr{nullptr}
+    {
+        operator++();
+    }
+
+    TObjectIterator& operator++()
+    {
+        BlockPtr = BlockPtr->NextBlock;
+
+        if EXPECT(operator bool(), true)
+        {
+            ObjectPtr = ObjectCast<ObjectClass*>(BlockPtr->GetAllocatedObject());
+
+            if(ObjectPtr == nullptr)
+            {
+                return operator++();
+            }
+        }
+        return *this;
+    }
+
+    NONNULL ObjectClass* operator->()
+    {
+        ASSUME(ObjectPtr != nullptr);
+        return ObjectPtr;
+    }
+
+    ObjectClass& operator*()
+    {
+        ASSUME(ObjectPtr != nullptr);
+        return *ObjectPtr;
+    }
+
+    explicit operator bool() const
+    {
+        return BlockPtr != FObjectAllocationManager::Instance().EndBlock();
+    }
+
+private:
+
+    FObjectAllocationManager::FMemoryBlock* BlockPtr;
+    ObjectClass* ObjectPtr;
 };
 
 template<typename ObjectClass> requires(TypeTrait::IsObjectClass<ObjectClass>)

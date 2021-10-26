@@ -4,6 +4,7 @@
 #include "TypeTraits.hpp"
 #include "Assert.hpp"
 #include "Atomic.hpp"
+#include "Object/Allocator.hpp"
 
 enum class EThreadMode
 {
@@ -125,12 +126,6 @@ namespace PtrPri
 
     struct PACKED MAY_ALIAS FReferenceCounter
     {
-        INLINE constexpr FReferenceCounter()
-            : StrongReferenceCount{1}
-            , WeakReferenceCount{1}
-        {
-        }
-
         int16 StrongReferenceCount;
         int16 WeakReferenceCount;
     };
@@ -601,22 +596,46 @@ private:
     {
         if(TShared::RemoveReference() == 0)
         {
-            delete this->Pointer;
+            if constexpr(TypeTrait::IsObjectClass<Type>)
+            {
+                if constexpr(!TypeTrait::IsTriviallyDestructible<Type>)
+                {
+                    this->Pointer->Type::~Type();
+                }
+
+                FObjectAllocationManager::Instance().FreeObject(this->Pointer);
+            }
+            else
+            {
+                delete this->Pointer;
+            }
         }
     }
 
 };
 
-template<typename Type, typename... VarArgs>
+template<typename Type, typename... VarArgs> requires(!TypeTrait::IsObjectClass<Type>)
 inline TSharedPtr<Type, EThreadMode::Default> MakeShared(VarArgs&&... Args)
 {
     return TSharedPtr<Type, EThreadMode::Default>{new Type{MoveIfPossible(Args)...}, PtrPri::NewReferenceCounter()};
 }
 
-template<typename Type, EThreadMode ThreadMode, typename... VarArgs>
+template<typename Type, EThreadMode ThreadMode, typename... VarArgs> requires(!TypeTrait::IsObjectClass<Type>)
 inline TSharedPtr<Type, ThreadMode> MakeShared(VarArgs&&... Args)
 {
     return TSharedPtr<Type, ThreadMode>{new Type{MoveIfPossible(Args)...}, PtrPri::NewReferenceCounter()};
+}
+
+template<typename Type, typename... VarArgs> requires(TypeTrait::IsObjectClass<Type>)
+inline TSharedPtr<Type, EThreadMode::Default> MakeShared(VarArgs&&... Args)
+{
+    return TSharedPtr<Type, EThreadMode::Default>{FObjectAllocationManager::Instance().template PlaceObject<Type>(MoveIfPossible(Args)...), PtrPri::NewReferenceCounter()};
+}
+
+template<typename Type, EThreadMode ThreadMode, typename... VarArgs> requires(TypeTrait::IsObjectClass<Type>)
+inline TSharedPtr<Type, ThreadMode> MakeShared(VarArgs&&... Args)
+{
+    return TSharedPtr<Type, ThreadMode>{FObjectAllocationManager::Instance().template PlaceObject<Type>(MoveIfPossible(Args)...), PtrPri::NewReferenceCounter()};
 }
 
 template<typename Type>

@@ -1,35 +1,42 @@
 #pragma once
 
 #include "Definitions.hpp"
-#include "Object.hpp"
+#include "Thread/Thread.hpp"
+#include "TypeTraits.hpp"
+#include "Array.hpp"
 
-class FAllocationManager final : public FSingleton<FAllocationManager>
+class OObject;
+
+class FObjectAllocationManager final : public FSingleton<FObjectAllocationManager>
 {
     template<typename ObjectClass> requires(TypeTrait::IsObjectClass<ObjectClass>)
     friend class TObjectIterator;
 public:
 
-    static constexpr uint32 ExtraAllocateSize{1024};
     static constexpr int64 ArenaSize{100000000}; //1 gigabyte
 
-    class PACKED FMemoryBlock
+    class FMemoryBlock
     {
     public:
 
-        FMemoryBlock(uint32 InUsedSize, uint32 OffsetPrev, uint32 OffsetNext);
+        FMemoryBlock(uint64 InUsedSize, uint64 InAvailableSize, FMemoryBlock* InPrevBlock, FMemoryBlock* InNextBlock)
+            : UsedSize{InUsedSize}
+            , AvailableSize{InAvailableSize}
+            , PrevBlock{InPrevBlock}
+            , NextBlock{InNextBlock}
+        {
+        }
 
-        FMemoryBlock* GetPrevBlock();
+        OObject* GetAllocatedObject()
+        {
+            return reinterpret_cast<OObject*>(reinterpret_cast<int64>(this + 1) * (UsedSize != 0));
+        }
 
-        FMemoryBlock* GetNextBlock();
+        uint64 UsedSize;
+        uint64 AvailableSize;
 
-        OObject* GetAllocatedObject();
-
-        uint32 AvailableSize() const;
-
-        uint32 UsedSize;
-
-        uint32 OffsetToPrev;
-        uint32 OffsetToNext;
+        FMemoryBlock* PrevBlock;
+        FMemoryBlock* NextBlock;
     };
 
     struct FMemoryArena
@@ -38,12 +45,12 @@ public:
         FMemoryBlock* EndBlock;
     };
 
-    FAllocationManager(const int64 BytesToAllocate = 10000);
+    FObjectAllocationManager();
 
-    ~FAllocationManager();
+    ~FObjectAllocationManager();
 
     template<typename ObjectClass, typename... ConstructorArgs> requires(TypeTrait::IsObjectClass<ObjectClass>)
-    ObjectClass* PlaceData(ConstructorArgs&&... Arguments)
+    ObjectClass* PlaceObject(ConstructorArgs&&... Arguments)
     {
         return new(FindFreeMemory(sizeof(ObjectClass))) ObjectClass{MoveIfPossible(Arguments)...};
     }
@@ -51,81 +58,31 @@ public:
     //this function does not call the destructor of the object
     void FreeObject(OObject* ObjectToFree NONNULL);
 
-    INLINE uint64 GetPoolSize() const
-    {
-        return (EndBlock - StartBlock) * sizeof(FMemoryBlock);
-    }
-
-    void Defragmentate();
-
 private:
 
-    //returns a pointer to the end of a free memory block
-    uint8* FindFreeMemory(const uint32 ObjectSize);
+    FMemoryBlock* StartBlock() const
+    {
+        return MemoryArenas.Start()->StartBlock;
+    }
 
-    FMemoryArena* MakeNewArena();
+    FMemoryBlock* EndBlock() const
+    {
+        return MemoryArenas.End()->EndBlock;
+    }
+
+    //returns a pointer to the end of a free memory block
+    uint8* FindFreeMemory(const uint64 ObjectSize);
+
+    void MakeNewArena();
+
+    void RemoveEmptyArenas();
 
     uint8* const ProgramBreakStart;
     uint8* ProgramBreakEnd;
 
     TCountedArray<FMemoryArena, 64> MemoryArenas;
 
-    FMemoryBlock* const StartBlock; //the very first block, same as ObjectArenas[0].StartBlock
-    FMemoryBlock* EndBlock;  //the very last block, same as ObjectArenas[ObjectArenas.Num() - 1].EndBlock
-};
-
-template<typename ObjectClass> requires(TypeTrait::IsObjectClass<ObjectClass>)
-class TObjectIterator final
-{
-public:
-
-    TObjectIterator()
-        : BlockPtr{FAllocationManager::Instance().StartBlock}
-        , ObjectPtr{ObjectCast<ObjectClass*>(BlockPtr->GetAllocatedObject())}
-    {
-        if(ObjectPtr == nullptr)
-        {
-            operator++();
-        }
-    }
-
-    TObjectIterator& operator++()
-    {
-        BlockPtr = BlockPtr->GetNextBlock();
-
-        if EXPECT(operator bool(), true)
-        {
-            ObjectPtr = ObjectCast<ObjectClass*>(BlockPtr->GetAllocatedObject());
-
-            if(ObjectPtr == nullptr)
-            {
-                return operator++();
-            }
-        }
-        return *this;
-    }
-
-    NONNULL ObjectClass* operator->()
-    {
-        ASSUME(ObjectPtr != nullptr);
-        return ObjectPtr;
-    }
-
-    ObjectClass& operator*()
-    {
-        ASSUME(ObjectPtr != nullptr);
-        return *ObjectPtr;
-    }
-
-    explicit operator bool() const
-    {
-        return BlockPtr != FAllocationManager::Instance().EndBlock;
-    }
-
-private:
-
-    FAllocationManager::FMemoryBlock* BlockPtr;
-    ObjectClass* ObjectPtr;
+    Thread::FMutex ChangeMemoryMutex;
 };
 
 
