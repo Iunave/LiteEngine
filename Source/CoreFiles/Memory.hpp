@@ -147,10 +147,10 @@ namespace Memory
     void* GetProgramBreak();
 
     //returns the previous break end location
-    void* SetProgramBreak(void* NewBreakLocation) THROWS;
+    void* SetProgramBreak(void* NewBreakLocation);
 
     //returns the previous break end location
-    void* MoveProgramBreak(int64 MoveAmount) THROWS;
+    void* MoveProgramBreak(int64 MoveAmount);
 
     template<typename StoredType = void>
     NODISCARD INLINE StoredType* Map(StoredType* Address, uint64 Length, EMemProtect Protect, EMapFlags MapFlags, int32 FileDescriptor = -1, int32 Offset = 0)
@@ -239,6 +239,25 @@ namespace Memory
             __builtin_prefetch(Start, FetchPreparation, TemporalLocality);
             Start += Cache::L1LineSize;
         }
+    }
+
+    INLINE bool IsAligned(const void* Address, uint64 Alignment)
+    {
+        return (reinterpret_cast<uint64>(Address) % Alignment) == 0;
+    }
+
+    template<typename Type>
+    INLINE Type* NextAlignedAddress(const void* Address)
+    {
+        const uint64 AddressAsInt{reinterpret_cast<uint64>(Address)};
+        return reinterpret_cast<Type*>(AddressAsInt + (AddressAsInt % alignof(Type)));
+    }
+
+    template<typename Type>
+    INLINE Type* PrevAlignedAddress(const void* Address)
+    {
+        const uint64 AddressAsInt{reinterpret_cast<uint64>(Address)};
+        return reinterpret_cast<Type*>(AddressAsInt - (AddressAsInt % alignof(Type)));
     }
 
     template<typename TargetType, typename SourceType>

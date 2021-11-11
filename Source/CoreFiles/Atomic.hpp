@@ -34,9 +34,7 @@ namespace Atomic
     inline T Read(volatile const T* Source)
     {
         T Result;
-
         __atomic_load(const_cast<volatile T*>(Source), &Result, __ATOMIC_SEQ_CST);
-
         return Result;
     }
 

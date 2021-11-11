@@ -19,6 +19,7 @@ public:
 
     OShaderCodeReader();
     OShaderCodeReader(const FString<SS124>& InFileName);
+
     ~OShaderCodeReader();
 
     virtual void Run() override;
@@ -36,7 +37,7 @@ public:
 
 namespace Render
 {
-    inline constexpr FString<SS124> ShaderPath{"../Shaders/Compiled/"};
+    inline constexpr FString<SS124> RelativeShaderPath{"/Shaders/Compiled/"};
     inline constexpr FString<SS124> FragShaderPostfix{".frag.spv"};
     inline constexpr FString<SS124> VertShaderPostfix{".vert.spv"};
 
@@ -94,6 +95,12 @@ namespace Render
         Vk::Fence FlightFence;
     };
 
+    struct FBuffer
+    {
+        Vk::Buffer BufferHandle;
+        Vk::DeviceMemory MemoryHandle;
+    };
+
     struct FRenderConfigInfo
     {
         FRenderConfigInfo(Vk::Extent2D ImageExtent);
@@ -117,7 +124,7 @@ namespace Render
     };
 
     void Initialize();
-    void Loop();
+    attr(hot) void Loop();
     void ShutDown();
 }
 
@@ -189,6 +196,8 @@ public:
     void CreateSwapChain(Vk::SwapchainKHR OldSwapChain = NULL_HANDLE);
     void RecreateSwapChain();
 
+    bool SwapChainNeedsRecreation(Vk::Result Result) const;
+
     void DestroySwapChain();
 
     void CreateRenderPass();
@@ -206,6 +215,11 @@ public:
 
     void CreateDrawingCommandPool();
     void DestroyDrawingCommandPool();
+
+    void CreateVertexBuffer();
+    void DestroyVertexBuffer();
+
+    uint32 FindMemoryType(uint32 TypeFilter, Vk::MemoryPropertyFlags Flags) const;
 
     void CreateCommandBuffers();
     void FreeCommandBuffers();
@@ -251,6 +265,9 @@ public:
     TDynamicArray<Vk::Image> SwapChainImages;
     TDynamicArray<Vk::ImageView> SwapChainImageViews;
     TDynamicArray<Vk::Framebuffer> SwapChainFrameBuffers;
+
+    Vk::Buffer VertexBuffer;
+    Vk::DeviceMemory VertexMemoryHandle;
 
     TDynamicArray<Vk::CommandBuffer> CommandBuffers;
 

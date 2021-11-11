@@ -130,45 +130,45 @@ namespace PtrPri
         int16 WeakReferenceCount;
     };
 
-    extern uint32 EndRefCountOffset;
+    extern uint64 EndRefCountOffset;
     extern FReferenceCounter* StartRefCountPtr;
 
-    struct PACKED FReferenceCounterWrapper
+    struct FReferenceCounterWrapper
     {
-        FReferenceCounterWrapper()
+        INLINE FReferenceCounterWrapper()
             : Offset{OFFSET_NONE}
         {
         }
 
-        FReferenceCounterWrapper(ENoInit)
+        INLINE FReferenceCounterWrapper(ENoInit)
         {
         }
 
-        FReferenceCounterWrapper(uint32 InOffset)
+        INLINE FReferenceCounterWrapper(uint64 InOffset)
             : Offset{InOffset}
         {
         }
 
-        FReferenceCounter* operator->()
-        {
-            return StartRefCountPtr + Offset;
-        }
-
-        const FReferenceCounter* operator->() const
-        {
-            return StartRefCountPtr + Offset;
-        }
-
-        const FReferenceCounterWrapper& operator=(uint32 NewOffset)
+        INLINE const FReferenceCounterWrapper& operator=(uint64 NewOffset)
         {
             Offset = NewOffset;
             return *this;
         }
 
-        uint32 Offset;
+        INLINE FReferenceCounter* operator->()
+        {
+            return StartRefCountPtr + Offset;
+        }
+
+        INLINE const FReferenceCounter* operator->() const
+        {
+            return StartRefCountPtr + Offset;
+        }
+
+        uint64 Offset;
     };
 
-    uint32 NewReferenceCounter();
+    uint64 FindNewRefCounterOffset();
 
     template<EThreadMode ThreadMode, ESharedMode SharedMode>
     class INTERNAL_LINKAGE TSharedBase
@@ -420,7 +420,7 @@ public:
 
     explicit TSharedPtr(PtrType* InPtr NONNULL)
         : TPointer{InPtr}
-        , TShared{PtrPri::NewReferenceCounter()}
+        , TShared{PtrPri::FindNewRefCounterOffset()}
     {
     }
 
@@ -617,25 +617,25 @@ private:
 template<typename Type, typename... VarArgs> requires(!TypeTrait::IsObjectClass<Type>)
 inline TSharedPtr<Type, EThreadMode::Default> MakeShared(VarArgs&&... Args)
 {
-    return TSharedPtr<Type, EThreadMode::Default>{new Type{MoveIfPossible(Args)...}, PtrPri::NewReferenceCounter()};
+    return TSharedPtr<Type, EThreadMode::Default>{new Type{MoveIfPossible(Args)...}, PtrPri::FindNewRefCounterOffset()};
 }
 
 template<typename Type, EThreadMode ThreadMode, typename... VarArgs> requires(!TypeTrait::IsObjectClass<Type>)
 inline TSharedPtr<Type, ThreadMode> MakeShared(VarArgs&&... Args)
 {
-    return TSharedPtr<Type, ThreadMode>{new Type{MoveIfPossible(Args)...}, PtrPri::NewReferenceCounter()};
+    return TSharedPtr<Type, ThreadMode>{new Type{MoveIfPossible(Args)...}, PtrPri::FindNewRefCounterOffset()};
 }
 
 template<typename Type, typename... VarArgs> requires(TypeTrait::IsObjectClass<Type>)
-inline TSharedPtr<Type, EThreadMode::Default> MakeShared(VarArgs&&... Args)
+attr(hot) inline TSharedPtr<Type, EThreadMode::Default> MakeShared(VarArgs&&... Args)
 {
-    return TSharedPtr<Type, EThreadMode::Default>{FObjectAllocationManager::Instance().template PlaceObject<Type>(MoveIfPossible(Args)...), PtrPri::NewReferenceCounter()};
+    return TSharedPtr<Type, EThreadMode::Default>{FObjectAllocationManager::Instance().template PlaceObject<Type>(MoveIfPossible(Args)...), PtrPri::FindNewRefCounterOffset()};
 }
 
 template<typename Type, EThreadMode ThreadMode, typename... VarArgs> requires(TypeTrait::IsObjectClass<Type>)
-inline TSharedPtr<Type, ThreadMode> MakeShared(VarArgs&&... Args)
+attr(hot) inline TSharedPtr<Type, ThreadMode> MakeShared(VarArgs&&... Args)
 {
-    return TSharedPtr<Type, ThreadMode>{FObjectAllocationManager::Instance().template PlaceObject<Type>(MoveIfPossible(Args)...), PtrPri::NewReferenceCounter()};
+    return TSharedPtr<Type, ThreadMode>{FObjectAllocationManager::Instance().template PlaceObject<Type>(MoveIfPossible(Args)...), PtrPri::FindNewRefCounterOffset()};
 }
 
 template<typename Type>

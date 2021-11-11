@@ -40,6 +40,7 @@ set(CoreFilesSrc
     Source/CoreFiles/Tuple.cpp
     Source/CoreFiles/TypeTraits.cpp
     Source/CoreFiles/Vector.cpp
+    Source/CoreFiles/Time.cpp
 )
 
 set(ObjectFilesSrc
@@ -71,26 +72,24 @@ set(InterfaceFilesSrc
 set(RenderFilesSrc
     Source/Rendering/VulkanRenderer.cpp
     Source/Rendering/RenderSettings.cpp
-    Source/Rendering/RenderDebug.cpp
-    Source/Rendering/RenderDevice.cpp
-    Source/Rendering/RenderInstance.cpp
-    Source/Rendering/RenderPipeline.cpp
-    Source/Rendering/RenderSwapChain.cpp
     Source/Rendering/RenderWindow.cpp
+    Source/Rendering/Vertex.cpp
+)
+
+set(LauncherFilesSrc
+    Source/CoreFiles/ChooseExecutableMain.cpp
+    Source/CoreFiles/String.cpp
+    Source/CoreFiles/Log.cpp
+    Source/CoreFiles/Thread/Thread.cpp
 )
 
 set(GeneralCompilerFlags
     -std=c++20
     -O3
-    -mfma
-    -msse
-    -msse2
-    -msse3
-    -msse4.1
-    -msse4.2
     -fvectorize
     -mno-vzeroupper
     -ffast-math
+    -funroll-loops
     -funsafe-math-optimizations
     -fno-rtti
     #-fno-exceptions
@@ -99,80 +98,110 @@ set(GeneralCompilerFlags
     -Wextra
     -Wpedantic
     -pedantic-errors
-    -Ofast
     -Wno-gnu-zero-variadic-macro-arguments
+    -Wno-zero-length-array
 )
 
 set(CMAKE_PROJECT_NAME LiteEngine)
 set(CMAKE_ENGINE_NAME LiteEngine)
 set(CMAKE_ENGINE_VERSION 1)
 
-set(LauncherExecutableName "${CMAKE_PROJECT_NAME}_launcher")
+set(LauncherExecutableName ${CMAKE_PROJECT_NAME}.out)
 
-#arguments for ${LauncherExecutableName} are: debug = run debug version, avx256 = run avx256 version, avx512 = run avx512 version, benchmark=N = run program N times
-add_executable(${LauncherExecutableName} Source/CoreFiles/ChooseExecutableMain.cpp)
+add_executable(${LauncherExecutableName} ${LauncherFilesSrc})
 
-target_compile_options(${LauncherExecutableName} PRIVATE ${GeneralCompilerFlags})
-
+target_compile_definitions(${LauncherExecutableName} PRIVATE DEBUG=false)
 target_compile_definitions(${LauncherExecutableName} PRIVATE PROJECT_NAME="${CMAKE_PROJECT_NAME}")
 target_compile_definitions(${LauncherExecutableName} PRIVATE ENGINE_NAME="${CMAKE_ENGINE_NAME}")
 target_compile_definitions(${LauncherExecutableName} PRIVATE ENGINE_VERSION=${CMAKE_ENGINE_VERSION})
+target_compile_definitions(${LauncherExecutableName} PRIVATE SOURCE_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}")
 
-add_custom_target(CompileShaders ALL COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/CompileShaders.sh WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(${LauncherExecutableName} PRIVATE ${GeneralCompilerFlags} -march=skylake)
+target_link_libraries(${LauncherExecutableName} PUBLIC fmt)
+target_link_libraries(${LauncherExecutableName} PUBLIC pthread)
 
-add_dependencies(${LauncherExecutableName} CompileShaders)
+add_custom_command(
+        TARGET ${LauncherExecutableName}
+        PRE_BUILD
+        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/CompileShaders.sh
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "compiling shaders...")
+
+add_custom_command(
+        TARGET ${LauncherExecutableName}
+        POST_BUILD
+        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/StripDebugInfo.sh
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "stripping debug info...")
 
 set(ExecutableName)
 set(CompileOptions)
 
-macro(MakeExecutable bDebug avx_version)
+macro(MakeExecutable Version CpuTarget)
 
-    if(${bDebug})
-        if("${avx_version}" STREQUAL "avx256")
-
-            set(ExecutableName "${CMAKE_PROJECT_NAME}_avx256_debug")
-            set(CompileOptions ${GeneralCompilerFlags} -mavx -mavx2)
-
-        elseif("${avx_version}" STREQUAL "avx512")
-
-            set(ExecutableName "${CMAKE_PROJECT_NAME}_avx512_debug")
-            set(CompileOptions ${GeneralCompilerFlags} -mavx -mavx2 -mavx512f -mavx512dq -mavx512bw)
-
-        endif()
-    else()
-        if("${avx_version}" STREQUAL "avx256")
-
-            set(ExecutableName "${CMAKE_PROJECT_NAME}_avx256")
-            set(CompileOptions ${GeneralCompilerFlags} -mavx -mavx2 -s)
-
-        elseif("${avx_version}" STREQUAL "avx512")
-
-            set(ExecutableName "${CMAKE_PROJECT_NAME}_avx512")
-            set(CompileOptions ${GeneralCompilerFlags} -mavx -mavx2 -mavx512f -mavx512dq -mavx512bw -s)
-
-        endif()
-    endif()
+    set(ExecutableName "${CMAKE_PROJECT_NAME}_${CpuTarget}_${Version}.out")
 
     add_executable(${ExecutableName} ${CoreFilesSrc} ${ObjectFilesSrc} ${ThreadFilesSrc} ${ActorFilesSrc} ${InterfaceFilesSrc} ${RenderFilesSrc})
+
+    if(${Version} STREQUAL "debug")
+        set(CompileOptions ${GeneralCompilerFlags} -g -march=${CpuTarget})
+        target_compile_definitions(${ExecutableName} PRIVATE DEBUG=true)
+    else(${Version} STREQUAL "release")
+        set(CompileOptions ${GeneralCompilerFlags} -march=${CpuTarget})
+        target_compile_definitions(${ExecutableName} PRIVATE DEBUG=false)
+    endif()
 
     target_compile_options(${ExecutableName} PRIVATE ${CompileOptions})
 
     target_compile_definitions(${ExecutableName} PRIVATE EXECUTABLE_NAME="${ExecutableName}")
-    target_compile_definitions(${ExecutableName} PRIVATE DEBUG=${bDebug})
     target_compile_definitions(${ExecutableName} PRIVATE PROJECT_NAME="${CMAKE_PROJECT_NAME}")
     target_compile_definitions(${ExecutableName} PRIVATE ENGINE_NAME="${CMAKE_ENGINE_NAME}")
     target_compile_definitions(${ExecutableName} PRIVATE ENGINE_VERSION=${CMAKE_ENGINE_VERSION})
+    target_compile_definitions(${ExecutableName} PRIVATE SOURCE_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}")
 
-    target_link_libraries(${ExecutableName} PRIVATE fmt)
-    target_link_libraries(${ExecutableName} PRIVATE glfw)
-    target_link_libraries(${ExecutableName} PRIVATE vulkan)
-    target_link_libraries(${ExecutableName} PRIVATE pthread)
+    target_link_libraries(${ExecutableName} PUBLIC fmt)
+    target_link_libraries(${ExecutableName} PUBLIC glfw)
+    target_link_libraries(${ExecutableName} PUBLIC vulkan)
+    target_link_libraries(${ExecutableName} PUBLIC pthread)
+
+    add_custom_command(
+            TARGET ${ExecutableName}
+            PRE_BUILD
+            COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/CompileShaders.sh
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMENT "compiling shaders...")
+
+    add_custom_command(
+            TARGET ${ExecutableName}
+            POST_BUILD
+            COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/StripDebugInfo.sh
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMENT "stripping debug info...")
 
     add_dependencies(${LauncherExecutableName} ${ExecutableName})
 
 endmacro(MakeExecutable)
 
-MakeExecutable(false avx256)
-MakeExecutable(false avx512)
-MakeExecutable(true avx256)
-MakeExecutable(true avx512)
+MakeExecutable(release skylake)
+MakeExecutable(release skylake-avx512)
+MakeExecutable(release cannonlake)
+MakeExecutable(release cascadelake)
+MakeExecutable(release tigerlake)
+MakeExecutable(release cooperlake)
+MakeExecutable(release alderlake)
+MakeExecutable(release znver1)
+MakeExecutable(release znver2)
+MakeExecutable(release znver3)
+
+if(${CMAKE_BUILD_TYPE} STREQUAL Debug)
+MakeExecutable(debug skylake)
+MakeExecutable(debug skylake-avx512)
+MakeExecutable(debug cannonlake)
+MakeExecutable(debug cascadelake)
+MakeExecutable(debug tigerlake)
+MakeExecutable(debug cooperlake)
+MakeExecutable(debug alderlake)
+MakeExecutable(debug znver1)
+MakeExecutable(debug znver2)
+MakeExecutable(debug znver3)
+endif()

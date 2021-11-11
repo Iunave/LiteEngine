@@ -5,108 +5,22 @@
 #include "Atomic.hpp"
 #include "Math.hpp"
 
-#include <new>
-
-uint32 PtrPri::EndRefCountOffset{512};
+uint64 PtrPri::EndRefCountOffset{512};
 PtrPri::FReferenceCounter* PtrPri::StartRefCountPtr{Memory::ZeroAllocate<PtrPri::FReferenceCounter>(PtrPri::EndRefCountOffset)};
 
-class FFreeReferenceCounters
+uint64 PtrPri::FindNewRefCounterOffset()
 {
-public:
+    #if defined(AVX512)
+    using DataVectorType = int32_16;
+    #elif defined(AVX256)
+    using DataVectorType = int32_8;
+    #endif
 
-    FFreeReferenceCounters()
-        : ArrayCount{0}
-        , ReverseCount{static_cast<uint32>(Array.Num())}
+    static Thread::FMutex SearchMutex{};
+
+    auto AllocateMore = []() -> void
     {
-    }
-
-    void PlaceCounterOffset(uint32 NewOffset)
-    {
-        --ReverseCount;
-
-        const int32 ArrayCountValue{ReverseCount.Value()};
-
-        PtrPri::StartRefCountPtr[ArrayCountValue].WeakReferenceCount = 1;
-        PtrPri::StartRefCountPtr[ArrayCountValue].StrongReferenceCount = 1;
-
-        Array[ArrayCountValue] = NewOffset;
-
-        ++ArrayCount;
-
-    }
-
-    uint32 TakeCounterOffset()
-    {
-        --ArrayCount;
-
-        uint32 Offset{Array[ReverseCount.Value()]};
-        __builtin_printf("\n%i, %i", Offset, ReverseCount.Value());
-
-        ++ReverseCount;
-
-        return Offset;
-    }
-
-private:
-
-    TStaticArray<uint32, 64> Array;
-
-    Thread::FSemaphore ArrayCount;
-    Thread::FSemaphore ReverseCount;
-
-    Thread::FMutex ReadArrayMutex;
-};
-
-FFreeReferenceCounters FreeRefCounters{};
-
-namespace PtrPri
-{
-    void* PopulateFreeRefCounters(void*);
-}
-
-class FPopulateRefCountersManager
-{
-    friend PtrPri::FReferenceCounterWrapper;
-    friend void* PtrPri::PopulateFreeRefCounters(void*);
-public:
-
-    FPopulateRefCountersManager()
-        : bEndWork{false}
-    {
-        ASSERT(PtrPri::EndRefCountOffset % 16 == 0);
-
-        SearchThread.Create(&PtrPri::PopulateFreeRefCounters, nullptr);
-    }
-
-    ~FPopulateRefCountersManager()
-    {
-        bEndWork = true;
-        FreeRefCounters.TakeCounterOffset();
-
-        SearchThread.Join();
-
-        Memory::Free(PtrPri::StartRefCountPtr);
-    }
-
-private:
-
-    Thread::FThread SearchThread;
-    TAtomic<bool> bEndWork;
-};
-
-FPopulateRefCountersManager ThreadManager{};
-
-namespace PtrPri
-{
-    void* PopulateFreeRefCounters(void*)
-    {
-#if defined(AVX512)
-        using DataVectorType = int32_16;
-#elif defined(AVX256)
-        using DataVectorType = int32_8;
-#endif
-
-        constexpr auto AllocateMore = []() -> void
+        if(SearchMutex.TryLock())
         {
             const uint64 OldSize{EndRefCountOffset * sizeof(PtrPri::FReferenceCounter)};
             const uint64 NewSize{OldSize + (512 * sizeof(PtrPri::FReferenceCounter))};
@@ -114,41 +28,37 @@ namespace PtrPri
 
             StartRefCountPtr = Memory::Reallocate(StartRefCountPtr, NewSize);
 
-            FreeRefCounters.PlaceCounterOffset(EndRefCountOffset + 1);
-
             Memory::Set(StartRefCountPtr + EndRefCountOffset + 1, 0, NewSize - OldSize);
 
             EndRefCountOffset = (NewSize / sizeof(PtrPri::FReferenceCounter));
-        };
 
-        RestartSearch:
-
-        if EXPECT(ThreadManager.bEndWork, false)
-        {
-            pthread_exit(nullptr);
+            SearchMutex.Unlock();
         }
+    };
 
-        for(uint32 Offset{0}; Offset != EndRefCountOffset; Offset += Simd::NumElements<DataVectorType>())
+    RestartSearch:
+    for(uint64 Offset{0}; Offset != EndRefCountOffset; Offset += Simd::NumElements<DataVectorType>())
+    {
+        DataVectorType DataVector{Simd::LoadUnaligned<DataVectorType>(reinterpret_cast<const int32*>(StartRefCountPtr + Offset))};
+        Simd::MaskType<DataVectorType> ComparisonMask{Simd::MoveMask(DataVector == 0)};
+
+        if EXPECT(ComparisonMask > 0, false)
         {
-            DataVectorType DataVector{Simd::LoadUnaligned<DataVectorType>(reinterpret_cast<const int32*>(StartRefCountPtr + Offset))};
+            uint64 FoundOffset{(Math::FindFirstSet(ComparisonMask) - 1) + Offset};
 
-            const Simd::MaskType<DataVectorType> ComparisonMask{Simd::MoveMask(DataVector == 0)};
-
-            if EXPECT(ComparisonMask > 0, false)
+            if EXPECT(SearchMutex.TryLock(), true)
             {
-                const int32 MatchIndex{Math::FindFirstSet(ComparisonMask)};
-                FreeRefCounters.PlaceCounterOffset(Offset + (MatchIndex - 1)); //ffs returns index + 1
+                FReferenceCounter* FoundCounter{StartRefCountPtr + FoundOffset};
+                FoundCounter->StrongReferenceCount = 1;
+                FoundCounter->WeakReferenceCount = 1;
 
-                goto RestartSearch;
+                SearchMutex.Unlock();
+
+                return FoundOffset;
             }
         }
-
-        AllocateMore();
-        goto RestartSearch;
     }
 
-    uint32 NewReferenceCounter()
-    {
-        return FreeRefCounters.TakeCounterOffset();
-    }
+    AllocateMore();
+    goto RestartSearch;
 }

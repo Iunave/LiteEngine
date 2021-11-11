@@ -67,7 +67,7 @@ FVector FVector::CrossProduct(FVector Other) const
 float64 FVector::AngleBetween(FVector Other) const
 {
     const float64 LengthsMultiplied{Length() * Other.Length()};
-    const float64 DotProductTroughLength{DotProduct(Other) / (LengthsMultiplied + static_cast<float64>(LengthsMultiplied == 0.0))};
+    const float64 DotProductTroughLength{DotProduct(Other) / LengthsMultiplied};
 
     return Math::ArchCosine(DotProductTroughLength);
 }
@@ -82,7 +82,7 @@ bool FVector::operator==(FVector Other) const
 
 FString<SS124> StrUtl::ToString(FVector Source)
 {
-    FString < SS124 > String{};
+    FString<SS124> String{};
 
     const char8* End{fmt::format_to(String.Data(), "X={:+f} Y={:+f} Z={:+f}", Source.X(), Source.Y(), Source.Z())};
 

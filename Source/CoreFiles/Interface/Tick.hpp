@@ -27,9 +27,9 @@ private:
 
 public:
 
-    void Tick(float64 DeltaTime);
+    attr(hot) void Tick(float64 DeltaTime);
 
-    NODISCARD int64 AddTickable(OTickable* ObjectToAdd NONNULL);
+    attr(warn_unused_result, nonnull(2)) int64 AddTickable(OTickable* ObjectToAdd);
 
     void RemoveTickable(const int64 ObjectPosition);
 
@@ -52,12 +52,12 @@ public:
 
     virtual ~OTickable();
 
-    INLINE bool IsTickRegistered() const
+    bool IsTickRegistered() const
     {
         return TickPosition >= 0;
     }
 
-    INLINE int64 GetTickPosition() const
+    int64 GetTickPosition() const
     {
         return TickPosition;
     }
@@ -68,7 +68,35 @@ public:
 
 private:
 
-    virtual void Tick(float64 DeltaTime) = 0;
+    attr(hot) virtual void Tick(float64 DeltaTime) = 0;
 
     int64 TickPosition;
+};
+
+class FTimerManager : public OTickable, public FSingleton<FTimerManager>
+{
+private:
+
+    friend class FSingleton<FTimerManager>;
+
+    FTimerManager();
+
+    struct FTimerData
+    {
+        void(*Function)(void*);
+        void* FunctionData;
+
+        float64 TargetTime;
+        float64 PassedTime;
+    };
+
+public:
+
+    attr(nonnull(2)) void AddTimer(void(*Function)(void*), float64 TargetTime, void* FunctionData = nullptr);
+
+private:
+
+    virtual void Tick(float64 DeltaTime) override;
+
+    TDynamicArray<FTimerData> Timers;
 };

@@ -374,7 +374,7 @@ namespace Math
     }
 
     template<typename ChoiceType, typename... TChoices>
-    ChoiceType ChooseVar(const uint64 Condition, TChoices... Choices)
+    inline ChoiceType ChooseVar(const uint64 Condition, TChoices... Choices)
     {
         struct FChoiceWrapper
         {
@@ -384,5 +384,13 @@ namespace Math
         return FChoiceWrapper{Choices...}.Choices[Condition];
     }
 
+    template<typename T>
+    inline constexpr T DistanceAbsolute(T First, T Second)
+    {
+        return Min(Second - First, First - Second);
+    }
+
     bool IsInSphere(float64 SphereRadius, FVector SpherePosition, FVector TargetPosition);
+
+    uint64 GenerateRandom(uint64 Min = 0, uint64 Max = UINT64_MAX);
 }

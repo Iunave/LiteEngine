@@ -28,6 +28,12 @@ class FColor;
 
 namespace StrUtl
 {
+    template<EStackSize StackSize>
+    inline constexpr FString<StackSize> FilePath(const FString<StackSize>& Name)
+    {
+        return SOURCE_DIRECTORY + Name;
+    }
+
     const char8* GetDirectoryName();
 
     //returns the number of characters in a string including the null terminator
@@ -82,7 +88,7 @@ struct TTemplateString
  * now with constexpr, yay!
  */
 template<EStackSize InStackSize = SS60>
-class PACKED alignas(static_cast<uint32>(InStackSize) + 4) FString final
+class PACKED FString final
 {
 private:
 
@@ -117,17 +123,77 @@ public:
     //the number of characters that can fit in the stack
     inline static constexpr uint32 StackSize{static_cast<uint32>(InStackSize)};
 
+private:
+
+    union UCharacterArray final
+    {
+        constexpr UCharacterArray()
+        {
+            if constexpr(StackSize > SS0)
+            {
+                Stack[0] = NULL_CHAR;
+            }
+            else
+            {
+                Heap = nullptr;
+            }
+        }
+
+        explicit constexpr UCharacterArray(const uint32 NumChars)
+        {
+            if EXPECT(NumChars <= StackSize, StackSize > SS0)
+            {
+                Stack[NumChars - 1] = NULL_CHAR;
+            }
+            else
+            {
+                Heap = Memory::Allocate<char8>(NumChars);
+                Heap[NumChars - 1] = NULL_CHAR;
+            }
+        }
+
+        template<uint64 NumChars> requires(NumChars <= StackSize)
+        implicit constexpr UCharacterArray(const char8(&String)[NumChars])
+            : Stack{}
+        {
+            Memory::Copy(Stack, String, NumChars);
+        }
+
+        template<uint64 NumChars> requires(NumChars > StackSize)
+        implicit UCharacterArray(const char8(&String)[NumChars])
+            : Heap{}
+        {
+            Heap = Memory::Allocate<char8>(NumChars);
+            Memory::Copy(Heap, String, NumChars);
+        }
+
+        explicit constexpr UCharacterArray(const char8* String, const uint32 NumChars)
+        {
+            if EXPECT(NumChars <= StackSize, StackSize > SS0)
+            {
+                Memory::Copy(Stack, String, NumChars);
+            }
+            else
+            {
+                Heap = Memory::Allocate<char8>(NumChars);
+                Memory::Copy(Heap, String, NumChars);
+            }
+        }
+
+        char8* Heap;
+        char8 Stack[StackSize];
+    };
+
+public:
+
     constexpr explicit FString(ENoInit)
     {
     }
 
     constexpr FString()
-        : TerminatorIndex{0}
+        : CharacterArray{}
+        , TerminatorIndex{0}
     {
-        if constexpr(StackSize > SS0)
-        {
-            CharacterArray.Stack[TerminatorIndex] = NULL_CHAR;
-        }
     }
 
     explicit constexpr FString(const uint32 NumChars)
@@ -137,7 +203,7 @@ public:
     }
 
     template<uint64 NumChars>
-    implicit constexpr FString(const char8 (&String)[NumChars])
+    implicit constexpr FString(const char8(&String)[NumChars])
         : CharacterArray{String}
         , TerminatorIndex{NumChars - 1}
     {
@@ -256,8 +322,6 @@ public:
 
     FString Concat_New(const FStaticString& String) const;
 
-private:
-
     FString& Concat_Assign(const char8* String, const uint32 NumChars);
 
     FString Concat_New(const char8* String, const uint32 NumChars) const;
@@ -308,8 +372,6 @@ public:
         return PushBack_New(Other.RawString(), Other.Num());
     }
 
-private:
-
     FString& PushBack_Assign(const char8* String, const uint32 NumChars);
 
     FString PushBack_New(const char8* String, const uint32 NumChars) const;
@@ -346,8 +408,6 @@ public:
         return Replace_New(Begin, Other.RawString(), Other.Num());
     }
 
-private:
-
     FString& Replace_Assign(const uint32 Begin, const char8* String, const uint32 NumChars);
 
     FString Replace_New(const uint32 Begin, const char8* String, const uint32 NumChars) const;
@@ -375,8 +435,6 @@ public:
     {
         return Insert_New(Begin, Other.RawString(), Other.Num());
     }
-
-private:
 
     FString& Insert_Assign(const uint32 Begin, const char8* String, const uint32 NumChars);
 
@@ -406,8 +464,6 @@ public:
         return FindSubstring(Other.RawString(), Other.Num());
     }
 
-private:
-
     char8* FindSubstring(const char8* String, const uint32 NumChars);
 
     const char8* FindSubstring(const char8* String, const uint32 NumChars) const;
@@ -436,13 +492,16 @@ public:
         return !CompareEqual(Other.Data(), Other.Num());
     }
 
-private:
-
     bool CompareEqual(const char8* String, const uint32 NumChars) const;
 
 public:
 
     void Empty();
+
+    constexpr bool IsEmpty() const
+    {
+        return TerminatorIndex == 0;
+    }
 
     INLINE constexpr EActiveArray ActiveArray() const
     {
@@ -507,6 +566,54 @@ public:
         return RawString();
     }
 
+    INLINE constexpr char8* Start()
+    {
+        if(ActiveArray() == EActiveArray::Stack)
+        {
+            return CharacterArray.Stack;
+        }
+        else
+        {
+            return CharacterArray.Heap;
+        }
+    }
+
+    INLINE constexpr const char8* Start() const
+    {
+        if(ActiveArray() == EActiveArray::Stack)
+        {
+            return CharacterArray.Stack;
+        }
+        else
+        {
+            return CharacterArray.Heap;
+        }
+    }
+
+    INLINE constexpr char8* End()
+    {
+        if(ActiveArray() == EActiveArray::Stack)
+        {
+            return CharacterArray.Stack + TerminatorIndex;
+        }
+        else
+        {
+            return CharacterArray.Heap + TerminatorIndex;
+        }
+    }
+
+    INLINE constexpr const char8* End() const
+    {
+        if(ActiveArray() == EActiveArray::Stack)
+        {
+            return CharacterArray.Stack + TerminatorIndex;
+        }
+        else
+        {
+            return CharacterArray.Heap + TerminatorIndex;
+        }
+    }
+
     INLINE constexpr TConstIterator begin() const
     {
         return TConstIterator{RawString()};
@@ -532,61 +639,41 @@ private:
     //used internally to copy characters from source to the stack array
     void CopyToStack(const char8* Source);
 
-    union PACKED UCharacterArray final
-    {
-    public:
-
-        constexpr UCharacterArray() = default;
-        constexpr ~UCharacterArray() = default;
-
-        template<uint64 NumChars> requires(NumChars <= StackSize)
-        implicit constexpr UCharacterArray(const char8 (&String)[NumChars])
-            : Stack{}
-        {
-            Memory::Copy(Stack, String, NumChars);
-        }
-
-        template<uint64 NumChars> requires(NumChars > StackSize)
-        implicit UCharacterArray(const char8 (&String)[NumChars])
-            : Heap{Memory::Allocate<char8>(NumChars)}
-        {
-            Memory::Copy(Heap, String, NumChars);
-        }
-
-        explicit constexpr UCharacterArray(const uint32 NumChars)
-        {
-            if EXPECT(NumChars <= StackSize, true)
-            {
-                Stack[NumChars - 1] = NULL_CHAR;
-            }
-            else
-            {
-                Heap = Memory::Allocate<char8>(NumChars);
-                Heap[NumChars - 1] = NULL_CHAR;
-            }
-        }
-
-        explicit constexpr UCharacterArray(const char8* String, const uint32 NumChars)
-        {
-            if EXPECT(NumChars <= StackSize, true)
-            {
-                Memory::Copy(Stack, String, NumChars);
-            }
-            else
-            {
-                Heap = Memory::Allocate<char8>(NumChars);
-                Memory::Copy(Heap, String, NumChars);
-            }
-        }
-
-        char8* Heap;
-        char8 Stack[StackSize];
-    };
-
     UCharacterArray CharacterArray;
 
     uint32 TerminatorIndex;
 };
+
+namespace StrPri
+{
+    template<uint64 NumChars>
+    inline consteval EStackSize LeastNeededStackSize()
+    {
+        if constexpr(NumChars < SS60)
+        {
+            return SS60;
+        }
+        else if constexpr(NumChars < SS124)
+        {
+            return SS124;
+        }
+        else if constexpr(NumChars < SS256)
+        {
+            return SS256;
+        }
+        else if constexpr(NumChars < SS508)
+        {
+            return SS508;
+        }
+        else
+        {
+            return SS0;
+        }
+    }
+}
+
+template<uint64 NumChars>
+FString(const char8(&)[NumChars])->FString<StrPri::LeastNeededStackSize<NumChars>()>;
 
 /*
  * a string that fits 32 characters built using SIMD instructions

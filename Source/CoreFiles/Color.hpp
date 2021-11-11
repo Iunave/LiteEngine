@@ -3,32 +3,29 @@
 #include "Definitions.hpp"
 #include "Simd.hpp"
 
-struct ATTRIBUTE(packed, may_alias) alignas(4) RGBA8I final
+struct ATTRIBUTE(packed, may_alias) RGBA8I final
 {
     uint8 R;
     uint8 G;
     uint8 B;
     uint8 A;
 };
-static_assert(alignof(RGBA8I) == 4);
 
-struct ATTRIBUTE(packed, may_alias) alignas(8) RGBA16I final
+struct ATTRIBUTE(packed, may_alias) RGBA16I final
 {
     uint16 R;
     uint16 G;
     uint16 B;
     uint16 A;
 };
-static_assert(alignof(RGBA16I) == 8);
 
-struct ATTRIBUTE(packed, may_alias) alignas(16) RGBA32F final
+struct ATTRIBUTE(packed, may_alias) RGBA32F final
 {
     float32 R;
     float32 G;
     float32 B;
     float32 A;
 };
-static_assert(alignof(RGBA32F) == 16);
 
 class FColor final
 {
@@ -46,7 +43,7 @@ public:
     static const constinit FColor Black;
     static const constinit FColor White;
 
-    static inline constexpr int32 Mask{Simd::Mask<float64_4>()};
+    static inline constexpr int32 ColorMask{Simd::Mask<float64_4>()};
 
 public:
 

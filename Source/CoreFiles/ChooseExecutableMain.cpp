@@ -1,92 +1,93 @@
-#include <cstdlib>
-#include <stdio.h>
-#include <chrono>
-#include <string>
+#include "Definitions.hpp"
+#include "String.hpp"
+#include "Log.hpp"
 
-using char8 = char;
-using char16 = char16_t;
-using char32 = char32_t;
-using uint8 = unsigned char;
-using int8 = signed char;
-using uint16 = unsigned short;
-using int16 = signed short;
-using uint32 = unsigned int;
-using int32 = signed int;
-using uint64 = unsigned long long;
-using int64 = signed long long;
-using int128 = __int128_t;
-using uint128 = __uint128_t;
-using float32 = float;
-using float64 = double;
-using float128 = long double;
-using byte = unsigned char;
-
-int32 main(int NumArgs, const char** Arguments)
+int32 main(int32 NumArgs, const char8** Arguments)
 {
-    __builtin_cpu_init();
+    CPU_INITIALIZE;
 
-    std::string ExecutableName{"./"};
-    ExecutableName += PROJECT_NAME;
+    const char8* VersionString{nullptr};
+    const char8* FamilyString{nullptr};
 
-    int32 NumProgramRuns{1};
-
-    bool bAvxExplicitlySpecified{false};
-    const char8* AvxVersionString{nullptr};
-
-    bool bDebugProgram{false};
-
-    for(int ArgumentIndex{0}; ArgumentIndex < NumArgs; ++ArgumentIndex)
+    for(int32 ArgumentIndex{0}; ArgumentIndex < NumArgs; ++ArgumentIndex)
     {
-        if(__builtin_memcmp(Arguments[ArgumentIndex], "benchmark=", 10) == 0)
+        if(Memory::Compare(Arguments[ArgumentIndex], "version=", sizeof("version=") - 1) == 0)
         {
-            sscanf(&Arguments[ArgumentIndex][10], "%i", &NumProgramRuns);
+            VersionString = Arguments[ArgumentIndex] + sizeof("version=") - 1;
         }
-        else if(__builtin_memcmp(Arguments[ArgumentIndex], "debug", 5) == 0)
+        else if(Memory::Compare(Arguments[ArgumentIndex], "target=", sizeof("target=") - 1) == 0)
         {
-            bDebugProgram = true;
+            FamilyString = Arguments[ArgumentIndex] + sizeof("target=") - 1;
         }
-        else if(__builtin_memcmp(Arguments[ArgumentIndex], "avx", 3) == 0)
+        else
         {
-            bAvxExplicitlySpecified = true;
-            AvxVersionString = Arguments[ArgumentIndex];
+            LOGW_ALWAYS(LogProgram, "unsupported argument \"{}\"", Arguments[ArgumentIndex]);
         }
     }
 
-    if(!bAvxExplicitlySpecified)
+    if(VersionString == nullptr)
     {
-        if(__builtin_cpu_supports("avx512f"))
+        VersionString = "release";
+    }
+
+    if(FamilyString == nullptr)
+    {
+        if(IS_CPU_FAMILY(skylake))
         {
-            ExecutableName += "_avx512";
+            FamilyString = "skylake";
         }
-        else if(__builtin_cpu_supports("avx2"))
+        else if(IS_CPU_FAMILY(skylake-avx512))
         {
-            ExecutableName += "_avx256";
+            FamilyString = "skylake-avx512";
+        }
+        else if(IS_CPU_FAMILY(cannonlake))
+        {
+            FamilyString = "cannonlake";
+        }
+        else if(IS_CPU_FAMILY(cascadelake))
+        {
+            FamilyString = "cascadelake";
+        }
+        else if(IS_CPU_FAMILY(tigerlake))
+        {
+            FamilyString = "tigerlake";
+        }
+        else if(IS_CPU_FAMILY(cooperlake))
+        {
+            FamilyString = "cooperlake";
+        }
+        else if(IS_CPU_FAMILY(alderlake))
+        {
+            FamilyString = "alderlake";
+        }
+        else if(IS_CPU_FAMILY(znver1))
+        {
+            FamilyString = "znver1";
+        }
+        else if(IS_CPU_FAMILY(znver2))
+        {
+            FamilyString = "znver2";
+        }
+        else if(IS_CPU_FAMILY(znver3))
+        {
+            FamilyString = "znver3";
+        }
+        else
+        {
+            ASSERT_ALWAYS(false, "cpu is not supported");
         }
     }
-    else
-    {
-        ExecutableName += "_";
-        ExecutableName += AvxVersionString;
-    }
 
-    if(bDebugProgram)
-    {
-        ExecutableName += "_debug";
-    }
+    FString<SS124> ExecutableToLaunch{"./"};
+    ExecutableToLaunch += PROJECT_NAME;
+    ExecutableToLaunch += "_";
+    ExecutableToLaunch.Concat_Assign(FamilyString, StrUtl::Length(FamilyString));
+    ExecutableToLaunch += "_";
+    ExecutableToLaunch.Concat_Assign(VersionString, StrUtl::Length(VersionString));
+    ExecutableToLaunch += ".out";
 
-    auto StartTime = std::chrono::high_resolution_clock::now();
+    LOG_ALWAYS(LogProgram, "running {}", ExecutableToLaunch.Data() + 2);
 
-    while(NumProgramRuns != 0)
-    {
-        system(ExecutableName.c_str());
-        --NumProgramRuns;
-    }
-
-    auto EndTime = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<float64> DeltaTime{EndTime - StartTime};
-
-    __builtin_printf("execution time: %f", DeltaTime.count());
-
-    return 0;
+    return system(ExecutableToLaunch.Data());
 }
 

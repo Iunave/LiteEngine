@@ -108,7 +108,7 @@ public:
         }
     }
 
-    template<typename... Initializers> requires(sizeof...(Initializers) == NumElements)
+    template<typename... Initializers>
     explicit constexpr TStaticArray(Initializers&&... InElements)
         : Array{MoveIfPossible(InElements)...}
     {
@@ -119,7 +119,7 @@ public:
         Memory::Copy(Array, Value, Num() * sizeof(ElementType));
     }
 
-    explicit constexpr TStaticArray(EInit ZeroInit)
+    explicit constexpr TStaticArray(EInit)
     {
         Memory::Set(Array, 0u, Num() * sizeof(ElementType));
     }
@@ -152,22 +152,22 @@ public:
         return NumElements * sizeof(ElementType);
     }
 
-    constexpr ElementType* GetData()
-    {
-        return &Array[0];
-    }
-
-    constexpr const ElementType* GetData() const
-    {
-        return &Array[0];
-    }
-
     constexpr ElementType* Data()
     {
         return &Array[0];
     }
 
     constexpr const ElementType* Data() const
+    {
+        return &Array[0];
+    }
+
+    constexpr ElementType* GetData()
+    {
+        return &Array[0];
+    }
+
+    constexpr const ElementType* GetData() const
     {
         return &Array[0];
     }
@@ -285,7 +285,7 @@ public:
     {
     }
 
-    explicit constexpr TCountedArray(EInit ZeroInit)
+    explicit constexpr TCountedArray(EInit)
         : LastIndex{-1}
     {
         Memory::Set(Array, 0u, NumElements * sizeof(ElementType));
@@ -748,22 +748,22 @@ public:
         return sizeof(ElementType);
     }
 
-    ElementType* GetData()
-    {
-        return ElementPointer;
-    }
-
-    const ElementType* GetData() const
-    {
-        return ElementPointer;
-    }
-
     ElementType* Data()
     {
         return ElementPointer;
     }
 
     const ElementType* Data() const
+    {
+        return ElementPointer;
+    }
+
+    ElementType* GetData()
+    {
+        return ElementPointer;
+    }
+
+    const ElementType* GetData() const
     {
         return ElementPointer;
     }
@@ -1319,7 +1319,7 @@ private:
         if EXPECT(LastIndex > TargetIndex, true)
         {
             ASSERT(IsIndexValid(TargetIndex));
-            Memory::Move(&ElementPointer[LastIndex], &ElementPointer[TargetIndex], ElementSize());
+            Memory::Copy(&ElementPointer[LastIndex], &ElementPointer[TargetIndex], ElementSize());
         }
     }
 

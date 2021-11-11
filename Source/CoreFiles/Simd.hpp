@@ -91,15 +91,19 @@ namespace Memory
 
 #ifdef __AVX__
 #define AVX128 __AVX__
-#pragma message "AVX128 supported"
+//#pragma message "AVX128 supported"
 #endif
 #ifdef __AVX2__
 #define AVX256 __AVX2__
-#pragma message "AVX256 supported"
+//#pragma message "AVX256 supported"
 #endif
 #ifdef __AVX512F__
 #define AVX512 __AVX512__
-#pragma message "AVX512 supported"
+//#pragma message "AVX512 supported"
+#endif
+
+#ifndef AVX256
+#error cant run program without AVX256
 #endif
 
 template<typename T>
@@ -403,7 +407,7 @@ namespace Simd
 #endif //AVX512
 
     template<typename T>
-    using MaskType = decltype(Simd::Mask<T>());
+    using MaskType = decltype(Mask<T>());
 
 #ifdef AVX128
 
@@ -1247,13 +1251,61 @@ namespace Simd
         }
 
 #endif //AVX512
+#ifdef AVX128
+
+    template<typename T> requires TypeTrait::IsFloatingPoint<T>
+    INLINE constexpr Vector16<T> SquareRoot(Vector16<T> Source) MIN_VECTOR_WIDTH(128)
+    {
+        if constexpr(sizeof(T) == 4)
+        {
+            return BUILTIN(sqrtps)(Source);
+        }
+        else if constexpr(sizeof(T) == 8)
+        {
+            return BUILTIN(sqrtpd)(Source);
+        }
+    }
+
+#endif //AVX128
+#ifdef AVX256
+
+    template<typename T> requires TypeTrait::IsFloatingPoint<T>
+    INLINE constexpr Vector32<T> SquareRoot(Vector32<T> Source) MIN_VECTOR_WIDTH(256)
+    {
+        if constexpr(sizeof(T) == 4)
+        {
+            return BUILTIN(sqrtps256)(Source);
+        }
+        else if constexpr(sizeof(T) == 8)
+        {
+            return BUILTIN(sqrtpd256)(Source);
+        }
+    }
+
+#endif //AVX256
+#ifdef AVX512
+
+    template<typename T> requires TypeTrait::IsFloatingPoint<T>
+    INLINE constexpr Vector64<T> SquareRoot(Vector64<T> Source) MIN_VECTOR_WIDTH(512)
+    {
+        if constexpr(sizeof(T) == 4)
+        {
+            return BUILTIN(sqrtps512)(Source);
+        }
+        else if constexpr(sizeof(T) == 8)
+        {
+            return BUILTIN(sqrtpd512)(Source);
+        }
+    }
+
+#endif //AVX512
 
     /*
      * copies and moves the elements  in the Source by ShuffleAmount to the left
      * ShuffleLeft({0, 1, 1, 0, 1, 0, 1, 1}, 3) == {0, 1, 0, 1, 1, 0, 0, 0}
      */
     template<typename RegisterType, typename ElementType = ElementType<RegisterType>>
-    NODISCARD INLINE RegisterType ShuffleLeft(RegisterType Source, const int32 ShuffleAmount)
+    INLINE RegisterType ShuffleLeft(RegisterType Source, const int32 ShuffleAmount)
     {
         static constexpr uint64 NumElements{Simd::NumElements<RegisterType>()};
         static constexpr uint64 StackSize{sizeof(ElementType) * NumElements * 3};
@@ -1270,7 +1322,7 @@ namespace Simd
      * ShuffleRight({0, 1, 1, 0, 1, 0, 1, 1}, 3) == {0, 0, 0, 0, 1, 1, 0, 1}
      */
     template<typename RegisterType>
-    NODISCARD INLINE RegisterType ShuffleRight(RegisterType Source, const int32 ShuffleAmount)
+    INLINE RegisterType ShuffleRight(RegisterType Source, const int32 ShuffleAmount)
     {
         return ShuffleLeft(Source, ShuffleAmount * -1);
     }

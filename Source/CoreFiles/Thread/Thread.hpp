@@ -35,7 +35,6 @@ namespace Thread
         struct FAttributeWrapper final
         {
             FAttributeWrapper();
-
             ~FAttributeWrapper();
 
             pthread_mutexattr_t MutexAttribute;
@@ -46,20 +45,51 @@ namespace Thread
     public:
 
         FMutex();
-
         ~FMutex();
 
         pthread_mutex_t& GetHandle();
 
         void Lock();
-
         bool TryLock();
-
         void Unlock();
 
     private:
 
         pthread_mutex_t MutexHandle;
+    };
+
+    class FSharedMutex final
+    {
+    private:
+
+        struct FAttributeWrapper final
+        {
+            FAttributeWrapper();
+            ~FAttributeWrapper();
+
+            pthread_rwlockattr_t RWLockAttr;
+        };
+
+        static FAttributeWrapper Attribute;
+
+    public:
+
+        FSharedMutex();
+        ~FSharedMutex();
+
+        pthread_rwlock_t& GetHandle();
+
+        void Lock();
+        bool TryLock();
+
+        void SharedLock();
+        bool TrySharedLock();
+
+        void Unlock();
+
+    private:
+
+        pthread_rwlock_t RWLockHandle;
     };
 
     inline FMutex GLogMutex{};
@@ -71,7 +101,6 @@ namespace Thread
         struct FAttributeWrapper final
         {
             FAttributeWrapper();
-
             ~FAttributeWrapper();
 
             pthread_barrierattr_t BarrierAttribute;
@@ -82,7 +111,6 @@ namespace Thread
     public:
 
         FBarrier(uint32 ThreadStopCount);
-
         ~FBarrier();
 
         void Wait();
@@ -92,11 +120,12 @@ namespace Thread
         pthread_barrier_t BarrierHandle;
     };
 
+    template<typename MutexType>
     class FScopedLock final
     {
     public:
 
-        explicit FScopedLock(FMutex& InMutex)
+        explicit FScopedLock(MutexType& InMutex)
             : Mutex{&InMutex}
         {
             Mutex->Lock();
@@ -109,23 +138,47 @@ namespace Thread
 
     private:
 
-        FMutex* Mutex;
+        MutexType* Mutex;
     };
+
+    template<typename MutexType>
+    FScopedLock(MutexType&)->FScopedLock<MutexType>;
+
+    template<typename MutexType>
+    class FSharedScopedLock final
+    {
+    public:
+
+        explicit FSharedScopedLock(MutexType& InMutex)
+            : Mutex{&InMutex}
+        {
+            Mutex->SharedLock();
+        }
+
+        ~FSharedScopedLock()
+        {
+            Mutex->Unlock();
+        }
+
+    private:
+
+        MutexType* Mutex;
+    };
+
+    template<typename MutexType>
+    FSharedScopedLock(MutexType&)->FSharedScopedLock<MutexType>;
 
     class FSemaphore final
     {
     public:
 
         FSemaphore(uint32 InitialValue);
-
         ~FSemaphore();
 
         int32 Value() const;
 
         void operator++();
-
         void operator--();
-
         auto operator<=>(FSemaphore& Other);
 
         inline implicit operator int32() const
@@ -145,7 +198,6 @@ namespace Thread
         struct FAttributeWrapper final
         {
             FAttributeWrapper();
-
             ~FAttributeWrapper();
 
             pthread_condattr_t CondAttribute;
@@ -156,7 +208,6 @@ namespace Thread
     public:
 
         FCondition();
-
         ~FCondition();
 
         void Signal();
@@ -192,9 +243,7 @@ namespace Thread
         void Create(void*(*FunctionPtr)(void*), void* Argument);
 
         void Join();
-
         bool TryJoin();
-
         bool TimedJoin(timespec Timeout);
 
         void Detach();

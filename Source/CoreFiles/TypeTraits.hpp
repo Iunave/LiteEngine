@@ -72,6 +72,12 @@ namespace TypeTrait
     template<typename A, typename B>
     const constinit bool AreTypesEqual = AreTypesEqualImpl<A, B>::Value;
 
+    template<typename A, typename B>
+    concept SameAs = requires()
+    {
+        AreTypesEqualImpl<A, B>::Value;
+    };
+
     template<typename T>
     concept IsTrivial = __is_trivial(T);
 

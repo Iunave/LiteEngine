@@ -19,7 +19,7 @@ void FTickManager::Tick(float64 DeltaTime)
     }
 }
 
-int64 FTickManager::AddTickable(OTickable* ObjectToAdd NONNULL)
+int64 FTickManager::AddTickable(OTickable* ObjectToAdd)
 {
     return TickingObjects.Append(ObjectToAdd);
 }
@@ -74,6 +74,40 @@ void OTickable::UnRegisterTick()
     if(IsTickRegistered())
     {
         FTickManager::Instance().RemoveTickable(TickPosition);
+        TickPosition = INDEX_NONE;
     }
 }
 
+void FTimerManager::AddTimer(void(*Function)(void*), float64 TargetTime, void* FunctionData)
+{
+    FTimerData NewTimerData{};
+    NewTimerData.Function = Function;
+    NewTimerData.FunctionData = FunctionData;
+    NewTimerData.TargetTime = TargetTime;
+    NewTimerData.PassedTime = 0.0;
+
+    Timers.Append(NewTimerData);
+}
+
+void FTimerManager::Tick(float64 DeltaTime)
+{
+    for(int64 Index{0}; Index < Timers.Num(); ++Index)
+    {
+        FTimerData& TimerData{Timers[Index]};
+
+        TimerData.PassedTime += DeltaTime;
+
+        if(TimerData.PassedTime >= TimerData.TargetTime)
+        {
+            TimerData.Function(TimerData.FunctionData);
+
+            Timers.RemoveAtSwap(Index);
+            --Index;
+        }
+    }
+}
+
+FTimerManager::FTimerManager()
+    : OTickable{true}
+{
+}

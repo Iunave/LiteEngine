@@ -1,18 +1,6 @@
-
-#include <Interface/Damageable.hpp>
-#include <Interface/IniConfig.hpp>
-#include <Actor/BuildComponent/BuildComponent.hpp>
-#include <Actor/Robot.hpp>
-#include "Object/Allocator.hpp"
-
 #include "Definitions.hpp"
 #include "Object/Object.hpp"
-#include "SmartPointer.hpp"
-#include "Interface/Tick.hpp"
-#include "Array.hpp"
-#include "Vector.hpp"
 #include "Log.hpp"
-#include "Quaternion.hpp"
 #include "Rendering/VulkanRenderer.hpp"
 
 
@@ -40,15 +28,9 @@ void InitializeVariables()
 
 int32 main()
 {
-    LOG(LogProgram, "running: {}", EXECUTABLE_NAME);
     LOG(LogProgram, "entered main with thread-ID: {}", (void*)pthread_self());
 
     InitializeVariables();
-
-    const char8* String{"-845703.42"};
-
-    float64 Val = StrUtl::ToValue<float64>(String, String + 9);
-    LOG(LogProgram, "{}", Val);
 
     TSharedPtr<OObject> Obj1{MakeShared<OFoo>()};
     TSharedPtr<OObject> Obj2{MakeShared<OObject>()};
@@ -66,11 +48,9 @@ int32 main()
         LOG(LogProgram, "{}", Iterator->GetClassName());
     }
 
-    //Obj1.Reset();
+   // Obj1.Reset();
     //Obj4.Reset();
     //Obj5.Reset();
-
-    LOG(LogProgram, "\n");
 
     for(TObjectIterator<OObject> Iterator{}; Iterator; ++Iterator)
     {

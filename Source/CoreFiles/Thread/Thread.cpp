@@ -81,11 +81,23 @@ inline const char8* UnlockResultToString(int32 Value)
     }
 }
 
+inline const char8* ReadLockResultToString(int32 Value)
+{
+    switch(Value)
+    {
+        case 0: return "success";
+        case EAGAIN: return "ERROR: The read lock could not be acquired because the  maximum  number of read locks for rwlock has been exceeded.";
+        case EDEADLOCK: return "deadlock condition was detected or the current thread already owns the read-write lock for writing.";
+        default: return "ERROR: unknown";
+    }
+}
+
 #endif //DEBUG
 
 namespace Thread
 {
     FMutex::FAttributeWrapper FMutex::Attribute{};
+    FSharedMutex::FAttributeWrapper FSharedMutex::Attribute{};
     FBarrier::FAttributeWrapper FBarrier::Attribute{};
     FCondition::FAttributeWrapper FCondition::Attribute{};
     FThread::FAttributeWrapper FThread::Attribute{};
@@ -110,12 +122,11 @@ namespace Thread
 
     FMutex::FAttributeWrapper::FAttributeWrapper()
     {
-        pthread_mutexattr_t MutexAttributes;
-        pthread_mutexattr_init(&MutexAttributes);
+        pthread_mutexattr_init(&MutexAttribute);
 #if DEBUG
-        pthread_mutexattr_settype(&MutexAttributes, PTHREAD_MUTEX_ERRORCHECK_NP);
+        pthread_mutexattr_settype(&MutexAttribute, PTHREAD_MUTEX_ERRORCHECK_NP);
 #else
-        pthread_mutexattr_settype(&MutexAttributes, PTHREAD_MUTEX_FAST_NP);
+        pthread_mutexattr_settype(&MutexAttribute, PTHREAD_MUTEX_FAST_NP);
 #endif
     }
 
@@ -148,7 +159,7 @@ namespace Thread
     bool FMutex::TryLock()
     {
         int32 Result{pthread_mutex_trylock(&MutexHandle)};
-        ENSURE(Result == 0, "{}", LockResultToString(Result));
+        ENSURE(Result == 0 || Result == EBUSY, "{}", LockResultToString(Result));
         return Result == 0;
     }
 
@@ -156,6 +167,59 @@ namespace Thread
     {
         int32 Result{pthread_mutex_unlock(&MutexHandle)};
         ENSURE(Result == 0, "{}", UnlockResultToString(Result));
+    }
+
+    FSharedMutex::FAttributeWrapper::FAttributeWrapper()
+    {
+        pthread_rwlockattr_init(&RWLockAttr);
+        pthread_rwlockattr_setkind_np(&RWLockAttr, PTHREAD_RWLOCK_PREFER_WRITER_NP);
+    }
+
+    FSharedMutex::FAttributeWrapper::~FAttributeWrapper()
+    {
+        pthread_rwlockattr_destroy(&RWLockAttr);
+    }
+
+    FSharedMutex::FSharedMutex()
+    {
+        pthread_rwlock_init(&RWLockHandle, &Attribute.RWLockAttr);
+    }
+
+    FSharedMutex::~FSharedMutex()
+    {
+        pthread_rwlock_destroy(&RWLockHandle);
+    }
+
+    pthread_rwlock_t& FSharedMutex::GetHandle()
+    {
+        return RWLockHandle;
+    }
+
+    void FSharedMutex::Lock()
+    {
+        int32 Result{pthread_rwlock_wrlock(&RWLockHandle)};
+        ASSERT(Result != EDEADLOCK, "deadlock detected");
+    }
+
+    bool FSharedMutex::TryLock()
+    {
+        return pthread_rwlock_trywrlock(&RWLockHandle) == 0;
+    }
+
+    void FSharedMutex::SharedLock()
+    {
+        int32 Result{pthread_rwlock_rdlock(&RWLockHandle)};
+        ASSERT(Result == 0, "{}", ReadLockResultToString(Result));
+    }
+
+    bool FSharedMutex::TrySharedLock()
+    {
+        return pthread_rwlock_tryrdlock(&RWLockHandle) == 0;
+    }
+
+    void FSharedMutex::Unlock()
+    {
+        pthread_rwlock_unlock(&RWLockHandle);
     }
 
     FBarrier::FAttributeWrapper::FAttributeWrapper()

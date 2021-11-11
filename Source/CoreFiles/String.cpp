@@ -311,18 +311,12 @@ namespace StrUtl
                 }
             }
 
-            if(!(Character >= '0' && Character <= '9'))
-            {
-                throw Error::InvalidArgument{"error converting string to value [invalid character: {}]", Character};
-            }
+            ASSERT_ALWAYS(Character >= '0' && Character <= '9', "invalid character {}", Character);
 
             TargetType CharacterValue{static_cast<TargetType>(Character - '0')};
 
-            if(Math::MulCheckOverflow(CharacterValue, PositionValue, &CharacterValue)
-            || Math::AddCheckOverflow(ResultValue, CharacterValue, &ResultValue))
-            {
-                throw Error::Math{"error converting string to value [overflow]"};
-            }
+            const bool HasOverflowed{Math::MulCheckOverflow(CharacterValue, PositionValue, &CharacterValue) || Math::AddCheckOverflow(ResultValue, CharacterValue, &ResultValue)};
+            ASSERT_ALWAYS(!HasOverflowed, "overflow detected, value did not fit");
 
             PositionValue *= 10;
             --End;
@@ -351,10 +345,7 @@ namespace StrUtl
             {
                 const char8 Character{*End};
 
-                if(!(Character >= '0' && Character <= '9'))
-                {
-                    throw Error::InvalidArgument{"error converting string to value, invalid character [{}]", Character};
-                }
+                ASSERT_ALWAYS(Character >= '0' && Character <= '9', "invalid character {}", Character);
 
                 TargetType CharacterValue{static_cast<TargetType>(Character - '0')};
                 const TargetType PositionValue{Math::ToPower(static_cast<TargetType>(10), static_cast<TargetType>(NumDecimals))};
@@ -387,18 +378,12 @@ namespace StrUtl
                     }
                 }
 
-                if(!(Character >= '0' && Character <= '9'))
-                {
-                    throw Error::InvalidArgument{"error converting string to value, invalid character [{}]", Character};
-                }
+                ASSERT_ALWAYS(Character >= '0' && Character <= '9', "invalid character {}", Character);
 
                 TargetType CharacterValue{static_cast<TargetType>(Character - '0')};
 
-                if(Math::MulCheckOverflow(CharacterValue, PositionValue, &CharacterValue)
-                || Math::AddCheckOverflow(ResultValue, CharacterValue, &ResultValue))
-                {
-                    throw Error::Math{"error converting string to value [overflow]"};
-                }
+                const bool HasOverflowed{Math::MulCheckOverflow(CharacterValue, PositionValue, &CharacterValue) || Math::AddCheckOverflow(ResultValue, CharacterValue, &ResultValue)};
+                ASSERT_ALWAYS(!HasOverflowed, "overflow detected, value did not fit");
 
                 PositionValue *= 10;
                 --End;
@@ -983,7 +968,7 @@ const char8* FString<InStackSize>::FindSubstring(const char8* String, const uint
 template<EStackSize InStackSize>
 void FString<InStackSize>::Empty()
 {
-    if EXPECT(ActiveArray() == EActiveArray::Heap, false)
+    if EXPECT(ActiveArray() == EActiveArray::Heap, StackSize == SS0)
     {
         Memory::Free(CharacterArray.Heap);
     }
@@ -1041,7 +1026,7 @@ FStaticString FStaticString::Concat_New(FStaticString Other) const
     return Other;
 }
 
-FStaticString FStaticString::Concat_New(const char8* String, const uint32 NumChars) const
+FStaticString FStaticString::Concat_New(const char8* String, const uint32 NumChars attr(unused)) const
 {
     ASSERT(((Num() - 1) + NumChars) <= MaxNumCharacters);
 

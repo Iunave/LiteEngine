@@ -3,7 +3,6 @@
 #include <Interface/IniConfig.hpp>
 #include <Rendering/RenderSettings.hpp>
 
-
 #include "Definitions.hpp"
 #include "Thread/Thread.hpp"
 #include "String.hpp"
@@ -53,6 +52,13 @@ private:
     TAtomic<ETaskProgress> TaskProgress;
 };
 
+enum class ETaskPriority : uint64
+{
+    Low = 0b0100000000000000000000000000000000000000000000000000000000000000,
+    Medium = 0b1000000000000000000000000000000000000000000000000000000000000000,
+    High = 0b1100000000000000000000000000000000000000000000000000000000000000
+};
+
 namespace Thread
 {
 
@@ -65,7 +71,6 @@ namespace Thread
         static constexpr int64 QueuePoolSize{256};
 
         FTaskQueue();
-
         ~FTaskQueue();
 
         ORunnable* NextTask();

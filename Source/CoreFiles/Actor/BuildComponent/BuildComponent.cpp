@@ -1,8 +1,8 @@
 #include "BuildComponent.hpp"
 
-template<int64 NumConnectionPoints>
-void ABuildComponentImpl<NumConnectionPoints>::TakeDamage(float64 DamageAmount)
+void ABuildComponent::TakeDamage(float64 DamageAmount)
 {
+    /*
     float64 DamageOverflow{DamageAmount - CurrentArmour};
     CurrentArmour -= DamageAmount;
 
@@ -20,42 +20,30 @@ void ABuildComponentImpl<NumConnectionPoints>::TakeDamage(float64 DamageAmount)
         DamageOverflow /= AliveConnections;
 
         #pragma unroll
-        for(TSharedPtr<ABuildComponent>& ConnectedComponent : Connections)
+        for(ABuildComponent* ConnectedComponent : Connections)
         {
-            if(ConnectedComponent.IsValid() && ConnectedComponent->IsAlive())
+            if(ConnectedComponent != nullptr && ConnectedComponent->IsAlive())
             {
                 ConnectedComponent->TakeDamage(DamageOverflow);
             }
         }
     }
+    */
 }
 
-template<int64 NumConnectionPoints>
-uint32 ABuildComponentImpl<NumConnectionPoints>::NumAliveConnections() const
+uint32 ABuildComponent::NumAliveConnections() const
 {
-    return NumAliveConnectionsImpl();
-}
-
-template<int64 NumConnectionPoints>
-uint32 ABuildComponentImpl<NumConnectionPoints>::NumAliveConnectionsImpl() const
-{
+    /*
     uint32 Count{0};
-
     #pragma unroll
-    for(const TSharedPtr<ABuildComponent>& ConnectedComponent : Connections)
+    for(const ABuildComponent* ConnectedComponent : Connections)
     {
-        if(ConnectedComponent.IsValid())
+        if(ConnectedComponent != nullptr)
         {
             Count += ConnectedComponent->IsAlive();
         }
     }
-
     return Count;
+     */
 }
 
-template class ABuildComponentImpl<1>;
-template class ABuildComponentImpl<2>;
-template class ABuildComponentImpl<3>;
-template class ABuildComponentImpl<4>;
-template class ABuildComponentImpl<5>;
-template class ABuildComponentImpl<6>;

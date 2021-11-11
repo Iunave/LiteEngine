@@ -25,7 +25,6 @@ public:
     static void FrameBufferResizeCallback(GLFWwindow* Window, int32 Width, int32 Height);
 
     OWindow();
-
     ~OWindow();
 
     void CreateWindow(int32 Width, int32 Height, FString<SS60> InWindowName, const bool bFullScreen = false);

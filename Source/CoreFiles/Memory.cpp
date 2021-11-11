@@ -21,28 +21,22 @@ void* Memory::GetProgramBreak()
     return ::sbrk(0);
 }
 
-void* Memory::SetProgramBreak(void* NewBreakLocation) THROWS
+void* Memory::SetProgramBreak(void* NewBreakLocation)
 {
     void* PreviousBreak{GetProgramBreak()};
 
-    if EXPECT(::brk(NewBreakLocation) == -1, false)
-    {
-        throw Error::Memory{"out of memory"};
-    }
+    ASSERT_ALWAYS(::brk(NewBreakLocation) != -1);
 
     LOG(LogMemory, "program break set to: {}, from previous break: {}, delta = {}", NewBreakLocation, PreviousBreak, reinterpret_cast<int64>(NewBreakLocation) - reinterpret_cast<int64>(PreviousBreak));
 
     return PreviousBreak;
 }
 
-void* Memory::MoveProgramBreak(int64 MoveAmount) THROWS
+void* Memory::MoveProgramBreak(int64 MoveAmount)
 {
     void* PreviousBreak{::sbrk(MoveAmount)};
 
-    if EXPECT(PreviousBreak == reinterpret_cast<void*>(-1), false)
-    {
-        throw Error::Memory{"out of memory"};
-    }
+    ASSERT_ALWAYS(PreviousBreak != reinterpret_cast<void*>(-1));
 
     LOG(LogMemory, "program break set to: {}, from previous break: {}, delta = {}", reinterpret_cast<void*>(reinterpret_cast<int64>(PreviousBreak) + MoveAmount), PreviousBreak, MoveAmount);
 

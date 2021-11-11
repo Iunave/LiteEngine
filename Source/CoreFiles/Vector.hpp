@@ -8,6 +8,12 @@
 #define angle %
 #define cross ^
 
+struct FVector2D
+{
+    float32 X;
+    float32 Y;
+};
+
 class alignas(32) FVector final
 {
 public:

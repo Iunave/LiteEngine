@@ -36,7 +36,7 @@ FColor::FColor(RGBA32F InColor)
 bool FColor::ExactEquals(FColor Other) const
 {
     const int32 ComparisonResult{Simd::MoveMask(Color == Other.Color)};
-    return ComparisonResult == Mask;
+    return ComparisonResult == ColorMask;
 }
 
 bool FColor::operator==(FColor Other) const
@@ -44,7 +44,7 @@ bool FColor::operator==(FColor Other) const
     const float64_4 SubResult{static_cast<int64_4>(Color - Other.Color) & Math::SignMask<int64>()};
     const int32 ComparisonResult{Simd::MoveMask(SubResult <= 0.0001)};
 
-    return ComparisonResult == Mask;
+    return ComparisonResult == ColorMask;
 }
 
 FColor::operator RGBA8I() const

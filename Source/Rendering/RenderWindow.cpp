@@ -10,12 +10,8 @@ void Render::OWindow::FrameBufferResizeCallback(GLFWwindow* Window, int32 PixelW
 {
     OWindow* RenderWindowPtr{static_cast<OWindow*>(glfwGetWindowUserPointer(Window))};
 
-    glfwGetWindowSize(Window, &RenderWindowPtr->WindowDimensions.CoordinateWidth, &RenderWindowPtr->WindowDimensions.CoordinateHeight);
-
+    RenderWindowPtr->UpdateWindowDimensions();
     RenderWindowPtr->HasBeenResized = true;
-
-    RenderWindowPtr->WindowDimensions.PixelWidth = PixelWidth;
-    RenderWindowPtr->WindowDimensions.PixelHeight = PixelHeight;
 
     LOG(LogGLFW, "window has been resized. new width: {} new height: {}", RenderWindowPtr->WindowDimensions.PixelWidth, RenderWindowPtr->WindowDimensions.PixelHeight);
 }
@@ -43,7 +39,7 @@ void Render::OWindow::CreateWindow(int32 Width, int32 Height, FString<SS60> InWi
     {
         glfwWindowHint(GLFW_CLIENT_API, false);
         glfwWindowHint(GLFW_RESIZABLE, true);
-        glfwWindowHint(GLFW_FOCUSED, false);
+        glfwWindowHint(GLFW_FOCUSED, true);
         glfwWindowHint(GLFW_FOCUS_ON_SHOW, true);
 
         GLFWmonitor* Monitor{nullptr};

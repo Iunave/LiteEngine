@@ -43,6 +43,8 @@ public:
     TIniVariable<uint8> Anisotropy;
     TIniVariable<uint8> MaxFPS;
     TIniVariable<bool> VSync;
+
+    TIniVariable<uint64> MaxFramesInFlight;
 };
 
 namespace StrUtl

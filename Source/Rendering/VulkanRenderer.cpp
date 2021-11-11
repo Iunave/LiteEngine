@@ -3,8 +3,9 @@
 #include "Interface/Tick.hpp"
 #include "CoreFiles/Array.hpp"
 #include "CoreFiles/Log.hpp"
+#include "CoreFiles/Time.hpp"
+#include "Vertex.hpp"
 
-#include <chrono>
 #include <fmt/os.h>
 
 #define GLFW_INCLUDE_NONE
@@ -52,7 +53,7 @@ void OShaderCodeReader::Run()
         Memory::Free(Allocation);
     }
 
-    FileName.PushBack_Assign(Render::ShaderPath);
+    FileName = StrUtl::FilePath(Render::RelativeShaderPath);
 
     FString<SS124> VertexFilePath{FileName + Render::VertShaderPostfix};
     FString<SS124> FragFilePath{FileName + Render::FragShaderPostfix};
@@ -84,10 +85,10 @@ Render::FRenderConfigInfo::FRenderConfigInfo(Vk::Extent2D InImageExtent)
     AssemblyStateInfo.topology = Vk::PrimitiveTopology::eTriangleList;
     AssemblyStateInfo.primitiveRestartEnable = false;
 
-    VertexInputInfo.vertexBindingDescriptionCount = 0;
-    VertexInputInfo.pVertexBindingDescriptions = nullptr;
-    VertexInputInfo.vertexAttributeDescriptionCount = 0;
-    VertexInputInfo.pVertexAttributeDescriptions = nullptr;
+    VertexInputInfo.vertexBindingDescriptionCount = 1;
+    VertexInputInfo.pVertexBindingDescriptions = &FVertex::BindingDescription;
+    VertexInputInfo.vertexAttributeDescriptionCount = FVertex::AttributeDescriptions.Num();
+    VertexInputInfo.pVertexAttributeDescriptions = FVertex::AttributeDescriptions.Data();
 
     Viewport.x = 0.f;
     Viewport.y = 0.f;
@@ -176,6 +177,8 @@ Render::OVulkanManager::OVulkanManager()
     , GraphicsPipelineHandle{NULL_HANDLE}
     , RenderPassHandle{NULL_HANDLE}
     , CommandPool{NULL_HANDLE}
+    , VertexBuffer{NULL_HANDLE}
+    , VertexMemoryHandle{NULL_HANDLE}
     , CurrentFrame{0}
     , VulkanVersion{VK_MAKE_VERSION(1,2,172)}
 {
@@ -208,6 +211,7 @@ void Render::Initialize()
     VulkanManager.CreateGraphicsPipeline(Shaders, RenderConfigInfo);
     VulkanManager.CreateFrameBuffers();
     VulkanManager.CreateDrawingCommandPool();
+    VulkanManager.CreateVertexBuffer();
     VulkanManager.CreateCommandBuffers();
     VulkanManager.CreateFrameSyncData();
     VulkanManager.BeginRenderPass();
@@ -215,18 +219,27 @@ void Render::Initialize()
 
 void Render::Loop()
 {
-    while(EXPECT(!VulkanManager.RenderWindow.ShouldClose(), true))
+    float64 StartTime{0};
+    float64 EndTime{0};
+    float64 DeltaTime{0};
+    float64 TickTime{0};
+
+    while(!VulkanManager.RenderWindow.ShouldClose())
     {
-        const auto StartTime{std::chrono::high_resolution_clock::now()};
+        StartTime = Time::Now();
 
         glfwPollEvents();
-
         VulkanManager.DrawFrame();
 
-        const auto EndTime{std::chrono::high_resolution_clock::now()};
-        std::chrono::duration<float64> DeltaTime{EndTime - StartTime};
+        EndTime = Time::Now();
+        DeltaTime = (EndTime - StartTime) + TickTime;
 
-        FTickManager::Instance().Tick(DeltaTime.count());
+        StartTime = Time::Now();
+
+        FTickManager::Instance().Tick(DeltaTime);
+
+        EndTime = Time::Now();
+        TickTime = EndTime - StartTime;
     }
 
     VulkanManager.LogicalDeviceHandle.waitIdle();
@@ -246,6 +259,7 @@ void Render::ShutDown()
     VulkanManager.DestroyPipelineLayout();
     VulkanManager.DestroyGraphicsPipeline();
     VulkanManager.DestroyFrameSyncData();
+    VulkanManager.DestroyVertexBuffer();
     VulkanManager.DestroyLogicalDevice();
     VulkanManager.DestroyPhysicalDevice();
     VulkanManager.DestroyMessenger();
@@ -1065,6 +1079,11 @@ void Render::OVulkanManager::RecreateSwapChain()
     BeginRenderPass();
 }
 
+bool Render::OVulkanManager::SwapChainNeedsRecreation(Vk::Result Result) const
+{
+    return Result == Vk::Result::eErrorOutOfDateKHR || Result == Vk::Result::eSuboptimalKHR || RenderWindow.HasBeenResized;
+}
+
 void Render::OVulkanManager::DestroySwapChain()
 {
     if(!ENSURE(LogicalDeviceHandle && SwapChainHandle))
@@ -1311,6 +1330,83 @@ void Render::OVulkanManager::DestroyDrawingCommandPool()
     LOG(LogVulkan, "destroyed drawing command pool");
 }
 
+void Render::OVulkanManager::CreateVertexBuffer()
+{
+    Vk::BufferCreateInfo BufferInfo{};
+    BufferInfo.size = Vertices_Test.UsedSize();
+    BufferInfo.usage = Vk::BufferUsageFlagBits::eVertexBuffer;
+    BufferInfo.sharingMode = Vk::SharingMode::eExclusive;
+
+    if(!LogicalDeviceHandle.createBuffer(&BufferInfo, nullptr, &VertexBuffer))
+    {
+        throw FRuntimeError{"failed to create vertex buffer"};
+    }
+
+    Vk::MemoryRequirements MemoryRequirements{};
+    LogicalDeviceHandle.getBufferMemoryRequirements(VertexBuffer, &MemoryRequirements);
+
+    const Vk::MemoryPropertyFlags MemoryFlags{Vk::MemoryPropertyFlagBits::eHostVisible | Vk::MemoryPropertyFlagBits::eHostCoherent};
+
+    Vk::MemoryAllocateInfo MemoryInfo{};
+    MemoryInfo.allocationSize = MemoryRequirements.size;
+    MemoryInfo.memoryTypeIndex = FindMemoryType(MemoryRequirements.memoryTypeBits, MemoryFlags);
+
+    if(!LogicalDeviceHandle.allocateMemory(&MemoryInfo, nullptr, &VertexMemoryHandle))
+    {
+        throw FRuntimeError{"failed to allocate vertex buffer memory"};
+    }
+
+    LogicalDeviceHandle.bindBufferMemory(VertexBuffer, VertexMemoryHandle, 0);
+
+    void* DataStart{nullptr};
+
+    if(!LogicalDeviceHandle.mapMemory(VertexMemoryHandle, 0, BufferInfo.size, Vk::MemoryMapFlags{}, &DataStart))
+    {
+        throw FRuntimeError{"failed to map vertex memory"};
+    }
+
+    Memory::Copy(DataStart, Vertices_Test.Data(), BufferInfo.size);
+
+    LogicalDeviceHandle.unmapMemory(VertexMemoryHandle);
+
+    LOG(LogVulkan, "created vertex buffer");
+}
+
+void Render::OVulkanManager::DestroyVertexBuffer()
+{
+    if(!ENSURE(LogicalDeviceHandle && VertexBuffer && VertexMemoryHandle))
+    {
+        return;
+    }
+
+    LogicalDeviceHandle.destroyBuffer(VertexBuffer);
+    VertexBuffer = NULL_HANDLE;
+
+    LogicalDeviceHandle.freeMemory(VertexMemoryHandle);
+    VertexMemoryHandle = NULL_HANDLE;
+
+    LOG(LogVulkan, "destroyed vertex buffer and freed its memory");
+}
+
+uint32 Render::OVulkanManager::FindMemoryType(uint32 TypeFilter, Vk::MemoryPropertyFlags Flags) const
+{
+    Vk::PhysicalDeviceMemoryProperties MemoryProperties{};
+    PhysicalDeviceHandle.getMemoryProperties(&MemoryProperties);
+
+    for(uint32 Index{0}; Index < MemoryProperties.memoryTypeCount; ++Index)
+    {
+        const bool CheckFilter{(TypeFilter & (1U << Index)) > 0};
+        const bool CheckFlags{MemoryProperties.memoryTypes[Index].propertyFlags == Flags};
+
+        if(CheckFilter && CheckFlags)
+        {
+            return Index;
+        }
+    }
+
+    throw FRuntimeError{"failed to find suitable memory"};
+}
+
 void Render::OVulkanManager::CreateCommandBuffers()
 {
     CommandBuffers.ResizeTo(SwapChainFrameBuffers.Num());
@@ -1357,6 +1453,8 @@ void Render::OVulkanManager::BeginRenderPass()
     RenderPassBeginInfo.clearValueCount = 1;
     RenderPassBeginInfo.pClearValues = &ClearColor;
 
+    TStaticArray<Vk::DeviceSize, 1> Offsets{0ULL};
+
     for(int64 Index{0}; Index < CommandBuffers.Num(); ++Index)
     {
         RenderPassBeginInfo.framebuffer = SwapChainFrameBuffers[Index];
@@ -1368,7 +1466,8 @@ void Render::OVulkanManager::BeginRenderPass()
 
         CommandBuffers[Index].beginRenderPass(&RenderPassBeginInfo, Vk::SubpassContents::eInline);
         CommandBuffers[Index].bindPipeline(Vk::PipelineBindPoint::eGraphics, GraphicsPipelineHandle);
-        CommandBuffers[Index].draw(6, 1, 0, 0);
+        CommandBuffers[Index].bindVertexBuffers(0, 1, &VertexBuffer, Offsets.Data());
+        CommandBuffers[Index].draw(Vertices_Test.Num(), 1, 0, 0);
         CommandBuffers[Index].endRenderPass();
         CommandBuffers[Index].end();
     }
@@ -1427,34 +1526,34 @@ void Render::OVulkanManager::DrawFrame()
     uint32 ImageIndex;
     Vk::Result Result{LogicalDeviceHandle.acquireNextImageKHR(SwapChainHandle, UINT64_MAX, FrameData[CurrentFrame].ImageAvailableSemaphore, NULL_HANDLE, &ImageIndex)};
 
-    if EXPECT(Result == Vk::Result::eErrorOutOfDateKHR || Result == Vk::Result::eSuboptimalKHR || RenderWindow.HasBeenResized, false)
+    if EXPECT(SwapChainNeedsRecreation(Result), false)
     {
         RenderWindow.HasBeenResized = false;
         RecreateSwapChain();
         return;
     }
-    else if EXPECT(Result != Vk::Result::eSuccess, false)
+    else if EXPECT(!Result, false)
     {
         throw FRuntimeError{"failed to acquire next image [{}]", Vk::to_string(Result)};
     }
 
-    if(ImagesInFlightFence[ImageIndex] != Vk::Fence{NULL_HANDLE})
+    if(!!ImagesInFlightFence[ImageIndex])
     {
         CHECK(!!LogicalDeviceHandle.waitForFences(1, &ImagesInFlightFence[ImageIndex], true, UINT64_MAX));
     }
 
     ImagesInFlightFence[ImageIndex] = FrameData[CurrentFrame].FlightFence;
 
-    TStaticArray<Vk::Semaphore*, 1> WaitSemaphores{&FrameData[CurrentFrame].ImageAvailableSemaphore};
-    TStaticArray<Vk::Semaphore*, 1> SignalSemaphores{&FrameData[CurrentFrame].RenderFinishedSemaphore};
+    TStaticArray<Vk::Semaphore, 1> WaitSemaphores{FrameData[CurrentFrame].ImageAvailableSemaphore};
+    TStaticArray<Vk::Semaphore, 1> SignalSemaphores{FrameData[CurrentFrame].RenderFinishedSemaphore};
     TStaticArray<Vk::PipelineStageFlags, 1> WaitStages{Vk::PipelineStageFlagBits::eColorAttachmentOutput};
 
     Vk::SubmitInfo SubmitInfo{};
     SubmitInfo.waitSemaphoreCount = WaitSemaphores.Num();
-    SubmitInfo.pWaitSemaphores = *WaitSemaphores.Data();
+    SubmitInfo.pWaitSemaphores = WaitSemaphores.Data();
     SubmitInfo.pWaitDstStageMask = WaitStages.Data();
     SubmitInfo.signalSemaphoreCount = SignalSemaphores.Num();
-    SubmitInfo.pSignalSemaphores = *SignalSemaphores.Data();
+    SubmitInfo.pSignalSemaphores = SignalSemaphores.Data();
     SubmitInfo.commandBufferCount = 1;
     SubmitInfo.pCommandBuffers = &CommandBuffers[ImageIndex];
 
@@ -1462,25 +1561,25 @@ void Render::OVulkanManager::DrawFrame()
 
     CHECK(!!QueueHandles.Graphics.submit(1, &SubmitInfo, FrameData[CurrentFrame].FlightFence));
 
-    TStaticArray<Vk::SwapchainKHR*, 1> SwapChains{&SwapChainHandle};
+    TStaticArray<Vk::SwapchainKHR, 1> SwapChains{SwapChainHandle};
 
     Vk::PresentInfoKHR PresentInfo{};
     PresentInfo.waitSemaphoreCount = SignalSemaphores.Num();
-    PresentInfo.pWaitSemaphores = *SignalSemaphores.Data();
+    PresentInfo.pWaitSemaphores = SignalSemaphores.Data();
     PresentInfo.swapchainCount = SwapChains.Num();
-    PresentInfo.pSwapchains = *SwapChains.Data();
+    PresentInfo.pSwapchains = SwapChains.Data();
     PresentInfo.pImageIndices = &ImageIndex;
     PresentInfo.pResults = nullptr;
 
     Result = QueueHandles.Presentation.presentKHR(&PresentInfo);
 
-    if EXPECT(Result == Vk::Result::eErrorOutOfDateKHR || Result == Vk::Result::eSuboptimalKHR || RenderWindow.HasBeenResized, false)
+    if EXPECT(SwapChainNeedsRecreation(Result), false)
     {
         RenderWindow.HasBeenResized = false;
         RecreateSwapChain();
         return;
     }
-    else if EXPECT(Result != Vk::Result::eSuccess, false)
+    else if EXPECT(!Result, false)
     {
         throw FRuntimeError{"failed to present [{}]", Vk::to_string(Result)};
     }
@@ -1488,3 +1587,4 @@ void Render::OVulkanManager::DrawFrame()
     ++CurrentFrame;
     CurrentFrame %= Render::MaxFramesInFlight;
 }
+

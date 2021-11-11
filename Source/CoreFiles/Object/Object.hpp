@@ -238,7 +238,7 @@ namespace Rtti
     }
 
     template<typename Class>
-    inline const IDArrayType<Class> GlobalIDArray{MakeTypeIDArray<Class, Class>()}; //we have this global so all are initialized before main
+    inline const IDArrayType<Class> GlobalIDArray alignas(VectorIDType){MakeTypeIDArray<Class, Class>()}; //we have this global so all are initialized before main
 
     template<typename Class>
     inline int64 OffsetFromID(const int64 SourcePtr, const uint32 TargetID)
@@ -255,7 +255,7 @@ namespace Rtti
         #pragma unroll NumComparisons
         for(uint64 Index{0}; Index < NumElementIterations; Index += NumRegisterElements)
         {
-            VectorIDType StoredIDs{Simd::LoadUnaligned<VectorIDType>(IDArray + Index)};
+            VectorIDType StoredIDs{Simd::LoadAligned<VectorIDType>(IDArray + Index)};
             StoredIDs &= 0x0000FFFF; //mask out the offset part
 
             Simd::MaskType<VectorIDType> ComparisonMask{Simd::MoveMask(TargetID == StoredIDs)};
@@ -319,7 +319,7 @@ inline TargetType ObjectCastExact(BaseType* BasePointer)
 }
 
 template<typename TargetType, typename BaseType> requires(TypeTrait::IsObjectClass<TypeTrait::RemovePointer<TargetType>> && TypeTrait::IsObjectClass<BaseType>)
-inline TargetType NONNULL ObjectCastChecked(BaseType* BasePointer NONNULL)
+inline TargetType ObjectCastChecked(BaseType* BasePointer)
 {
     using TargetTypeClass = TypeTrait::RemoveCV<TypeTrait::RemovePointer<TargetType>>;
 
@@ -423,59 +423,7 @@ public:
     virtual ~OObject() = default;
 };
 
-template<typename ObjectClass> requires(TypeTrait::IsObjectClass<ObjectClass>)
-class TObjectIterator final
-{
-public:
-
-    TObjectIterator()
-        : BlockPtr{FObjectAllocationManager::Instance().StartBlock()}
-        , ObjectPtr{nullptr}
-    {
-        operator++();
-    }
-
-    TObjectIterator& operator++()
-    {
-        BlockPtr = BlockPtr->NextBlock;
-
-        if EXPECT(operator bool(), true)
-        {
-            ObjectPtr = ObjectCast<ObjectClass*>(BlockPtr->GetAllocatedObject());
-
-            if(ObjectPtr == nullptr)
-            {
-                return operator++();
-            }
-        }
-        return *this;
-    }
-
-    NONNULL ObjectClass* operator->()
-    {
-        ASSUME(ObjectPtr != nullptr);
-        return ObjectPtr;
-    }
-
-    ObjectClass& operator*()
-    {
-        ASSUME(ObjectPtr != nullptr);
-        return *ObjectPtr;
-    }
-
-    explicit operator bool() const
-    {
-        return BlockPtr != FObjectAllocationManager::Instance().EndBlock();
-    }
-
-private:
-
-    FObjectAllocationManager::FMemoryBlock* BlockPtr;
-    ObjectClass* ObjectPtr;
-};
-
-template<typename ObjectClass> requires(TypeTrait::IsObjectClass<ObjectClass>)
-inline FString<SS60> GetClassNameSafe(const ObjectClass* const Object)
+inline FString<SS60> GetClassNameSafe(const OObject* const Object)
 {
     if(Object)
     {

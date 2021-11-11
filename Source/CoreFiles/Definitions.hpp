@@ -45,6 +45,18 @@ static_assert(sizeof(float32) == 4);
 static_assert(sizeof(float64) == 8);
 static_assert(sizeof(float128) == 16);
 
+inline constexpr float64 operator""_nano(float128 Number){return Number * 0.000000001;}
+inline constexpr float64 operator""_micro(float128 Number){return Number * 0.000001;}
+inline constexpr float64 operator""_milli(float128 Number){return Number * 0.001;}
+inline constexpr uint64 operator""_kilo(uint64 Number){return Number * 1000;}
+inline constexpr float64 operator""_kilo(float128 Number){return Number * 1000;}
+inline constexpr uint64 operator""_mega(uint64 Number){return Number * 1000000;}
+inline constexpr float64 operator""_mega(float128 Number){return Number * 1000000;}
+inline constexpr uint64 operator""_giga(uint64 Number){return Number * 1000000000;}
+inline constexpr float64 operator""_giga(float128 Number){return Number * 1000000000;}
+inline constexpr uint64 operator""_tera(uint64 Number){return Number * 1000000000000;}
+inline constexpr float64 operator""_tera(float128 Number){return Number * 1000000000000;}
+
 #if UNITY_BUILD
 #define UINLINE __attribute__((always_inline)) //when in unity mode we can force-inline functions defined in the translation unit
 #else
@@ -53,6 +65,7 @@ static_assert(sizeof(float128) == 16);
 
 #define COMMA ,
 #define ATTRIBUTE(...) __attribute__((__VA_ARGS__))
+#define attr(...) __attribute__((__VA_ARGS__))
 #define implicit //be explicit about implicit
 #define INDEX_NONE (-1)
 #define OFFSET_NONE static_cast<uint32>(~0)
@@ -87,6 +100,15 @@ static_assert(sizeof(float128) == 16);
 #define CLEAR_PADDING(address) __builtin_clear_padding(address)
 #define CRASH_TRAP __builtin_trap()
 #define THROWS noexcept(false)
+#define CONSTRUCTOR __attribute__((constructor))
+#define DESTRUCTOR __attribute__((destructor))
+#define HOT __attribute__((hot))
+#define COLD __attribute__((cold))
+#define TARGET(target) __attribute__((__target__(#target)))
+#define USED __attribute__((used))
+#define ALIAS(to) __attribute__((alias(#to)))
+#define IS_CPU_FAMILY(FamilyName)  __builtin_cpu_is(#FamilyName)
+#define CPU_INITIALIZE __builtin_cpu_init()
 
 #define STACK_ALLOCATE(size) __builtin_alloca(size)
 #define STACK_ALLOCATE_ELEMENT(element, num) static_cast<element*>(__builtin_alloca(num * sizeof(element)))
@@ -170,7 +192,7 @@ public:
     FSingleton() = default;
     virtual ~FSingleton() = default;
 
-    inline static DerivedClass& Instance()
+    CONSTRUCTOR inline static DerivedClass& Instance()
     {
         static DerivedClass Derived{InitializerArguments...};
         return Derived;
