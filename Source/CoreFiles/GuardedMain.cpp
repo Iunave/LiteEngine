@@ -2,6 +2,7 @@
 #include "Object/Object.hpp"
 #include "Log.hpp"
 #include "Rendering/VulkanRenderer.hpp"
+#include "Time.hpp"
 
 
 OBJECT_CLASS(OFoo)
@@ -21,16 +22,103 @@ public:
     uint64 wow[428]{};
 };
 
+inline float64 ProgramStartTime;
+inline float64 ProgramEndTime;
+
+CONSTRUCTOR(1) inline void OnProgramStart()
+{
+    ProgramStartTime = Time::Now();
+    LOG_UNGUARDED(LogProgram, "starting at {} seconds", ProgramStartTime);
+}
+
+DESTRUCTOR(100) inline void OnProgramEnd()
+{
+    ProgramEndTime = Time::Now();
+    LOG_UNGUARDED(LogProgram, "ending at {} second", ProgramEndTime);
+    LOG_UNGUARDED(LogProgram, "total time in execution: {} seconds", ProgramEndTime - ProgramStartTime);
+}
+
 void InitializeVariables()
 {
     Thread::MainThreadID = pthread_self();
 }
 
+struct A
+{
+    union UCharacters
+    {
+        char Stack[60];
+        char* Heap;
+    };
+    UCharacters Characters;
+    uint32 End;
+};
+
+struct __attribute__((packed)) B
+{
+    union UCharacters
+    {
+        char Stack[60];
+        char* Heap;
+    };
+    UCharacters Characters;
+    uint32 End;
+};
+
+struct __attribute__((packed)) alignas(64) C
+{
+    union UCharacters
+    {
+        char Stack[60];
+        char* Heap;
+    };
+    UCharacters Characters;
+    uint32 End;
+};
+
+struct D
+{
+    union __attribute__((packed)) UCharacters
+    {
+        char Stack[60];
+        char* Heap;
+    };
+    UCharacters Characters;
+    uint32 End;
+};
+
+struct __attribute__((packed)) E
+{
+    union __attribute__((packed)) UCharacters
+    {
+        char Stack[60];
+        char* Heap;
+    };
+    UCharacters Characters;
+    uint32 End;
+};
+
+struct __attribute__((packed)) alignas(64) F
+{
+    union __attribute__((packed)) UCharacters
+    {
+        char Stack[60];
+        char* Heap;
+    };
+    UCharacters Characters;
+    uint32 End;
+};
+
 int32 main()
 {
-    LOG(LogProgram, "entered main with thread-ID: {}", (void*)pthread_self());
-
     InitializeVariables();
+
+    __builtin_printf("alignof A %lu, sizeof A %lu\n", alignof(A), sizeof(A));
+    __builtin_printf("alignof B %lu, sizeof B %lu\n", alignof(B), sizeof(B));
+    __builtin_printf("alignof C %lu, sizeof C %lu\n", alignof(C), sizeof(C));
+    __builtin_printf("alignof D %lu, sizeof D %lu\n", alignof(D), sizeof(D));
+    __builtin_printf("alignof E %lu, sizeof E %lu\n", alignof(E), sizeof(E));
+    __builtin_printf("alignof F %lu, sizeof F %lu\n", alignof(F), sizeof(F));
 
     TSharedPtr<OObject> Obj1{MakeShared<OFoo>()};
     TSharedPtr<OObject> Obj2{MakeShared<OObject>()};
@@ -48,9 +136,9 @@ int32 main()
         LOG(LogProgram, "{}", Iterator->GetClassName());
     }
 
-   // Obj1.Reset();
-    //Obj4.Reset();
-    //Obj5.Reset();
+    Obj1.Reset();
+    Obj4.Reset();
+    Obj5.Reset();
 
     for(TObjectIterator<OObject> Iterator{}; Iterator; ++Iterator)
     {

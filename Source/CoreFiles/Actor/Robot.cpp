@@ -2,7 +2,7 @@
 #include "BuildComponent/BuildComponent.hpp"
 #include "BuildComponent/MovementComponent.hpp"
 #include "BuildComponent/WeaponComponent.hpp"
-
+/*
 void ARobot::AddComponent(TSharedPtr<ABuildComponent> NewComponent)
 {
     TSharedPtr<AWeaponComponent> NewWeapon{ObjectCast<AWeaponComponent*>(NewComponent)};
@@ -20,3 +20,4 @@ void ARobot::AddComponent(TSharedPtr<ABuildComponent> NewComponent)
 
     AllComponents.Append(Move(NewComponent));
 }
+*/

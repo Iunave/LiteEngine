@@ -100,8 +100,8 @@ inline constexpr float64 operator""_tera(float128 Number){return Number * 100000
 #define CLEAR_PADDING(address) __builtin_clear_padding(address)
 #define CRASH_TRAP __builtin_trap()
 #define THROWS noexcept(false)
-#define CONSTRUCTOR __attribute__((constructor))
-#define DESTRUCTOR __attribute__((destructor))
+#define CONSTRUCTOR(priority) __attribute__((constructor(priority + 100)))
+#define DESTRUCTOR(priority) __attribute__((destructor(priority + 100)))
 #define HOT __attribute__((hot))
 #define COLD __attribute__((cold))
 #define TARGET(target) __attribute__((__target__(#target)))
@@ -184,37 +184,12 @@ public:
 
 };
 
-template<typename DerivedClass, auto... InitializerArguments>
-class FSingleton
-{
-public:
-
-    FSingleton() = default;
-    virtual ~FSingleton() = default;
-
-    CONSTRUCTOR inline static DerivedClass& Instance()
-    {
-        static DerivedClass Derived{InitializerArguments...};
-        return Derived;
-    }
-
-};
-
-template<typename DerivedClass, auto... InitializerArguments>
-class FConstexprSingleton
-{
-public:
-
-    FConstexprSingleton() = default;
-    virtual ~FConstexprSingleton() = default;
-
-    inline static DerivedClass& Instance()
-    {
-        static constexpr DerivedClass Derived{InitializerArguments...};
-        return Derived;
-    }
-
-};
+#define SINGLETON(Class, ConstructionPriority) \
+CONSTRUCTOR(ConstructionPriority) inline static Class& Instance()\
+{\
+    static Class InstanceClass{};\
+    return InstanceClass;\
+}
 
 INLINE bool ExclusiveOr(const bool LHS, const bool RHS)
 {

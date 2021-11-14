@@ -53,7 +53,8 @@ void OShaderCodeReader::Run()
         Memory::Free(Allocation);
     }
 
-    FileName = StrUtl::FilePath(Render::RelativeShaderPath);
+    FileName.PushBack_Assign(Render::RelativeShaderPath);
+    StrUtl::ToFilePath(FileName);
 
     FString<SS124> VertexFilePath{FileName + Render::VertShaderPostfix};
     FString<SS124> FragFilePath{FileName + Render::FragShaderPostfix};
@@ -281,7 +282,7 @@ uint32 Render::OVulkanManager::VulkanDebugCallback(Vk::DebugUtilsMessageSeverity
         }
         case Vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
         {
-            LOGW(LogVulkan, "{}", CallbackData->pMessage);
+            LOG_WARNING(LogVulkan, "{}", CallbackData->pMessage);
             break;
         }
         case Vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
@@ -866,7 +867,7 @@ void Render::OVulkanManager::DestroyImages()
         }
     }
 
-    LOGW(LogVulkan, "destroyed images");
+    LOG_WARNING(LogVulkan, "destroyed images");
 }
 
 void Render::OVulkanManager::CreateImageViews()

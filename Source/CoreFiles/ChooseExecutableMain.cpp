@@ -21,7 +21,7 @@ int32 main(int32 NumArgs, const char8** Arguments)
         }
         else
         {
-            LOGW_ALWAYS(LogProgram, "unsupported argument \"{}\"", Arguments[ArgumentIndex]);
+            LOG_WARNING_UNGUARDED_ALWAYS(LogProgram, "unsupported argument \"{}\"", Arguments[ArgumentIndex]);
         }
     }
 
@@ -86,7 +86,7 @@ int32 main(int32 NumArgs, const char8** Arguments)
     ExecutableToLaunch.Concat_Assign(VersionString, StrUtl::Length(VersionString));
     ExecutableToLaunch += ".out";
 
-    LOG_ALWAYS(LogProgram, "running {}", ExecutableToLaunch.Data() + 2);
+    LOG_UNGUARDED_ALWAYS(LogProgram, "running {}", ExecutableToLaunch.Data() + 2);
 
     return system(ExecutableToLaunch.Data());
 }

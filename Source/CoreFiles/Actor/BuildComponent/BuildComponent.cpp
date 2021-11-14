@@ -1,4 +1,5 @@
 #include "BuildComponent.hpp"
+#include "Actor/Robot.hpp"
 
 void ABuildComponent::TakeDamage(float64 DamageAmount)
 {
@@ -33,17 +34,13 @@ void ABuildComponent::TakeDamage(float64 DamageAmount)
 
 uint32 ABuildComponent::NumAliveConnections() const
 {
-    /*
     uint32 Count{0};
-    #pragma unroll
-    for(const ABuildComponent* ConnectedComponent : Connections)
+
+    for(const uint16 Offset : ConnectionOffsets)
     {
-        if(ConnectedComponent != nullptr)
-        {
-            Count += ConnectedComponent->IsAlive();
-        }
+        Count += Owner->Components[Offset].IsAlive();
     }
+
     return Count;
-     */
 }
 

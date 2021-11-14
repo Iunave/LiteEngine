@@ -2,7 +2,6 @@
 #include "Math.hpp"
 #include "Simd.hpp"
 #include <unistd.h>
-#include <charconv>
 
 namespace StrUtl
 {
@@ -22,7 +21,16 @@ namespace StrUtl
         return DirName.String;
     }
 
-    CONST int64 Length(const char8* NONNULL String)
+    template<EStackSize SS>
+    void ToFilePath(FString<SS>& File)
+    {
+        static const char8* DirectoryName{GetDirectoryName()};
+        static uint32 StringLen{static_cast<uint32>(Length(DirectoryName)) - 1};
+
+        File.PushBack_Assign(DirectoryName, (StringLen - sizeof("Binaries/Debug") - 1));
+    }
+
+    CONST int64 Length(const char8* String)
     {
 #if defined(AVX512)
         using CharVectorType = char8_64;
@@ -146,14 +154,6 @@ namespace StrUtl
         return nullptr;
     }
 
-#ifdef AVX512
-    template<typename T>
-    using StackStringVector = Vector64<T>;
-#elif defined(AVX256)
-    template<typename T>
-    using StackStringVector = Vector32<T>;
-#endif
-
     template<typename T>
     INLINE T LowerCaseMask(const T Character)
     {
@@ -166,122 +166,23 @@ namespace StrUtl
         return Character >= 'A' && Character <= 'Z';
     }
 
-    char8* ToUpperCase(char8* String LIFETIME_BOUND)
+    char8* ToUpperCase(char8* String, int64 Length)
     {
         //index to the last valid character
-        for(int64 StringEnd{Length(String) - 2}; StringEnd >= 0; --StringEnd)
+        for(int64 StringEnd{Length - 2}; StringEnd >= 0; --StringEnd)
         {
             String[StringEnd] -= (32 * LowerCaseMask(String[StringEnd]));
         }
         return String;
     }
 
-    template<EStackSize InStackSize>
-    FString<InStackSize>& ToUpperCase(FString<InStackSize>& String LIFETIME_BOUND)
-    {
-        if(String.ActiveArray() == FString<InStackSize>::EActiveArray::Stack)
-        {
-#if defined(AVX512)
-            char8_64 CharacterVector{Simd::LoadUnaligned<char8_64>(String.CharacterArray.Stack)};
-            const char8_64 Mask{LowerCaseMask(CharacterVector) & 32};
-
-            CharacterVector -= Mask;
-
-            int32* StackPointer{reinterpret_cast<int32*>(String.CharacterArray.Stack)};
-
-            Simd::MaskStoreUnaligned(StackPointer, FString<InStackSize>::MaskStoreMask, static_cast<const int32_16>(CharacterVector));
-#elif defined(AVX256)
-            char8_32 CharacterVector{Simd::LoadUnaligned<char8_32>(String.CharacterArray.Stack)};
-            char8_32 Mask{LowerCaseMask(CharacterVector) & 32};
-
-            CharacterVector -= Mask;
-
-            Simd::StoreUnaligned(String.CharacterArray.Stack, CharacterVector);
-
-            CharacterVector = Simd::LoadUnaligned<char8_32>(&String.CharacterArray.Stack[32]);
-            Mask = LowerCaseMask(CharacterVector) & 32;
-
-            CharacterVector -= Mask;
-
-            int32_8* StackPointer{reinterpret_cast<int32_8*>(&String.CharacterArray.Stack[32])};
-
-            Simd::MaskStore(StackPointer, FString<InStackSize>::MaskStoreMask, static_cast<const int32_8>(CharacterVector));
-#endif
-        }
-        else
-        {
-            for(char8& Character : String)
-            {
-                Character -= (32 * LowerCaseMask(Character));
-            }
-        }
-
-        return String;
-    }
-
-    FStaticString& ToUpperCase(FStaticString& String LIFETIME_BOUND)
-    {
-        String.Characters -= (LowerCaseMask(String.Characters) & 32);
-        return String;
-    }
-
-    char8* ToLowerCase(char8* String LIFETIME_BOUND)
+    char8* ToLowerCase(char8* String, int64 Length)
     {
         //index to the last valid character
-        for(int64 StringEnd{Length(String) - 2}; StringEnd >= 0; --StringEnd)
+        for(int64 StringEnd{Length - 2}; StringEnd >= 0; --StringEnd)
         {
-            String[StringEnd] += (32 * UpperCaseMask(String[StringEnd]));
+            String[StringEnd] -= (32 * LowerCaseMask(String[StringEnd]));
         }
-
-        return String;
-    }
-
-    template<EStackSize InStackSize>
-    FString<InStackSize>& ToLowerCase(FString<InStackSize>& String LIFETIME_BOUND)
-    {
-        if(String.ActiveArray() == FString<InStackSize>::EActiveArray::Stack)
-        {
-#if defined(AVX512)
-            char8_64 CharacterVector{Simd::LoadUnaligned<char8_64>(String.CharacterArray.Stack)};
-            const char8_64 Mask{UpperCaseMask(CharacterVector) & 32};
-
-            CharacterVector += Mask;
-
-            int32* StackPointer{reinterpret_cast<int32*>(String.CharacterArray.Stack)};
-
-            Simd::MaskStoreUnaligned(StackPointer, FString<InStackSize>::MaskStoreMask, static_cast<const int32_16>(CharacterVector));
-#elif defined(AVX256)
-            char8_32 CharacterVector{Simd::LoadUnaligned<char8_32>(String.CharacterArray.Stack)};
-            char8_32 Mask{UpperCaseMask(CharacterVector) & 32};
-
-            CharacterVector += Mask;
-
-            Simd::StoreUnaligned(String.CharacterArray.Stack, CharacterVector);
-
-            CharacterVector = Simd::LoadUnaligned<char8_32>(&String.CharacterArray.Stack[32]);
-            Mask = UpperCaseMask(CharacterVector) & 32;
-
-            CharacterVector += Mask;
-
-            int32_8* StackPointer{reinterpret_cast<int32_8*>(&String.CharacterArray.Stack[32])};
-
-            Simd::MaskStore(StackPointer, FString<InStackSize>::MaskStoreMask, static_cast<const int32_8>(CharacterVector));
-#endif
-        }
-        else
-        {
-            for(char8& Character : String)
-            {
-                Character += (32 * UpperCaseMask(Character));
-            }
-        }
-
-        return String;
-    }
-
-    FStaticString& ToLowerCase(FStaticString& String LIFETIME_BOUND)
-    {
-        String.Characters += UpperCaseMask(String.Characters) & 32;
         return String;
     }
 
@@ -397,6 +298,12 @@ namespace StrUtl
     }
 
 }
+
+template void StrUtl::ToFilePath(FString<SS0>&);
+template void StrUtl::ToFilePath(FString<SS60>&);
+template void StrUtl::ToFilePath(FString<SS124>&);
+template void StrUtl::ToFilePath(FString<SS252>&);
+template void StrUtl::ToFilePath(FString<SS508>&);
 
 template char8 StrUtl::ToValue(const char8*, const char8*);
 template int8 StrUtl::ToValue(const char8*, const char8*);
@@ -984,7 +891,7 @@ void FString<InStackSize>::Empty()
 template class FString<SS0>;
 template class FString<SS60>;
 template class FString<SS124>;
-template class FString<SS256>;
+template class FString<SS252>;
 template class FString<SS508>;
 
 char8_32 FStaticString::CombineStrings(const char8_32 Lower, const char8_32 Upper, const uint32 LowEnd)

@@ -9,13 +9,19 @@
 
 class OObject;
 
-class FObjectAllocationManager final : public FSingleton<FObjectAllocationManager>
+class FObjectAllocationManager final
 {
     template<typename ObjectClass> requires TypeTrait::IsObjectClass<ObjectClass>
     friend class TObjectIterator;
 public:
 
     static constexpr uint64 ArenaSize{1_mega};
+
+    static inline FObjectAllocationManager& Instance()
+    {
+        static FObjectAllocationManager Instance{};
+        return Instance;
+    }
 
     class FMemoryBlock
     {
@@ -48,18 +54,21 @@ public:
         FMemoryBlock* EndBlock;
     };
 
-    FObjectAllocationManager();
+private:
 
+    FObjectAllocationManager();
     ~FObjectAllocationManager();
 
+public:
+
     template<typename ObjectClass, typename... ConstructorArgs> requires TypeTrait::IsObjectClass<ObjectClass>
-    ObjectClass* PlaceObject(ConstructorArgs&&... Arguments)
+    HOT ObjectClass* PlaceObject(ConstructorArgs&&... Arguments)
     {
         return new(FindFreeMemory(sizeof(ObjectClass), alignof(ObjectClass))) ObjectClass{MoveIfPossible(Arguments)...};
     }
 
     //this function does not call the destructor of the object
-    attr(nonnull(2)) void FreeObject(OObject* ObjectToFree);
+    HOT void FreeObject(OObject* ObjectToFree);
 
     void RemoveEmptyArenas();
 
@@ -76,7 +85,7 @@ private:
     }
 
     //returns a pointer to the end of a free memory block
-    uint8* FindFreeMemory(const uint64 ObjectSize, const uint64 ObjectAlignment);
+    HOT uint8* FindFreeMemory(const uint64 ObjectSize, const uint64 ObjectAlignment);
 
     void MakeNewArena();
 
@@ -94,7 +103,7 @@ class TObjectIterator final
 public:
 
     TObjectIterator()
-        : BlockPtr{FObjectAllocationManager::Instance().StartBlock()}
+        : BlockPtr{AllocationManager.StartBlock()}
         , ObjectPtr{nullptr}
     {
         operator++();
@@ -102,38 +111,34 @@ public:
 
     TObjectIterator& operator++()
     {
-        ASSUME(BlockPtr != nullptr);
-        BlockPtr = BlockPtr->NextBlock;
-
-        if EXPECT(operator bool(), true)
+        do
         {
+            BlockPtr = BlockPtr->NextBlock;
             ObjectPtr = ObjectCast<ObjectClass*>(BlockPtr->GetAllocatedObject());
-
-            if(ObjectPtr == nullptr)
-            {
-                return operator++();
-            }
         }
+        while(ObjectPtr == nullptr && BlockPtr != AllocationManager.EndBlock());
+
         return *this;
     }
 
-    attr(returns_nonnull) ObjectClass* operator->()
+    ObjectClass* operator->()
     {
         return ObjectPtr;
     }
 
     ObjectClass& operator*()
     {
-        ASSUME(ObjectPtr != nullptr);
         return *ObjectPtr;
     }
 
     explicit operator bool() const
     {
-        return BlockPtr != FObjectAllocationManager::Instance().EndBlock();
+        return BlockPtr != AllocationManager.EndBlock();
     }
 
 private:
+
+    static inline const FObjectAllocationManager& AllocationManager{FObjectAllocationManager::Instance()};
 
     FObjectAllocationManager::FMemoryBlock* BlockPtr;
     ObjectClass* ObjectPtr;

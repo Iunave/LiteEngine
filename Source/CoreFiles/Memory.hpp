@@ -6,6 +6,8 @@
 #ifdef __unix__
 #include <sys/mman.h>
 #include <unistd.h>
+#include <cstdlib>
+
 #endif
 
 enum class EMemProtect : int32
@@ -94,54 +96,6 @@ namespace Memory
 #endif
     }
 
-    /**
-     * \param StoredType type of the element to allocate
-     * \param Num number of bytes
-     * \returns pointer to new memory allocation
-     */
-    template<typename StoredType = void>
-    NODISCARD INLINE StoredType* Allocate(const uint64 Size)
-    {
-        return static_cast<StoredType*>(::malloc(Size));
-    }
-
-    /**
-     * \param StoredType type of the element to allocate
-     * \param Num number of elements to allocate
-     * \returns pointer to new memory allocation
-     */
-    template<typename StoredType>
-    NODISCARD INLINE StoredType* ZeroAllocate(const uint64 Num)
-    {
-        return static_cast<StoredType*>(::calloc(Num, sizeof(StoredType)));
-    }
-
-    /**
-     * \param Source pointer to existing block of memory or nullptr
-     * \param Size new size of memory block in bytes
-     * \returns pointer to new location of memory block
-     */
-    template<typename StoredType = void>
-    NODISCARD INLINE StoredType* Reallocate(StoredType* Source, const uint64 Size)
-    {
-        return reinterpret_cast<StoredType*>(::realloc(Source, Size));
-    }
-
-   /**
-    * \param Source pointer to memory allocated by Memory::Allocate or Memory::ZeroAllocate
-    * \returns the size of the allocation in bytes (may be larger than the requested size)
-    */
-    NODISCARD INLINE uint64 AllocatedSize(void* Source)
-    {
-        return ::malloc_usable_size(Source);
-    }
-
-    /// \param Location pointer to existing block of memory
-    INLINE void Free(void* const Location)
-    {
-        ::free(Location);
-    }
-
 #ifdef __unix__
 
     void* GetProgramBreak();
@@ -209,6 +163,86 @@ namespace Memory
     INLINE constexpr void Set(TargetType* Destination, const uint8 Value, const uint64 Num)
     {
         __builtin_memset(Destination, Value, Num);
+    }
+
+    /**
+ * \param StoredType type of the element to allocate
+ * \param Num number of bytes
+ * \returns pointer to new memory allocation
+ */
+    template<typename StoredType = void>
+    NODISCARD INLINE StoredType* Allocate(const uint64 Size)
+    {
+        return static_cast<StoredType*>(::malloc(Size));
+    }
+
+    /**
+     * @param StoredType type of the element to allocate
+     * @param Num number of bytes
+     * @param Align alignment
+     * @returns pointer to new memory allocation
+     */
+    template<typename StoredType = void>
+    NODISCARD INLINE StoredType* AllocateAligned(const uint64 Size, const uint64 Align)
+    {
+        return static_cast<StoredType*>(std::aligned_alloc(Align, Size));
+    }
+
+    /**
+     * \param StoredType type of the element to allocate
+     * \param Num number of elements to allocate
+     * \returns pointer to new memory allocation
+     */
+    template<typename StoredType>
+    NODISCARD INLINE StoredType* ZeroAllocate(const uint64 Num)
+    {
+        return static_cast<StoredType*>(::calloc(Num, sizeof(StoredType)));
+    }
+
+    /**
+     * \param Source pointer to existing block of memory or nullptr
+     * \param Size new size of memory block in bytes
+     * \returns pointer to new location of memory block
+     */
+    template<typename StoredType = void>
+    NODISCARD INLINE StoredType* Reallocate(StoredType* Source, const uint64 Size)
+    {
+        return reinterpret_cast<StoredType*>(::realloc(Source, Size));
+    }
+
+    /**
+     * \param Source pointer to memory allocated by Memory::Allocate or Memory::ZeroAllocate
+     * \returns the size of the allocation in bytes (may be larger than the requested size)
+     */
+    NODISCARD INLINE uint64 AllocatedSize(void* Source)
+    {
+        return ::malloc_usable_size(Source);
+    }
+
+    /// \param Location pointer to existing block of memory
+    INLINE void Free(void* const Location)
+    {
+        ::free(Location);
+    }
+
+    /**
+     * @param StoredType type of the element to allocate
+     * @param Num number of bytes
+     * @param Align alignment
+     * @returns pointer to new memory allocation
+     */
+    template<typename StoredType = void>
+    NODISCARD INLINE StoredType* ReallocateAligned(StoredType* Source, const uint64 Size, const uint64 Align)
+    {
+        void* NewLocation{std::aligned_alloc(Align, Size)};
+
+        if(Source != nullptr)
+        {
+            Copy(NewLocation, Source, Size);
+            Free(Source);
+        }
+
+        return static_cast<StoredType*>(NewLocation);
     }
 
     template<EFetchPreparation FetchPreparation, ETemporalLocality TemporalLocality>

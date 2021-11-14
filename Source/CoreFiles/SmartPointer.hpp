@@ -126,12 +126,12 @@ namespace PtrPri
 
     struct PACKED MAY_ALIAS FReferenceCounter
     {
-        int16 StrongReferenceCount;
-        int16 WeakReferenceCount;
+        uint16 StrongReferenceCount;
+        uint16 WeakReferenceCount;
     };
 
     extern uint64 EndRefCountOffset;
-    extern FReferenceCounter* StartRefCountPtr;
+    extern FReferenceCounter* StartRefCountPtr; //the first reference counter is reserved for invalid offsets
 
     struct FReferenceCounterWrapper
     {
@@ -155,14 +155,14 @@ namespace PtrPri
             return *this;
         }
 
-        INLINE FReferenceCounter* operator->()
+        INLINE FReferenceCounter* operator->() const
         {
-            return StartRefCountPtr + Offset;
+            return StartRefCountPtr + (Offset * (Offset != UINT64_MAX));
         }
 
-        INLINE const FReferenceCounter* operator->() const
+        INLINE FReferenceCounter& operator*() const
         {
-            return StartRefCountPtr + Offset;
+            return StartRefCountPtr[(Offset * (Offset != UINT64_MAX))];
         }
 
         uint64 Offset;
@@ -191,93 +191,88 @@ namespace PtrPri
 
     public:
 
-        INLINE int16 StrongRefCount() const
+        ///@return the strong reference count or UINT16_MAX if invalid
+        INLINE uint16 StrongRefCount() const
         {
-            if(IsRefCounterValid())
-            {
-                return ReferenceCounter->StrongReferenceCount;
-            }
-            return -1;
+            return ReferenceCounter->StrongReferenceCount;
         }
 
-        INLINE int16 WeakRefCount() const
+        ///@return the weak reference count (always >= strong ref count) or UINT16_MAX if invalid
+        INLINE uint16 WeakRefCount() const
         {
-            if(IsRefCounterValid())
-            {
-                return ReferenceCounter->WeakReferenceCount;
-            }
-            return -1;
+            return ReferenceCounter->WeakReferenceCount;
         }
 
         INLINE bool IsRefCounterValid() const
         {
-            return ReferenceCounter.Offset != OFFSET_NONE;
+            return ReferenceCounter.Offset != UINT64_MAX;
         }
 
     protected:
 
-        INLINE int16 AddReference()
+        INLINE void AddReference()
         {
-            if(IsRefCounterValid())
+            const uint16 AmountToAdd{IsRefCounterValid()};
+
+            if constexpr(SharedMode == ESharedMode::Strong)
             {
-                if constexpr(SharedMode == ESharedMode::Strong)
+                if constexpr(ThreadMode == EThreadMode::Unsafe)
                 {
-                    if constexpr(ThreadMode == EThreadMode::Unsafe)
-                    {
-                        ++ReferenceCounter->WeakReferenceCount;
-                        return ++ReferenceCounter->StrongReferenceCount;
-                    }
-                    else if constexpr(ThreadMode == EThreadMode::Safe)
-                    {
-                        Atomic::Add(&ReferenceCounter->WeakReferenceCount, static_cast<int16>(1));
-                        return Atomic::Add(&ReferenceCounter->StrongReferenceCount, static_cast<int16>(1)) + 1;
-                    }
+                    ReferenceCounter->WeakReferenceCount += AmountToAdd;
+                    ReferenceCounter->StrongReferenceCount += AmountToAdd;
                 }
-                else if constexpr(SharedMode == ESharedMode::Weak)
+                else if constexpr(ThreadMode == EThreadMode::Safe)
                 {
-                    if constexpr(ThreadMode == EThreadMode::Unsafe)
-                    {
-                        return ++ReferenceCounter->WeakReferenceCount;
-                    }
-                    else if constexpr(ThreadMode == EThreadMode::Safe)
-                    {
-                        return Atomic::Add(&ReferenceCounter->WeakReferenceCount, static_cast<int16>(1)) + 1;
-                    }
+                    Atomic::Add(&ReferenceCounter->WeakReferenceCount, AmountToAdd);
+                    Atomic::Add(&ReferenceCounter->StrongReferenceCount, AmountToAdd);
                 }
             }
-            return -1;
+            else if constexpr(SharedMode == ESharedMode::Weak)
+            {
+                if constexpr(ThreadMode == EThreadMode::Unsafe)
+                {
+                    ++ReferenceCounter->WeakReferenceCount;
+                }
+                else if constexpr(ThreadMode == EThreadMode::Safe)
+                {
+                    Atomic::Add(&ReferenceCounter->WeakReferenceCount, AmountToAdd);
+                }
+            }
         }
 
-        INLINE int16 RemoveReference()
+        ///@returns true if ref counter is valid and count is now 0, otherwise false
+        INLINE bool RemoveReference()
         {
-            if(IsRefCounterValid())
+            const uint16 AmountToSubtract{IsRefCounterValid()};
+
+            if constexpr(SharedMode == ESharedMode::Strong)
             {
-                if constexpr(SharedMode == ESharedMode::Strong)
+                if constexpr(ThreadMode == EThreadMode::Unsafe)
                 {
-                    if constexpr(ThreadMode == EThreadMode::Unsafe)
-                    {
-                        --ReferenceCounter->WeakReferenceCount;
-                        return --ReferenceCounter->StrongReferenceCount;
-                    }
-                    else if constexpr(ThreadMode == EThreadMode::Safe)
-                    {
-                        Atomic::Subtract(&ReferenceCounter->WeakReferenceCount, static_cast<int16>(1));
-                        return Atomic::Subtract(&ReferenceCounter->StrongReferenceCount, static_cast<int16>(1)) - 1;
-                    }
+                    FReferenceCounter& Counter{*ReferenceCounter};
+
+                    Counter.WeakReferenceCount -= AmountToSubtract;
+                    return (Counter.StrongReferenceCount -= AmountToSubtract) == 0;
                 }
-                else if constexpr(SharedMode == ESharedMode::Weak)
+                else if constexpr(ThreadMode == EThreadMode::Safe)
                 {
-                    if constexpr(ThreadMode == EThreadMode::Unsafe)
-                    {
-                        return --ReferenceCounter->WeakReferenceCount;
-                    }
-                    else if constexpr(ThreadMode == EThreadMode::Safe)
-                    {
-                        return Atomic::Subtract(&ReferenceCounter->WeakReferenceCount, static_cast<int16>(1)) - 1;
-                    }
+                    FReferenceCounter& Counter{*ReferenceCounter};
+
+                    Atomic::Subtract(&Counter.WeakReferenceCount, AmountToSubtract);
+                    return Atomic::Subtract(&Counter.StrongReferenceCount, AmountToSubtract) == 1;
                 }
             }
-            return -1;
+            else if constexpr(SharedMode == ESharedMode::Weak)
+            {
+                if constexpr(ThreadMode == EThreadMode::Unsafe)
+                {
+                    return (ReferenceCounter->WeakReferenceCount -= AmountToSubtract) == 0;
+                }
+                else if constexpr(ThreadMode == EThreadMode::Safe)
+                {
+                    return Atomic::Subtract(&ReferenceCounter->WeakReferenceCount, AmountToSubtract) == 1;
+                }
+            }
         }
 
         FReferenceCounterWrapper ReferenceCounter;
@@ -432,7 +427,7 @@ public:
 
     implicit TSharedPtr(decltype(nullptr) NullPointer = nullptr)
         : TPointer{NullPointer}
-        , TShared{OFFSET_NONE}
+        , TShared{UINT64_MAX}
     {
     }
 
@@ -447,7 +442,7 @@ public:
         : TPointer{Other.Pointer}
         , TShared{Other.ReferenceCounter}
     {
-        Other.ReferenceCounter = OFFSET_NONE;
+        Other.ReferenceCounter = UINT64_MAX;
     }
 
     template<typename OtherPtrType> requires(TypeTrait::IsStaticCastable<PtrType*, OtherPtrType*>)
@@ -471,7 +466,7 @@ public:
         : TPointer{static_cast<PtrType*>(Other.Pointer)}
         , TShared{Other.ReferenceCounter}
     {
-        Other.ReferenceCounter = OFFSET_NONE;
+        Other.ReferenceCounter = UINT64_MAX;
     }
 
     ~TSharedPtr()
@@ -510,7 +505,7 @@ public:
         this->ReferenceCounter = Other.ReferenceCounter;
 
         Other.Pointer = nullptr;
-        Other.ReferenceCounter = OFFSET_NONE;
+        Other.ReferenceCounter = UINT64_MAX;
 
         return *this;
     }
@@ -536,7 +531,7 @@ public:
         this->ReferenceCounter = Other.ReferenceCounter;
 
         Other.Pointer = nullptr;
-        Other.ReferenceCounter = OFFSET_NONE;
+        Other.ReferenceCounter = UINT64_MAX;
 
         return *this;
     }
@@ -562,7 +557,7 @@ public:
         RemoveReferenceAndDelete();
 
         this->Pointer = nullptr;
-        this->ReferenceCounter = OFFSET_NONE;
+        this->ReferenceCounter = UINT64_MAX;
     }
 
     template<typename NewPtrType, ECastOp CastOp>
@@ -586,7 +581,7 @@ public:
 
         ASSERT(NewPointer.IsValid());
 
-        this->ReferenceCounter = OFFSET_NONE;
+        this->ReferenceCounter = UINT64_MAX;
         return NewPointer;
     }
 
@@ -594,7 +589,7 @@ private:
 
     void RemoveReferenceAndDelete()
     {
-        if(TShared::RemoveReference() == 0)
+        if(TShared::RemoveReference())
         {
             if constexpr(TypeTrait::IsObjectClass<Type>)
             {
@@ -627,13 +622,13 @@ inline TSharedPtr<Type, ThreadMode> MakeShared(VarArgs&&... Args)
 }
 
 template<typename Type, typename... VarArgs> requires(TypeTrait::IsObjectClass<Type>)
-attr(hot) inline TSharedPtr<Type, EThreadMode::Default> MakeShared(VarArgs&&... Args)
+HOT inline TSharedPtr<Type, EThreadMode::Default> MakeShared(VarArgs&&... Args)
 {
     return TSharedPtr<Type, EThreadMode::Default>{FObjectAllocationManager::Instance().template PlaceObject<Type>(MoveIfPossible(Args)...), PtrPri::FindNewRefCounterOffset()};
 }
 
 template<typename Type, EThreadMode ThreadMode, typename... VarArgs> requires(TypeTrait::IsObjectClass<Type>)
-attr(hot) inline TSharedPtr<Type, ThreadMode> MakeShared(VarArgs&&... Args)
+HOT inline TSharedPtr<Type, ThreadMode> MakeShared(VarArgs&&... Args)
 {
     return TSharedPtr<Type, ThreadMode>{FObjectAllocationManager::Instance().template PlaceObject<Type>(MoveIfPossible(Args)...), PtrPri::FindNewRefCounterOffset()};
 }
@@ -676,7 +671,7 @@ public:
 
     constexpr explicit TWeakPtr(decltype(nullptr) NullPointer = nullptr)
         : TPointer{NullPointer}
-        , TShared{OFFSET_NONE}
+        , TShared{UINT64_MAX}
     {
     }
 
@@ -691,7 +686,7 @@ public:
         : TPointer{Other.Pointer}
         , TShared{Other.ReferenceCounter}
     {
-        Other.ReferenceCounter = OFFSET_NONE;
+        Other.ReferenceCounter = UINT64_MAX;
     }
 
     template<typename OtherPtrType> requires(TypeTrait::IsStaticCastable<PtrType*, OtherPtrType*>)
@@ -707,7 +702,7 @@ public:
         : TPointer{static_cast<PtrType*>(Other.Pointer)}
         , TShared{Other.ReferenceCounter}
     {
-        Other.ReferenceCounter = OFFSET_NONE;
+        Other.ReferenceCounter = UINT64_MAX;
     }
 
     template<typename OtherPtrType> requires(TypeTrait::IsStaticCastable<PtrType*, OtherPtrType*>)
@@ -753,7 +748,7 @@ public:
         this->Pointer = Other.Pointer;
         this->ReferenceCounter = Other.ReferenceCounter;
 
-        Other.ReferenceCounter = OFFSET_NONE;
+        Other.ReferenceCounter = UINT64_MAX;
 
         return *this;
     }
@@ -774,7 +769,7 @@ public:
         this->RemoveReference();
 
         this->Pointer = nullptr;
-        this->ReferenceCounter = OFFSET_NONE;
+        this->ReferenceCounter = UINT64_MAX;
     }
 
     template<typename NewPtrType, ECastOp CastOp>
@@ -798,7 +793,7 @@ public:
 
         ASSERT(NewPointer.IsValid());
 
-        this->ReferenceCounter = OFFSET_NONE;
+        this->ReferenceCounter = UINT64_MAX;
         return NewPointer;
     }
 };

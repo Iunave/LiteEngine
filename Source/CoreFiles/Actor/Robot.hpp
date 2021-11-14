@@ -4,22 +4,18 @@
 #include "Array.hpp"
 #include "SmartPointer.hpp"
 #include "Actor.hpp"
-
-class ABuildComponent;
-class AMovementComponent;
-class AWeaponComponent;
+#include "BuildComponent/BuildComponent.hpp"
 
 OBJECT_CLASS(ARobot)
 class ARobot : public AActor
 {
     OBJECT_BASES(AActor)
+    friend class ABuildComponent;
 public:
 
     void AddComponent(TSharedPtr<ABuildComponent> NewComponent);
 
 protected:
 
-    TDynamicArray<TSharedPtr<ABuildComponent>> AllComponents;
-    TDynamicArray<TSharedPtr<AWeaponComponent>> WeaponComponents;
-    TDynamicArray<TSharedPtr<AMovementComponent>> MovementComponents;
+    TDynamicArray<ABuildComponent> Components;
 };

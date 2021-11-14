@@ -36,30 +36,35 @@ Thread::GLogMutex.Lock();\
 fmt::print(fmt::fg((category).MessageColor), ((category).PreMessageString + string "\n").Data() __VA_OPT__(,) __VA_ARGS__);\
 Thread::GLogMutex.Unlock()
 
+#define LOG_UNGUARDED(category, string, ...)\
+fmt::print(fmt::fg((category).MessageColor), ((category).PreMessageString + string "\n").Data() __VA_OPT__(,) __VA_ARGS__)
+
 //logs a warning
-#define LOGW(category, string, ...)\
+#define LOG_WARNING(category, string, ...)\
 Thread::GLogMutex.Lock();\
 fmt::print(fmt::fg(fmt::color::yellow), ("!!!" + category.PreMessageString + string "!!!\n").Data() __VA_OPT__(,) __VA_ARGS__);\
 Thread::GLogMutex.Unlock()
 
+#define LOG_WARNING_UNGUARDED(category, string, ...)\
+fmt::print(fmt::fg(fmt::color::yellow), ("!!!" + category.PreMessageString + string "!!!\n").Data() __VA_OPT__(,) __VA_ARGS__)
+
 //logs an error
-#define LOGE(category, string, ...)\
+#define LOG_ERROR(category, string, ...)\
 Thread::GLogMutex.Lock();\
 fmt::print(fmt::fg(fmt::color::red), ("!!!" + category.PreMessageString + string "!!!\n").Data() __VA_OPT__(,) __VA_ARGS__);\
 Thread::GLogMutex.Unlock()
 
-//rewrites the line todo need to find a way to save the cursor position
-#define LOGR(category, string, ...)\
-Thread::GLogMutex.Lock();\
-fmt::print(fmt::fg((category).MessageColor), ("\r" + (category).PreMessageString + string).Data() __VA_OPT__(,) __VA_ARGS__);\
-Thread::GLogMutex.Unlock()
+#define LOG_ERROR_UNGUARDED(category, string, ...)\
+fmt::print(fmt::fg(fmt::color::red), ("!!!" + category.PreMessageString + string "!!!\n").Data() __VA_OPT__(,) __VA_ARGS__)
 
 #else
 
 #define LOG(Category, string, ...)
-#define LOGW(Category, string, ...)
-#define LOGE(Category, string, ...)
-#define LOGR(category, string, ...)
+#define LOG_UNGUARDED(category, string, ...)
+#define LOG_WARNING(Category, string, ...)
+#define LOG_WARNING_UNGUARDED(category, string, ...)
+#define LOG_ERROR(Category, string, ...)
+#define LOG_ERROR_UNGUARDED(category, string, ...)
 
 #endif //DEBUG
 
@@ -69,20 +74,23 @@ Thread::GLogMutex.Lock();\
 fmt::print(fmt::fg((category).MessageColor), ((category).PreMessageString + string "\n").Data() __VA_OPT__(,) __VA_ARGS__);\
 Thread::GLogMutex.Unlock()
 
+#define LOG_UNGUARDED_ALWAYS(category, string, ...)\
+fmt::print(fmt::fg((category).MessageColor), ((category).PreMessageString + string "\n").Data() __VA_OPT__(,) __VA_ARGS__)
+
 //logs a warning
-#define LOGW_ALWAYS(category, string, ...)\
+#define LOG_WARNING_ALWAYS(category, string, ...)\
 Thread::GLogMutex.Lock();\
 fmt::print(fmt::fg(fmt::color::yellow), ("!!!" + category.PreMessageString + string "!!!\n").Data() __VA_OPT__(,) __VA_ARGS__);\
 Thread::GLogMutex.Unlock()
 
+#define LOG_WARNING_UNGUARDED_ALWAYS(category, string, ...)\
+fmt::print(fmt::fg(fmt::color::yellow), ("!!!" + category.PreMessageString + string "!!!\n").Data() __VA_OPT__(,) __VA_ARGS__)
+
 //logs an error
-#define LOGE_ALWAYS(category, string, ...)\
+#define LOG_ERROR_ALWAYS(category, string, ...)\
 Thread::GLogMutex.Lock();\
 fmt::print(fmt::fg(fmt::color::red), ("!!!" + category.PreMessageString + string "!!!\n").Data() __VA_OPT__(,) __VA_ARGS__);\
 Thread::GLogMutex.Unlock()
 
-//rewrites the line todo need to find a way to save the cursor position
-#define LOGR_ALWAYS(category, string, ...)\
-Thread::GLogMutex.Lock();\
-fmt::print(fmt::fg((category).MessageColor), ("\r" + (category).PreMessageString + string).Data() __VA_OPT__(,) __VA_ARGS__);\
-Thread::GLogMutex.Unlock()
+#define LOG_ERROR_UNGUARDED_ALWAYS(category, string, ...)\
+fmt::print(fmt::fg(fmt::color::red), ("!!!" + category.PreMessageString + string "!!!\n").Data() __VA_OPT__(,) __VA_ARGS__)

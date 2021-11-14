@@ -13,7 +13,7 @@ enum EStackSize : uint32
     SS0 = 0,
     SS60 = 60,
     SS124 = 124,
-    SS256 = 252,
+    SS252 = 252,
     SS508 = 508
 };
 
@@ -28,46 +28,32 @@ class FColor;
 
 namespace StrUtl
 {
-    template<EStackSize StackSize>
-    inline constexpr FString<StackSize> FilePath(const FString<StackSize>& Name)
-    {
-        return SOURCE_DIRECTORY + Name;
-    }
-
     const char8* GetDirectoryName();
 
-    //returns the number of characters in a string including the null terminator
-    CONST int64 Length(const char8* NONNULL String);
+    template<EStackSize SS>
+    extern void ToFilePath(FString<SS>& File);
+
+    /// @returns the number of characters in a string including the null terminator
+    CONST int64 Length(const char8* String);
 
     template<typename ValueType> requires(TypeTrait::IsInteger<ValueType>)
     CONST extern TStaticArray<char8, (sizeof(ValueType) * 2) + 1> IntToHex(ValueType Value);
 
+    char8* ToUpperCase(char8* String LIFETIME_BOUND, int64 Length);
+    char8* ToLowerCase(char8* String LIFETIME_BOUND, int64 Length);
+
     CONST char8* FindSubString(char8* SourceString, const uint32 NumSourceChars, const char8* SubString, const uint32 NumSubChars);
     CONST const char8* FindSubString(const char8* SourceString, const uint32 NumSourceChars, const char8* SubString, const uint32 NumSubChars);
-
-    char8* ToUpperCase(char8* String LIFETIME_BOUND);
-
-    template<EStackSize StackSize>
-    FString<StackSize>& ToUpperCase(FString<StackSize>& String LIFETIME_BOUND);
-
-    FStaticString& ToUpperCase(FStaticString& String LIFETIME_BOUND);
-
-    char8* ToLowerCase(char8* String LIFETIME_BOUND);
-
-    template<EStackSize StackSize>
-    FString<StackSize>& ToLowerCase(FString<StackSize>& String LIFETIME_BOUND);
-
-    FStaticString& ToLowerCase(FStaticString& String LIFETIME_BOUND);
-
-    extern FString<SS124> ToString(FQuaternion);
-    extern FString<SS124> ToString(FVector);
-    extern FString<SS124> ToString(FColor);
 
     template<typename TargetType> requires(TypeTrait::IsInteger<TargetType>)
     extern TargetType ToValue(const char8* Begin, const char8* End);
 
     template<typename TargetType> requires(TypeTrait::IsFloatingPoint<TargetType>)
     extern TargetType ToValue(const char8* Begin, const char8* End);
+
+    extern FString<SS124> ToString(FQuaternion);
+    extern FString<SS124> ToString(FVector);
+    extern FString<SS124> ToString(FColor);
 }
 
 template<uint64 Num>
@@ -88,12 +74,9 @@ struct TTemplateString
  * now with constexpr, yay!
  */
 template<EStackSize InStackSize = SS60>
-class PACKED FString final
+class PACKED alignas(InStackSize + 4) FString final
 {
 private:
-
-    friend FString& StrUtl::ToUpperCase(FString&);
-    friend FString& StrUtl::ToLowerCase(FString&);
 
     friend FString<SS124> StrUtl::ToString(FQuaternion);
     friend FString<SS124> StrUtl::ToString(FVector);
@@ -125,7 +108,7 @@ public:
 
 private:
 
-    union UCharacterArray final
+    union PACKED UCharacterArray
     {
         constexpr UCharacterArray()
         {
@@ -644,6 +627,8 @@ private:
     uint32 TerminatorIndex;
 };
 
+//static_assert(sizeof(FString<SS60>) == 10);
+
 namespace StrPri
 {
     template<uint64 NumChars>
@@ -657,9 +642,9 @@ namespace StrPri
         {
             return SS124;
         }
-        else if constexpr(NumChars < SS256)
+        else if constexpr(NumChars < SS252)
         {
-            return SS256;
+            return SS252;
         }
         else if constexpr(NumChars < SS508)
         {
@@ -683,9 +668,6 @@ FString(const char8(&)[NumChars])->FString<StrPri::LeastNeededStackSize<NumChars
 class alignas(32) FStaticString final
 {
 private:
-
-    friend FStaticString& StrUtl::ToUpperCase(FStaticString&);
-    friend FStaticString& StrUtl::ToLowerCase(FStaticString&);
 
     using TConstIterator = TRangedIterator<const char8>;
     using TMutableIterator = TRangedIterator<char8>;

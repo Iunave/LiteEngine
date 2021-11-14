@@ -123,6 +123,9 @@ namespace Thread
     FMutex::FAttributeWrapper::FAttributeWrapper()
     {
         pthread_mutexattr_init(&MutexAttribute);
+        pthread_mutexattr_setprotocol(&MutexAttribute, PTHREAD_PRIO_INHERIT);
+        pthread_mutexattr_setpshared(&MutexAttribute, PTHREAD_PROCESS_PRIVATE);
+        pthread_mutexattr_setrobust(&MutexAttribute, PTHREAD_MUTEX_STALLED);
 #if DEBUG
         pthread_mutexattr_settype(&MutexAttribute, PTHREAD_MUTEX_ERRORCHECK_NP);
 #else
@@ -327,7 +330,7 @@ namespace Thread
     }
 
     FThread::FThread()
-        : ThreadHandle(UINT32_MAX)
+        : ThreadHandle{UINT32_MAX}
     {
     }
 

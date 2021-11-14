@@ -15,11 +15,9 @@ namespace ArrayConstants
     }
 }
 
-class FTickManager final : public FSingleton<FTickManager, 1024>
+class FTickManager final
 {
 private:
-
-    friend class FSingleton<FTickManager, 1024>;
 
     FTickManager(const int64 ObjectsToPreallocate);
 
@@ -27,9 +25,15 @@ private:
 
 public:
 
-    attr(hot) void Tick(float64 DeltaTime);
+    static inline FTickManager& Instance()
+    {
+        static FTickManager Instance{1024};
+        return Instance;
+    }
 
-    attr(warn_unused_result, nonnull(2)) int64 AddTickable(OTickable* ObjectToAdd);
+    HOT void Tick(float64 DeltaTime);
+
+    int64 AddTickable(OTickable* ObjectToAdd);
 
     void RemoveTickable(const int64 ObjectPosition);
 
@@ -68,16 +72,14 @@ public:
 
 private:
 
-    attr(hot) virtual void Tick(float64 DeltaTime) = 0;
+    HOT virtual void Tick(float64 DeltaTime) = 0;
 
     int64 TickPosition;
 };
 
-class FTimerManager : public OTickable, public FSingleton<FTimerManager>
+class FTimerManager : public OTickable
 {
 private:
-
-    friend class FSingleton<FTimerManager>;
 
     FTimerManager();
 
@@ -92,7 +94,13 @@ private:
 
 public:
 
-    attr(nonnull(2)) void AddTimer(void(*Function)(void*), float64 TargetTime, void* FunctionData = nullptr);
+    CONSTRUCTOR(50) static inline FTimerManager& Instance()
+    {
+        static FTimerManager Instance{};
+        return Instance;
+    }
+
+    void AddTimer(void(*Function)(void*), float64 TargetTime, void* FunctionData = nullptr);
 
 private:
 

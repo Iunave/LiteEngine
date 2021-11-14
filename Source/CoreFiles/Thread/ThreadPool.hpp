@@ -85,17 +85,22 @@ namespace Thread
         TStaticArray<ORunnable*, QueuePoolSize> QueuedTasks;
     };
 
-    class FThreadPool final : public FSingleton<FThreadPool>
+    class FThreadPool final
     {
     public:
 
-        FThreadPool();
-
-        ~FThreadPool();
+        static inline FThreadPool& Instance() //this one cannot be declared with CONSTRUCTOR for some reason
+        {
+            static FThreadPool Instance{};
+            return Instance;
+        }
 
         void AddTask(ORunnable* NewTask);
 
     private:
+
+        FThreadPool();
+        ~FThreadPool();
 
         //allocate for a maximum of 64 threads, we probably will use less
         TStaticArray<Thread::FThread, 64> WorkerThreads;
