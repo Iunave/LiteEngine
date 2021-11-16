@@ -3,6 +3,7 @@
 #include "Simd.hpp"
 #include "Array.hpp"
 #include "SmartPointer.hpp"
+#include "Tuple.hpp"
 
 #ifndef NULL_CHAR
 #define NULL_CHAR static_cast<const char8>('\0')
@@ -28,7 +29,9 @@ class FColor;
 
 namespace StrUtl
 {
-    const char8* GetDirectoryName();
+    TTuple<const char8*, int64> RootDirectoryName();
+
+    CONST void StepBackDirectories(char8* const Path, int64& NumChars, const uint32 NumDirectoriesToBack);
 
     template<EStackSize SS>
     extern void ToFilePath(FString<SS>& File);
@@ -39,8 +42,8 @@ namespace StrUtl
     template<typename ValueType> requires(TypeTrait::IsInteger<ValueType>)
     CONST extern TStaticArray<char8, (sizeof(ValueType) * 2) + 1> IntToHex(ValueType Value);
 
-    char8* ToUpperCase(char8* String LIFETIME_BOUND, int64 Length);
-    char8* ToLowerCase(char8* String LIFETIME_BOUND, int64 Length);
+    CONST char8* ToUpperCase(char8* String LIFETIME_BOUND, int64 Length);
+    CONST char8* ToLowerCase(char8* String LIFETIME_BOUND, int64 Length);
 
     CONST char8* FindSubString(char8* SourceString, const uint32 NumSourceChars, const char8* SubString, const uint32 NumSubChars);
     CONST const char8* FindSubString(const char8* SourceString, const uint32 NumSourceChars, const char8* SubString, const uint32 NumSubChars);
@@ -986,7 +989,6 @@ public:
 
 static_assert(alignof(FStaticString) == 32);
 
-#if DEBUG
 namespace fmt
 {
     template<EStackSize InStackSize>
@@ -1009,4 +1011,3 @@ namespace fmt
         }
     };
 }
-#endif //DEBUG

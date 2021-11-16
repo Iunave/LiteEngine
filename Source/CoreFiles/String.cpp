@@ -5,32 +5,70 @@
 
 namespace StrUtl
 {
-    const char8* GetDirectoryName()
+    TTuple<const char8*, int64> RootDirectoryName()
     {
         struct FAutoFreeString
         {
+            FAutoFreeString(FAutoFreeString&) = delete;
+
+            FAutoFreeString(FAutoFreeString&& Other)
+                : String{Other.String}
+                , Length{Other.Length}
+            {
+                Other.String = nullptr;
+            }
+
+            FAutoFreeString(char8* InString, int64 InLength)
+                : String{InString}
+                , Length{InLength}
+            {
+            }
+
             ~FAutoFreeString()
             {
                 Memory::Free(String);
             }
 
             char8* String;
+            int64 Length;
         };
 
-        static const FAutoFreeString DirName{::get_current_dir_name()};
-        return DirName.String;
+        auto StepBack = [](char8* Path) -> FAutoFreeString
+        {
+            int64 StrLen{Length(Path)};
+            StepBackDirectories(Path, StrLen, 2);
+
+            return FAutoFreeString{Path, StrLen};
+        };
+
+        static const FAutoFreeString DirName{StepBack(::get_current_dir_name())};
+        return TTuple<const char8*, int64>{DirName.String, DirName.Length};
+    }
+
+    void StepBackDirectories(char8* const Path, int64& NumChars, const uint32 NumDirectoriesToBack)
+    {
+        uint32 DirectoriesFound{0};
+
+        --NumChars;
+        do
+        {
+            --NumChars;
+            DirectoriesFound += (Path[NumChars] == '/');
+        }
+        while(DirectoriesFound != NumDirectoriesToBack);
+
+        Path[NumChars] = NULL_CHAR;
+        ++NumChars;
     }
 
     template<EStackSize SS>
     void ToFilePath(FString<SS>& File)
     {
-        static const char8* DirectoryName{GetDirectoryName()};
-        static uint32 StringLen{static_cast<uint32>(Length(DirectoryName)) - 1};
-
-        File.PushBack_Assign(DirectoryName, (StringLen - sizeof("Binaries/Debug") - 1));
+        static auto[DirName, Length]{RootDirectoryName()};
+        File.PushBack_Assign(DirName, Length);
     }
 
-    CONST int64 Length(const char8* String)
+    int64 Length(const char8* String)
     {
 #if defined(AVX512)
         using CharVectorType = char8_64;
@@ -46,7 +84,7 @@ namespace StrUtl
 
             const Simd::MaskType<CharVectorType> Mask{Simd::MoveMask(StringVector == NullCheckRegister)};
 
-            if(Mask > 0)
+            if(Mask != 0)
             {
                 const int32 NumInvalidCharacters{NumCharElements - Math::FindFirstSet(Mask)};
                 return Length - NumInvalidCharacters;

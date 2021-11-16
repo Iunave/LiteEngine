@@ -1,26 +1,7 @@
+#include <iostream>
 #include "Definitions.hpp"
-#include "Object/Object.hpp"
 #include "Log.hpp"
-#include "Rendering/VulkanRenderer.hpp"
 #include "Time.hpp"
-
-
-OBJECT_CLASS(OFoo)
-class OFoo : public OObject
-{
-    OBJECT_BASES(OObject)
-public:
-    int32 lol{43214};
-};
-
-OBJECT_CLASS(OBar)
-class OBar : public OFoo
-{
-    OBJECT_BASES(OFoo)
-public:
-    int32 lol{43214};
-    uint64 wow[428]{};
-};
 
 inline float64 ProgramStartTime;
 inline float64 ProgramEndTime;
@@ -43,111 +24,77 @@ void InitializeVariables()
     Thread::MainThreadID = pthread_self();
 }
 
-struct A
+class FMovie final
 {
-    union UCharacters
+public:
+
+    FMovie() = delete;
+
+    inline FMovie(FString<SS60> InTitle, uint32 InReleaseDate, uint32 InScreenTime)
+        : Title{Move(InTitle)}
+        , ReleaseDate{InReleaseDate}
+        , ScreenTime{InScreenTime}
     {
-        char Stack[60];
-        char* Heap;
-    };
-    UCharacters Characters;
-    uint32 End;
+    }
+
+    FString<SS60> Information() const;
+
+private:
+
+    FString<SS60> Title; //movie title
+    uint32 ReleaseDate; //release date in year
+    uint32 ScreenTime; //move length in minutes
 };
 
-struct __attribute__((packed)) B
+FString<SS60> FMovie::Information() const
 {
-    union UCharacters
-    {
-        char Stack[60];
-        char* Heap;
-    };
-    UCharacters Characters;
-    uint32 End;
-};
+    FString<SS60> ResultString{Title};
+    fmt::format_to(ResultString.End(), " ({})", ReleaseDate);
+    return ResultString;
+}
 
-struct __attribute__((packed)) alignas(64) C
+void PrintUserAlternatives()
 {
-    union UCharacters
-    {
-        char Stack[60];
-        char* Heap;
-    };
-    UCharacters Characters;
-    uint32 End;
-};
+    fmt::print("type \"0\" to exit the program\n type \"1\" to see information about a movie\n");
+}
 
-struct D
+void MainLoop()
 {
-    union __attribute__((packed)) UCharacters
-    {
-        char Stack[60];
-        char* Heap;
-    };
-    UCharacters Characters;
-    uint32 End;
-};
+    int32 UserChoice{-1};
 
-struct __attribute__((packed)) E
-{
-    union __attribute__((packed)) UCharacters
+    while(UserChoice != 0)
     {
-        char Stack[60];
-        char* Heap;
-    };
-    UCharacters Characters;
-    uint32 End;
-};
+        PrintUserAlternatives();
+        std::cin >> UserChoice;
 
-struct __attribute__((packed)) alignas(64) F
-{
-    union __attribute__((packed)) UCharacters
-    {
-        char Stack[60];
-        char* Heap;
-    };
-    UCharacters Characters;
-    uint32 End;
-};
+        switch(UserChoice)
+        {
+            case 1:
+            {
+
+            }
+            case 2:
+            {
+
+            }
+            case 3:
+            {
+
+            }
+            case 4:
+            {
+
+            }
+        }
+    }
+}
 
 int32 main()
 {
-    InitializeVariables();
+    FMovie Movie{"princess pringles", 2019, 180};
+    fmt::print("{}\n", Movie.Information());
 
-    __builtin_printf("alignof A %lu, sizeof A %lu\n", alignof(A), sizeof(A));
-    __builtin_printf("alignof B %lu, sizeof B %lu\n", alignof(B), sizeof(B));
-    __builtin_printf("alignof C %lu, sizeof C %lu\n", alignof(C), sizeof(C));
-    __builtin_printf("alignof D %lu, sizeof D %lu\n", alignof(D), sizeof(D));
-    __builtin_printf("alignof E %lu, sizeof E %lu\n", alignof(E), sizeof(E));
-    __builtin_printf("alignof F %lu, sizeof F %lu\n", alignof(F), sizeof(F));
-
-    TSharedPtr<OObject> Obj1{MakeShared<OFoo>()};
-    TSharedPtr<OObject> Obj2{MakeShared<OObject>()};
-    TSharedPtr<OObject> Obj3{MakeShared<OBar>()};
-    TSharedPtr<OObject> Obj4{MakeShared<OFoo>()};
-    TSharedPtr<OObject> Obj5{MakeShared<OBar>()};
-    TSharedPtr<OObject> Obj6{MakeShared<OBar>()};
-    TSharedPtr<OObject> Obj7{MakeShared<OBar>()};
-    TSharedPtr<OObject> Obj8{MakeShared<OBar>()};
-    TSharedPtr<OObject> Obj9{MakeShared<OBar>()};
-    TSharedPtr<OObject> Obj10{MakeShared<OBar>()};
-
-    for(TObjectIterator<OObject> Iterator{}; Iterator; ++Iterator)
-    {
-        LOG(LogProgram, "{}", Iterator->GetClassName());
-    }
-
-    Obj1.Reset();
-    Obj4.Reset();
-    Obj5.Reset();
-
-    for(TObjectIterator<OObject> Iterator{}; Iterator; ++Iterator)
-    {
-        LOG(LogProgram, "{}", Iterator->GetClassName());
-    }
-
-    Render::Initialize();
-    Render::Loop();
-    Render::ShutDown();
+    MainLoop();
 
     return 0;
 }
