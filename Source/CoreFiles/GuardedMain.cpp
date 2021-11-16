@@ -9,13 +9,13 @@ inline float64 ProgramEndTime;
 CONSTRUCTOR(1) inline void OnProgramStart()
 {
     ProgramStartTime = Time::Now();
-    LOG_UNGUARDED(LogProgram, "starting at {} seconds", ProgramStartTime);
+    LOG_UNGUARDED(LogProgram, "starting at {}", ProgramStartTime);
 }
 
 DESTRUCTOR(100) inline void OnProgramEnd()
 {
     ProgramEndTime = Time::Now();
-    LOG_UNGUARDED(LogProgram, "ending at {} second", ProgramEndTime);
+    LOG_UNGUARDED(LogProgram, "ending at {}", ProgramEndTime);
     LOG_UNGUARDED(LogProgram, "total time in execution: {} seconds", ProgramEndTime - ProgramStartTime);
 }
 
@@ -30,11 +30,16 @@ public:
 
     FMovie() = delete;
 
-    inline FMovie(FString<SS60> InTitle, uint32 InReleaseDate, uint32 InScreenTime)
+    inline constexpr FMovie(FString<SS60> InTitle, uint32 InReleaseDate, uint32 InScreenTime)
         : Title{Move(InTitle)}
         , ReleaseDate{InReleaseDate}
         , ScreenTime{InScreenTime}
     {
+    }
+
+    inline bool operator==(const FString<SS60>& OtherTitle) const
+    {
+        return Title == OtherTitle;
     }
 
     FString<SS60> Information() const;
@@ -53,16 +58,23 @@ FString<SS60> FMovie::Information() const
     return ResultString;
 }
 
+constexpr TStaticArray<FMovie, 3> MovieArray
+{
+    FMovie{"princess pringles", 2019, 180},
+    FMovie{"princess jingles", 2018, 134},
+    FMovie{"princess mingles", 2017, 210},
+};
+
 void PrintUserAlternatives()
 {
-    fmt::print("type \"0\" to exit the program\n type \"1\" to see information about a movie\n");
+    fmt::print("type \"0\" to exit the program\ntype \"1\" to see information about a movie\n");
 }
 
 void MainLoop()
 {
-    int32 UserChoice{-1};
+    int32 UserChoice;
 
-    while(UserChoice != 0)
+    do
     {
         PrintUserAlternatives();
         std::cin >> UserChoice;
@@ -87,6 +99,7 @@ void MainLoop()
             }
         }
     }
+    while(UserChoice != 0);
 }
 
 int32 main()

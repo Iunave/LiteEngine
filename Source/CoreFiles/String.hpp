@@ -125,6 +125,34 @@ private:
             }
         }
 
+        constexpr UCharacterArray(const FString& Other)
+            : Stack{}
+        {
+            if EXPECT(Other.Num() <= StackSize, StackSize > SS0)
+            {
+                Memory::Copy(Stack, Other.Data(), Other.Num());
+            }
+            else
+            {
+                Heap = Memory::Allocate<char8>(Other.Num());
+                Memory::Copy(Heap, Other.Data(), Other.Num());
+            }
+        }
+
+        constexpr UCharacterArray(FString&& Other)
+            : Stack{}
+        {
+            if EXPECT(Other.Num() <= StackSize, StackSize > SS0)
+            {
+                Memory::Copy(Stack, Other.Data(), Other.Num());
+            }
+            else
+            {
+                Heap = Other.CharacterArray.Heap;
+                Other.TerminatorIndex = 0;
+            }
+        }
+
         explicit constexpr UCharacterArray(const uint32 NumChars)
         {
             if EXPECT(NumChars <= StackSize, StackSize > SS0)
@@ -201,9 +229,17 @@ public:
     {
     }
 
-    FString(const FString& Other);
+    constexpr FString(const FString& Other)
+        : CharacterArray{Other}
+        , TerminatorIndex{Other.TerminatorIndex}
+    {
+    }
 
-    FString(FString&& Other);
+    constexpr FString(FString&& Other)
+        : CharacterArray{Other}
+        , TerminatorIndex{Other.TerminatorIndex}
+    {
+    }
 
     constexpr ~FString()
     {

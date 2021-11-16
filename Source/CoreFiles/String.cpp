@@ -421,36 +421,6 @@ void FString<InStackSize>::CopyToStack(const char8* Source)
 }
 
 template<EStackSize InStackSize>
-FString<InStackSize>::FString(const FString& Other)
-    : TerminatorIndex{Other.TerminatorIndex}
-{
-    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == SS0)
-    {
-        CharacterArray.Heap = Memory::Allocate<char8>(Num());
-        Memory::Copy(CharacterArray.Heap, Other.CharacterArray.Heap, Num());
-    }
-    else
-    {
-        CopyToStack(Other.CharacterArray.Stack);
-    }
-}
-
-template<EStackSize InStackSize>
-FString<InStackSize>::FString(FString&& Other)
-    : TerminatorIndex{Other.TerminatorIndex}
-{
-    if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == SS0)
-    {
-        CharacterArray.Heap = Other.CharacterArray.Heap;
-        Other.TerminatorIndex = 0;
-    }
-    else
-    {
-        CopyToStack(Other.CharacterArray.Stack);
-    }
-}
-
-template<EStackSize InStackSize>
 FString<InStackSize>& FString<InStackSize>::operator=(const FString& Other)
 {
     if EXPECT(Other.ActiveArray() == EActiveArray::Heap, StackSize == SS0)
