@@ -2,51 +2,8 @@
 
 #include "Definitions.hpp"
 
-#include <exception>
 #include <fmt/core.h>
 #include <fmt/color.h>
-
-
-class FRuntimeError : public std::exception
-{
-public:
-
-    template<typename... Ts>
-    FRuntimeError(const char8* InMessage, Ts&&... Arguments)
-    {
-        fmt::format_to(StringBuffer, InMessage, Arguments...);
-    }
-
-    virtual const char8* what() const noexcept
-    {
-        return StringBuffer;
-    }
-
-private:
-
-    inline static char8 StringBuffer[512];
-};
-
-namespace Error
-{
-    class InvalidArgument : public FRuntimeError
-    {
-    public:
-        using FRuntimeError::FRuntimeError;
-    };
-
-    class Math : public FRuntimeError
-    {
-    public:
-        using FRuntimeError::FRuntimeError;
-    };
-
-    class Memory : public FRuntimeError
-    {
-    public:
-        using FRuntimeError::FRuntimeError;
-    };
-}
 
 #define PRINT_ASSERTION(reason)\
 fmt::print(fmt::fg(fmt::color::dark_red), "\nassertion failed: {}\n\n{}\nin file: {}\nin line: {}\n", reason, __PRETTY_FUNCTION__, __FILE__, __LINE__);\

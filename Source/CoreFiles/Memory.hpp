@@ -281,17 +281,17 @@ namespace Memory
     }
 
     template<typename Type>
-    INLINE Type* NextAlignedAddress(const void* Address)
+    INLINE Type* NextAlignedAddress(const void* Address, uint64 Align = alignof(Type))
     {
         const uint64 AddressAsInt{reinterpret_cast<uint64>(Address)};
-        return reinterpret_cast<Type*>(AddressAsInt + (AddressAsInt % alignof(Type)));
+        return reinterpret_cast<Type*>(AddressAsInt + (AddressAsInt % Align));
     }
 
     template<typename Type>
-    INLINE Type* PrevAlignedAddress(const void* Address)
+    INLINE Type* PrevAlignedAddress(const void* Address, uint64 Align = alignof(Type))
     {
         const uint64 AddressAsInt{reinterpret_cast<uint64>(Address)};
-        return reinterpret_cast<Type*>(AddressAsInt - (AddressAsInt % alignof(Type)));
+        return reinterpret_cast<Type*>(AddressAsInt - (AddressAsInt % Align));
     }
 
     template<typename TargetType, typename SourceType>

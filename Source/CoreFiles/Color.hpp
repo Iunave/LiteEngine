@@ -11,6 +11,14 @@ struct ATTRIBUTE(packed, may_alias) RGBA8I final
     uint8 A;
 };
 
+struct ATTRIBUTE(packed, may_alias) RGBA10I final
+{
+    uint64 R : 10;
+    uint64 G : 10;
+    uint64 B : 10;
+    uint64 A : 10;
+};
+
 struct ATTRIBUTE(packed, may_alias) RGBA16I final
 {
     uint16 R;

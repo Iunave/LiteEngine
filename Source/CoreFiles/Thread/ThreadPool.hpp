@@ -1,12 +1,8 @@
 #pragma once
 
-#include <Interface/IniConfig.hpp>
-#include <Rendering/RenderSettings.hpp>
-
 #include "Definitions.hpp"
-#include "Thread/Thread.hpp"
-#include "String.hpp"
 #include "Array.hpp"
+#include "Thread/Thread.hpp"
 #include "Object/Object.hpp"
 
 namespace Thread
@@ -34,6 +30,8 @@ public:
 
     ORunnable();
     virtual ~ORunnable();
+
+    void StartAsyncTask();
 
     virtual void Run() = 0;
 

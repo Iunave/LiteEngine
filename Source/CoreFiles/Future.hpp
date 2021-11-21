@@ -5,82 +5,6 @@
 template<typename FutureType>
 class TFuture final
 {
-public:
-
-    inline TFuture()
-        : FuturePointer(nullptr)
-    {
-    }
-/*
-    template<typename... VarArgs>
-    inline explicit TFuture(VarArgs&&... Args)
-        : FuturePointer{MakeShared<FProtectedResult, EThreadMode::Safe>(MoveIfPossible(Args)...)}
-    {
-        FuturePointer->Mutex.Lock();
-    }
-*/
-    inline TFuture(const TFuture& Other)
-    {
-        TryUnlock();
-        FuturePointer = Other.FuturePointer;
-    }
-
-    inline TFuture(TFuture&& Other)
-    {
-        TryUnlock();
-        FuturePointer = Move(Other.FuturePointer);
-    }
-
-    inline TFuture& operator=(const TFuture& Other)
-    {
-        TryUnlock();
-        FuturePointer = Other.FuturePointer;
-    }
-
-    inline TFuture& operator=(TFuture&& Other)
-    {
-        TryUnlock();
-        FuturePointer = Move(Other.FuturePointer);
-    }
-
-    template<typename... VarArgs>
-    inline TFuture& Initialize(VarArgs&&... Args)
-    {
-        //ASSERT(!FuturePointer.IsValid());
-        FuturePointer = MakeShared<FProtectedResult, EThreadMode::Safe>(MoveIfPossible(Args)...);
-        FuturePointer->Mutex.Lock();
-    }
-
-    ~TFuture()
-    {
-        TryUnlock();
-    }
-
-    inline FutureType* operator->()
-    {
-        return &(FuturePointer->Result);
-    }
-
-    inline FutureType& GetResult()
-    {
-        return FuturePointer->Result;
-    }
-
-    void Wait()
-    {
-        FuturePointer->Mutex.Lock();
-        FuturePointer->Mutex.Unlock();
-    }
-
-    //future unlocks in the destructor, but if you feel it needs to be unlocked before that do it with this
-    inline void TryUnlock()
-    {
-        if(FuturePointer.IsValid())
-        {
-            FuturePointer->Mutex.Unlock();
-        }
-    }
-
 private:
 
     struct FProtectedResult
@@ -92,9 +16,80 @@ private:
         }
 
         Thread::FMutex Mutex;
-
         FutureType Result;
     };
+
+public:
+
+    TFuture()
+        : FuturePointer{nullptr}
+    {
+    }
+
+    template<typename... VarArgs>
+    TFuture(VarArgs&&... Args)
+        : FuturePointer{MoveIfPossible(Args)...}
+    {
+    }
+
+    TFuture(TFuture&& Other)
+        : FuturePointer{Move(Other.FuturePointer)}
+    {
+    }
+
+    TFuture(const TFuture& Other)
+        : FuturePointer{Other.FuturePointer}
+    {
+    }
+
+    TFuture& operator=(const TFuture& Other)
+    {
+        FuturePointer = Other.FuturePointer;
+    }
+
+    TFuture& operator=(TFuture&& Other)
+    {
+        FuturePointer = Move(Other.FuturePointer);
+    }
+
+    ~TFuture()
+    {
+        TryUnlock();
+    }
+
+    FutureType* operator->()
+    {
+        Thread::FScopedLock Lock{FuturePointer->Mutex};
+        return &FuturePointer->Result;
+    }
+
+    FutureType& operator*()
+    {
+        Thread::FScopedLock Lock{FuturePointer->Mutex};
+        return FuturePointer->Result;
+    }
+
+    FutureType& GetResult()
+    {
+        return FuturePointer->Result;
+    }
+
+    void Wait()
+    {
+        FuturePointer->Mutex.Lock();
+        FuturePointer->Mutex.Unlock();
+    }
+
+    //future unlocks in the destructor, but if you feel it needs to be unlocked before that do it with this
+    void TryUnlock()
+    {
+        if(FuturePointer.IsValid())
+        {
+            FuturePointer->Mutex.Unlock();
+        }
+    }
+
+private:
 
     TSharedPtr<FProtectedResult, EThreadMode::Safe> FuturePointer;
 };

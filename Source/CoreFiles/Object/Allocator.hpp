@@ -2,16 +2,14 @@
 
 #include "Definitions.hpp"
 #include "Thread/Thread.hpp"
-#include "Atomic.hpp"
 #include "TypeTraits.hpp"
-#include "Math.hpp"
 #include "Array.hpp"
 
 class OObject;
 
 class FObjectAllocationManager final
 {
-    template<typename ObjectClass> requires TypeTrait::IsObjectClass<ObjectClass>
+    template<typename ObjectClass> requires(TypeTrait::IsObjectClass<ObjectClass>)
     friend class TObjectIterator;
 public:
 
@@ -27,19 +25,9 @@ public:
     {
     public:
 
-        FMemoryBlock(uint64 InUsedSize, uint64 InAvailableSize, FMemoryBlock* InPrevBlock, FMemoryBlock* InNextBlock)
-            : UsedSize{InUsedSize}
-            , AvailableSize{InAvailableSize}
-            , PrevBlock{InPrevBlock}
-            , NextBlock{InNextBlock}
-        {
-        }
+        FMemoryBlock(uint64 InUsedSize, uint64 InAvailableSize, FMemoryBlock* InPrevBlock, FMemoryBlock* InNextBlock);
 
-        OObject* GetAllocatedObject() const
-        {
-            int64 ObjectOrNullAddress{reinterpret_cast<int64>(this + 1) * (UsedSize != 0)};
-            return reinterpret_cast<OObject*>(ObjectOrNullAddress);
-        }
+        OObject* GetAllocatedObject() const;
 
         uint64 UsedSize;
         uint64 AvailableSize;
@@ -47,6 +35,8 @@ public:
         FMemoryBlock* PrevBlock;
         FMemoryBlock* NextBlock;
     };
+
+    static_assert(alignof(FMemoryBlock) == 8);
 
     struct FMemoryArena
     {
@@ -64,7 +54,7 @@ public:
     template<typename ObjectClass, typename... ConstructorArgs> requires TypeTrait::IsObjectClass<ObjectClass>
     HOT ObjectClass* PlaceObject(ConstructorArgs&&... Arguments)
     {
-        return new(FindFreeMemory(sizeof(ObjectClass), alignof(ObjectClass))) ObjectClass{MoveIfPossible(Arguments)...};
+        return new(FindFreeMemory(sizeof(ObjectClass))) ObjectClass{MoveIfPossible(Arguments)...};
     }
 
     //this function does not call the destructor of the object
@@ -85,7 +75,7 @@ private:
     }
 
     //returns a pointer to the end of a free memory block
-    HOT uint8* FindFreeMemory(const uint64 ObjectSize, const uint64 ObjectAlignment);
+    HOT uint8* FindFreeMemory(uint64 ObjectSize);
 
     void MakeNewArena();
 
@@ -97,7 +87,7 @@ private:
     Thread::FSharedMutex SharedMutex;
 };
 
-template<typename ObjectClass> requires TypeTrait::IsObjectClass<ObjectClass>
+template<typename ObjectClass> requires(TypeTrait::IsObjectClass<ObjectClass>)
 class TObjectIterator final
 {
 public:
@@ -144,11 +134,7 @@ private:
     ObjectClass* ObjectPtr;
 };
 
-inline const FObjectAllocationManager::FMemoryBlock* GetOwningObjectBlock(const OObject* const Object)
-{
-    uint64 BlockAddress{reinterpret_cast<uint64>(Object) - sizeof(FObjectAllocationManager::FMemoryBlock)};
-    return reinterpret_cast<const FObjectAllocationManager::FMemoryBlock*>(BlockAddress);
-}
+const FObjectAllocationManager::FMemoryBlock* GetOwningObjectBlock(const OObject* const Object);
 
 
 

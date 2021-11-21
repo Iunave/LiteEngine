@@ -1,9 +1,5 @@
 #include "Thread.hpp"
 #include "Log.hpp"
-#include "String.hpp"
-#include "Function.hpp"
-
-#include <unistd.h>
 
 #if DEBUG
 

@@ -12,6 +12,11 @@ ORunnable::~ORunnable()
     ENSURE(TaskProgress != Queued || TaskProgress != Running, "task: {}, is queued or running but was never completed", GetClassName());
 }
 
+void ORunnable::StartAsyncTask()
+{
+    Thread::AsyncTask(this);
+}
+
 void ORunnable::PreRun()
 {
     LOG(LogThread, "started task: {}", GetClassName());

@@ -54,7 +54,7 @@ void OShaderCodeReader::Run()
     }
 
     FileName.PushBack_Assign(Render::RelativeShaderPath);
-    StrUtl::ToFilePath(FileName);
+    FileName.PushBack_Assign(StrUtl::GetWorkingDirectory());
 
     FString<SS124> VertexFilePath{FileName + Render::VertShaderPostfix};
     FString<SS124> FragFilePath{FileName + Render::FragShaderPostfix};
@@ -192,7 +192,7 @@ void Render::Initialize()
     LOG(LogVulkan, "initializing vulkan");
 
     VulkanManager.ShaderCodeReader.FileName = "TriangleShader";
-    Thread::AsyncTask(&VulkanManager.ShaderCodeReader);
+    VulkanManager.ShaderCodeReader.StartAsyncTask();
 
     VulkanManager.CreateWindow();
     VulkanManager.CreateInstance();
@@ -287,7 +287,8 @@ uint32 Render::OVulkanManager::VulkanDebugCallback(Vk::DebugUtilsMessageSeverity
         }
         case Vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
         {
-            throw FRuntimeError{CallbackData->pMessage};
+            LOG_ERROR(LogVulkan, "{}", CallbackData->pMessage);
+            CRASH_TRAP;
         }
     }
     return false;

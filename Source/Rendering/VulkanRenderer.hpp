@@ -37,9 +37,9 @@ public:
 
 namespace Render
 {
-    inline constexpr FString<SS124> RelativeShaderPath{"/Shaders/Compiled/"};
-    inline constexpr FString<SS124> FragShaderPostfix{".frag.spv"};
-    inline constexpr FString<SS124> VertShaderPostfix{".vert.spv"};
+    inline constexpr FString RelativeShaderPath{"/Shaders/Compiled/"};
+    inline constexpr FString FragShaderPostfix{".frag.spv"};
+    inline constexpr FString VertShaderPostfix{".vert.spv"};
 
     inline constexpr int64 MaxFramesInFlight{3};
 

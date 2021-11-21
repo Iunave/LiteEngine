@@ -5,6 +5,7 @@
 #include "Math.hpp"
 #include "TypeTraits.hpp"
 #include "Assert.hpp"
+#include "Iterator.hpp"
 #include <initializer_list>
 
 #ifndef WITH_ARRAY_OFFSET_CHECKS
@@ -40,43 +41,6 @@ namespace TypeTrait
     template<typename T>
     struct IsDynamicArray<TDynamicArray<T>> : public TrueType{};
 }
-
-template<typename ElementType>
-class TRangedIterator
-{
-public:
-
-    explicit constexpr TRangedIterator(ElementType* InPointer)
-        : ElementPtr(InPointer)
-    {
-    }
-
-    constexpr TRangedIterator& operator++()
-    {
-        ++ElementPtr;
-        return *this;
-    }
-
-    constexpr TRangedIterator& operator--()
-    {
-        --ElementPtr;
-        return *this;
-    }
-
-    constexpr ElementType& operator*()
-    {
-        return *ElementPtr;
-    }
-
-    inline constexpr friend bool operator!=(const TRangedIterator Left, const TRangedIterator Right)
-    {
-        return Left.ElementPtr != Right.ElementPtr;
-    }
-
-private:
-
-    ElementType* ElementPtr;
-};
 
 template<typename ElementType, int64 NumElements>
 class TStaticArray final
@@ -525,7 +489,7 @@ namespace ArrayConstants
  * remember that storing pointers to elements in the array is dangerous as they might move
  */
 template<typename ElementType>
-class alignas(16) TDynamicArray final
+class TDynamicArray final
 {
 private:
 
@@ -609,14 +573,14 @@ private:
 public:
 
     TDynamicArray()
-        : ElementPointer(nullptr)
-        , LastIndex(-1)
+        : ElementPointer{nullptr}
+        , LastIndex {-1}
     {
     }
 
     TDynamicArray(const TDynamicArray& Other)
-        : ElementPointer(nullptr)
-        , LastIndex(-1)
+        : ElementPointer{nullptr}
+        , LastIndex{-1}
     {
         ReserveUndefined(Other.Num());
 
@@ -624,8 +588,8 @@ public:
     }
 
     TDynamicArray(TDynamicArray&& Other)
-        : ElementPointer(Other.ElementPointer)
-        , LastIndex(Other.LastIndex)
+        : ElementPointer{Other.ElementPointer}
+        , LastIndex{Other.LastIndex}
     {
         Other.ElementPointer = nullptr;
         Other.LastIndex = -1;
@@ -633,8 +597,8 @@ public:
 
     //used to initialize from a malloced pointer
     TDynamicArray(ElementType* NONNULL Pointer, const int64 NumElements, EChooseConstructor)
-        : ElementPointer(Pointer)
-        , LastIndex(NumElements - 1)
+        : ElementPointer{Pointer}
+        , LastIndex{NumElements - 1}
     {
         ASSERT(Pointer);
     }
@@ -647,7 +611,7 @@ public:
     }
 
     TDynamicArray(const ElementType* RawArray, const int64 NumElements)
-        : LastIndex(-1)
+        : LastIndex{-1}
     {
         ASSERT(RawArray);
 
@@ -1027,7 +991,7 @@ public:
         }
     }
 
-    template<typename ArrayType> requires(TypeTrait::IsStaticArray<TypeTrait::Pure<ArrayType>>::Value || TypeTrait::IsDynamicArray<TypeTrait::Pure<ArrayType>>::Value)
+    template<typename ArrayType> requires(TypeTrait::IsStaticArray<TypeTrait::Pure<ArrayType>>::Value || TypeTrait::IsDynamicArray<TypeTrait::Pure<ArrayType>>::Value || TypeTrait::IsCountedStaticArray<TypeTrait::Pure<ArrayType>>::Value)
     void Overwrite(int64 StartIndex, ArrayType&& Replacement)
     {
         ASSERT(IsIndexValid(StartIndex));

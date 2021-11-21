@@ -86,14 +86,10 @@ float64 FQuaternion::Angle() const
 
 FString<SS124> StrUtl::ToString(FQuaternion Source)
 {
-    FString < SS124 > String{};
+    FString<SS124> String{};
 
     const char8* End{fmt::format_to(String.Data(), "X={:+f} Y={:+f} Z={:+f} W={:+f}", Source.X(), Source.Y(), Source.Z(), Source.W())};
-
-    String.TerminatorIndex = static_cast<uint32>(End - String.CharacterArray.Stack);
-    String[String.TerminatorIndex] = NULL_CHAR;
-
-    ASSERT(String.TerminatorIndex < SS124);
+    String.SetTerminatorIndex(static_cast<uint32>(End - String.Data()));
 
     return String;
 }

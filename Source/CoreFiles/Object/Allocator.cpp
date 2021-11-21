@@ -4,6 +4,20 @@
 #include "Log.hpp"
 #include <new>
 
+FObjectAllocationManager::FMemoryBlock::FMemoryBlock(uint64 InUsedSize, uint64 InAvailableSize, FObjectAllocationManager::FMemoryBlock* InPrevBlock, FObjectAllocationManager::FMemoryBlock* InNextBlock)
+    : UsedSize{InUsedSize}
+    , AvailableSize{InAvailableSize}
+    , PrevBlock{InPrevBlock}
+    , NextBlock{InNextBlock}
+{
+}
+
+OObject* FObjectAllocationManager::FMemoryBlock::GetAllocatedObject() const
+{
+    int64 ObjectOrNullAddress{reinterpret_cast<int64>(this + 1) * (UsedSize != 0)};
+    return reinterpret_cast<OObject*>(ObjectOrNullAddress);
+}
+
 FObjectAllocationManager::FObjectAllocationManager()
     : ProgramBreakStart{static_cast<uint8*>(Memory::MoveProgramBreak(ArenaSize))}
     , ProgramBreakEnd{static_cast<uint8*>(Memory::GetProgramBreak())}
@@ -12,7 +26,7 @@ FObjectAllocationManager::FObjectAllocationManager()
     StartArena.StartBlock = Memory::NextAlignedAddress<FMemoryBlock>(ProgramBreakStart);
     StartArena.EndBlock = Memory::PrevAlignedAddress<FMemoryBlock>(ProgramBreakEnd - 1);
 
-    new(StartArena.StartBlock) FMemoryBlock{0, ArenaSize - sizeof(FMemoryBlock), nullptr, StartArena.EndBlock};
+    new(StartArena.StartBlock) FMemoryBlock{0, static_cast<uint64>(StartArena.EndBlock - StartArena.StartBlock), nullptr, StartArena.EndBlock};
     new(StartArena.EndBlock) FMemoryBlock{0, 0, StartArena.StartBlock, nullptr};
 
     MemoryArenas.Append(StartArena);
@@ -25,7 +39,7 @@ FObjectAllocationManager::~FObjectAllocationManager()
     ASSERT(StartBlock()->NextBlock == EndBlock(), "not all objects have been freed from the pool");
 }
 
-uint8* FObjectAllocationManager::FindFreeMemory(const uint64 ObjectSize, const uint64 ObjectAlignment)
+uint8* FObjectAllocationManager::FindFreeMemory(uint64 ObjectSize)
 {
     Thread::FSharedScopedLock SharedSearchLock{SharedMutex};
 
@@ -33,27 +47,31 @@ uint8* FObjectAllocationManager::FindFreeMemory(const uint64 ObjectSize, const u
 
     for(FMemoryBlock* MemoryBlock{StartBlock()}; true; MemoryBlock = MemoryBlock->NextBlock)
     {
-        if EXPECT(MemoryBlock->AvailableSize >= RequiredSize, false)
+        if EXPECT(MemoryBlock == EndBlock(), false)
+        {
+            MakeNewArena();
+        }
+
+        if(MemoryBlock->AvailableSize >= RequiredSize)
         {
             static Thread::FMutex CreateBlockMutex{};
             Thread::FScopedLock CreateBlockLock{CreateBlockMutex};
 
             if EXPECT(MemoryBlock->AvailableSize >= RequiredSize, true)
             {
-                uint8* const NewBlockLocation{reinterpret_cast<uint8*>(MemoryBlock + 1) + MemoryBlock->UsedSize};
+                uint8* NewBlockLocation{reinterpret_cast<uint8*>(MemoryBlock + 1) + MemoryBlock->UsedSize};
+                NewBlockLocation = Memory::NextAlignedAddress<uint8>(NewBlockLocation, alignof(FMemoryBlock));
 
-                new(NewBlockLocation) FMemoryBlock{ObjectSize, MemoryBlock->AvailableSize - RequiredSize, MemoryBlock, MemoryBlock->NextBlock};
+                const uint8* NewObjectAlignedEnd{Memory::NextAlignedAddress<uint8>(NewBlockLocation + ObjectSize, alignof(FMemoryBlock))};
+                const uint64 NewAvailableSize{reinterpret_cast<uint64>(MemoryBlock->NextBlock) - reinterpret_cast<uint64>(NewObjectAlignedEnd)};
+
+                new(NewBlockLocation) FMemoryBlock{ObjectSize, NewAvailableSize, MemoryBlock, MemoryBlock->NextBlock};
 
                 MemoryBlock->NextBlock = reinterpret_cast<FMemoryBlock*>(NewBlockLocation);
                 MemoryBlock->AvailableSize = 0;
 
                 return NewBlockLocation + sizeof(FMemoryBlock);
             }
-        }
-
-        if EXPECT(MemoryBlock == EndBlock(), false)
-        {
-            MakeNewArena();
         }
     }
 }
@@ -68,7 +86,11 @@ void FObjectAllocationManager::FreeObject(OObject* ObjectToFree)
     FMemoryBlock* NextBlock{OwningBlock->NextBlock};
 
     PrevBlock->NextBlock = OwningBlock->NextBlock;
-    PrevBlock->AvailableSize += OwningBlock->UsedSize + OwningBlock->AvailableSize + sizeof(FMemoryBlock);
+
+    uint8* PrevBlockObjectAlignedEnd{reinterpret_cast<uint8*>(PrevBlock + 1) + PrevBlock->UsedSize};
+    PrevBlockObjectAlignedEnd = Memory::NextAlignedAddress<uint8>(PrevBlockObjectAlignedEnd, alignof(FMemoryBlock));
+
+    PrevBlock->AvailableSize = reinterpret_cast<uint64>(PrevBlock->NextBlock) - reinterpret_cast<uint64>(PrevBlockObjectAlignedEnd);
 
     NextBlock->PrevBlock = OwningBlock->PrevBlock;
 }
@@ -85,10 +107,10 @@ void FObjectAllocationManager::MakeNewArena()
     LOG(LogMemory, "creating new arena at {} with size {}", reinterpret_cast<void*>(PreviousBreak), ArenaSize);
 
     FMemoryArena NewArena{};
-    NewArena.StartBlock = reinterpret_cast<FMemoryBlock*>(PreviousBreak);
-    NewArena.EndBlock = reinterpret_cast<FMemoryBlock*>(ProgramBreakEnd - sizeof(FMemoryBlock));
+    NewArena.StartBlock = reinterpret_cast<FMemoryBlock*>(Memory::NextAlignedAddress<FMemoryBlock>(PreviousBreak));
+    NewArena.EndBlock = reinterpret_cast<FMemoryBlock*>(Memory::PrevAlignedAddress<FMemoryBlock>(ProgramBreakEnd - sizeof(FMemoryBlock)));
 
-    new(NewArena.StartBlock) FMemoryBlock{0, ArenaSize - sizeof(FMemoryBlock), LastArena->EndBlock, NewArena.EndBlock};
+    new(NewArena.StartBlock) FMemoryBlock{0, static_cast<uint64>(NewArena.EndBlock - NewArena.StartBlock), LastArena->EndBlock, NewArena.EndBlock};
     new(NewArena.EndBlock) FMemoryBlock{0, 0, NewArena.StartBlock, nullptr};
 
     LastArena->EndBlock->NextBlock = NewArena.StartBlock;
@@ -129,3 +151,8 @@ void FObjectAllocationManager::RemoveEmptyArenas()
     }
 }
 
+const FObjectAllocationManager::FMemoryBlock* GetOwningObjectBlock(const OObject* const Object)
+{
+    uint64 BlockAddress{reinterpret_cast<uint64>(Object) - sizeof(FObjectAllocationManager::FMemoryBlock)};
+    return reinterpret_cast<const FObjectAllocationManager::FMemoryBlock*>(BlockAddress);
+}

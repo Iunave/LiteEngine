@@ -1,41 +1,61 @@
 #pragma once
 
 #include "Array.hpp"
-#include "Function.hpp"
+#include "Simd.hpp"
 
 template<typename ReturnType, typename... Parameters>
 class TDelegate final
 {
 public:
 
+    using FunctionType = ReturnType(*)(Parameters...);
+
     TDelegate() = default;
     ~TDelegate() = default;
 
-    void Bind(TFunction<ReturnType(Parameters...)> InFunction)
+    void Bind(FunctionType InFunction)
     {
         FunctionArray.Append(InFunction);
     }
 
-    void UnBind(TFunction<ReturnType(Parameters...)> InFunction)
+    void UnBind(FunctionType InFunction)
     {
-        const int64 FoundIndex{FunctionArray.FindIndex(InFunction)};
+    #if defined(AVX512)
+        using VectorType = uint64_8;
+    #elif defined(AVX256)
+        using VectorType = uint64_4;
+    #endif
 
-        if(FoundIndex != INDEX_NONE)
+        const VectorType ComparisonPointers{Simd::SetAll<VectorType>(reinterpret_cast<uint64>(InFunction))};
+
+        for(int64 Index{0}; Index < FunctionArray.Num(); Index += Simd::NumElements<VectorType>())
         {
-            FunctionArray.RemoveAtSwap(FoundIndex);
+            const VectorType FunctionPointers{Simd::LoadUnaligned<VectorType>(FunctionArray + Index)};
+            const Simd::MaskType<VectorType> Mask{Simd::MoveMask(FunctionPointers == ComparisonPointers)};
+
+            if(Mask != 0)
+            {
+                const int32 FoundIndex{Math::FindFirstSet(Mask) - 1};
+
+                if(FunctionArray.IsIndexValid(FoundIndex))
+                {
+                    FunctionArray.RemoveAtSwap(FoundIndex);
+                    return;
+                }
+            }
         }
     }
 
-    void Broadcast(Parameters&&... BroadcastParameters)
+    template<typename... BroadcastParameters>
+    void Broadcast(BroadcastParameters&&... Params)
     {
-        for(TFunction<ReturnType(Parameters...)>& Function : FunctionArray)
+        for(FunctionType Function : FunctionArray)
         {
-            Function(BroadcastParameters...);
+            Function(Params...);
         }
     }
 
 private:
 
-    TDynamicArray<TFunction<ReturnType(Parameters...)>> FunctionArray;
-
+    TDynamicArray<FunctionType> FunctionArray;
 };

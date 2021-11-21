@@ -41,6 +41,7 @@ set(CoreFilesSrc
     Source/CoreFiles/TypeTraits.cpp
     Source/CoreFiles/Vector.cpp
     Source/CoreFiles/Time.cpp
+    Source/CoreFiles/Iterator.cpp
 )
 
 set(ObjectFilesSrc
@@ -77,7 +78,7 @@ set(RenderFilesSrc
 )
 
 set(LauncherFilesSrc
-    Source/CoreFiles/ChooseExecutableMain.cpp
+    Source/CoreFiles/ChooseMain.cpp
     Source/CoreFiles/String.cpp
     Source/CoreFiles/Log.cpp
     Source/CoreFiles/Thread/Thread.cpp
@@ -91,8 +92,8 @@ set(GeneralCompilerFlags
     -ffast-math
     -funroll-loops
     -funsafe-math-optimizations
-    -fno-rtti
-    #-fno-exceptions
+    #-fno-rtti
+    -fno-exceptions
     -mlong-double-128
     -Wall
     -Wextra
@@ -119,6 +120,21 @@ target_compile_definitions(${LauncherExecutableName} PRIVATE SOURCE_DIRECTORY="$
 target_compile_options(${LauncherExecutableName} PRIVATE ${GeneralCompilerFlags} -march=skylake)
 target_link_libraries(${LauncherExecutableName} PUBLIC fmt)
 target_link_libraries(${LauncherExecutableName} PUBLIC pthread)
+
+#movie target
+add_executable(Movies.out ${CoreFilesSrc} ${ObjectFilesSrc} ${ThreadFilesSrc})
+
+target_compile_definitions(Movies.out PRIVATE DEBUG=false)
+target_compile_definitions(Movies.out PRIVATE PROJECT_NAME="${CMAKE_PROJECT_NAME}")
+target_compile_definitions(Movies.out PRIVATE ENGINE_NAME="${CMAKE_ENGINE_NAME}")
+target_compile_definitions(Movies.out PRIVATE ENGINE_VERSION=${CMAKE_ENGINE_VERSION})
+target_compile_definitions(Movies.out PRIVATE SOURCE_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}")
+
+target_compile_options(Movies.out PRIVATE ${GeneralCompilerFlags} -march=skylake)
+target_link_libraries(Movies.out PUBLIC fmt)
+target_link_libraries(Movies.out PUBLIC pthread)
+
+#movie target
 
 add_custom_command(
         TARGET ${LauncherExecutableName}
