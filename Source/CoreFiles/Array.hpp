@@ -249,10 +249,10 @@ public:
     {
     }
 
-    explicit constexpr TCountedArray(EInit)
+    explicit constexpr TCountedArray(EInit Value)
         : LastIndex{-1}
     {
-        Memory::Set(Array, 0u, NumElements * sizeof(ElementType));
+        Memory::Set(Array, static_cast<uint8>(Value), NumElements * sizeof(ElementType));
     }
 
     constexpr TCountedArray(const TCountedArray& Other)
@@ -808,6 +808,26 @@ public:
         return Index <= LastIndex && Index >= 0;
     }
 
+    const ElementType* Start() const
+    {
+        return ElementPointer;
+    }
+
+    ElementType* Start()
+    {
+        return ElementPointer;
+    }
+
+    const ElementType* End() const
+    {
+        return ElementPointer + LastIndex;
+    }
+
+    ElementType* End()
+    {
+        return ElementPointer + LastIndex;
+    }
+
     template<bool bDeallocate = false> requires(TypeTrait::IsMoveConstructible<ElementType>)
     ElementType Pop()
     {
@@ -863,21 +883,21 @@ public:
     }
 
     template<typename... Ts>
-    int64 InsertAtPushBack(const int64 TargetIndex, Ts&&... Args)
+    int64 InsertAtPushBack(int64 TargetIndex, Ts&&... Args)
     {
         PushBackMemory<true>(TargetIndex);
         return ConstructElement(TargetIndex, MoveIfPossible(Args)...);
     }
 
     template<typename... Ts>
-    int64 InsertAtSwap(const int64 TargetIndex, Ts&&... Args)
+    int64 InsertAtSwap(int64 TargetIndex, Ts&&... Args)
     {
         MoveElementToEnd<true>(TargetIndex);
         return ConstructElement(TargetIndex, MoveIfPossible(Args)...);
     }
 
     template<bool bDeallocateMemory = false>
-    void RemoveAtSwap(const int64 TargetIndex)
+    void RemoveAtSwap(int64 TargetIndex)
     {
         ASSERT(IsIndexValid(TargetIndex));
 
@@ -892,7 +912,7 @@ public:
     }
 
     template<bool bDeallocateMemory = false>
-    void RemoveAtSwap(const int64 TargetIndex, const int64 NumToRemove)
+    void RemoveAtSwap(int64 TargetIndex, int64 NumToRemove)
     {
         ASSERT(NumToRemove >= 2 && (TargetIndex + NumToRemove) <= Num());
 
@@ -913,7 +933,7 @@ public:
     }
 
     template<bool bDeallocateMemory = false>
-    void RemoveAtCollapse(const int64 TargetIndex, const int64 NumToRemove = 1)
+    void RemoveAtCollapse(int64 TargetIndex, int64 NumToRemove = 1)
     {
         ASSERT(NumToRemove >= 0 && (TargetIndex + NumToRemove) <= Num());
 
@@ -931,13 +951,13 @@ public:
         }
     }
 
-    void ReserveUndefined(const int64 NumElementsToReserve)
+    void ReserveUndefined(int64 NumElementsToReserve)
     {
         int64 NewSize{AllocatedSize() + (NumElementsToReserve * ElementSize())};
         ElementPointer = Memory::Reallocate(ElementPointer, NewSize);
     }
 
-    void ReserveZeroed(const int64 NumElementsToReserve)
+    void ReserveZeroed(int64 NumElementsToReserve)
     {
         ReserveUndefined(NumElementsToReserve);
         Memory::Set(&ElementPointer[LastIndex + 1], 0, AllocatedSize() - UsedSize());
@@ -964,16 +984,19 @@ public:
         }
     }
 
-    void ResizeTo(const int64 NewElementNum)
+    void ResizeTo(int64 NewElementNum)
     {
-        ASSERT(NewElementNum >= 0);
+        if(NewElementNum != Num())
+        {
+            ASSERT(NewElementNum >= 0);
 
-        const int64 NumDeallocatedElements{Num() - NewElementNum};
+            const int64 NumDeallocatedElements{Num() - NewElementNum};
 
-        DestroyElements(Num() - NumDeallocatedElements);
+            DestroyElements(Num() - NumDeallocatedElements);
 
-        LastIndex = NewElementNum - 1;
-        ElementPointer = Memory::Reallocate(ElementPointer, NewElementNum * ElementSize());
+            LastIndex = NewElementNum - 1;
+            ElementPointer = Memory::Reallocate(ElementPointer, NewElementNum * ElementSize());
+        }
     }
 
     template<bool bDeallocateMemory = true>

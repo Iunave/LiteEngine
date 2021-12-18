@@ -25,9 +25,6 @@ namespace Thread
     inline ThreadType MainThreadID{0};
     inline ThreadType AudioThreadID{0};
 
-    bool IsInMainThread();
-    bool IsInAudioThread();
-
     class FMutex final
     {
     private:
@@ -250,8 +247,19 @@ namespace Thread
 
         void Cancel();
 
+        inline pthread_t GetHandle()
+        {
+            return ThreadHandle;
+        }
+
     private:
 
         pthread_t ThreadHandle;
     };
+
+    bool IsInMainThread();
+    bool IsInAudioThread();
+
+    void Yield();
+
 }

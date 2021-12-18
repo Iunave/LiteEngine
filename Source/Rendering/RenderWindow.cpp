@@ -6,9 +6,9 @@
 #define GLFW_INCLUDE_NONE
 #include "GLFW/glfw3.h"
 
-void Render::OWindow::FrameBufferResizeCallback(GLFWwindow* Window, int32 PixelWidth, int32 PixelHeight)
+void FWindow::FrameBufferResizeCallback(GLFWwindow* Window, int32 PixelWidth, int32 PixelHeight)
 {
-    OWindow* RenderWindowPtr{static_cast<OWindow*>(glfwGetWindowUserPointer(Window))};
+    FWindow* RenderWindowPtr{static_cast<FWindow*>(glfwGetWindowUserPointer(Window))};
 
     RenderWindowPtr->UpdateWindowDimensions();
     RenderWindowPtr->HasBeenResized = true;
@@ -16,7 +16,7 @@ void Render::OWindow::FrameBufferResizeCallback(GLFWwindow* Window, int32 PixelW
     LOG(LogGLFW, "window has been resized. new width: {} new height: {}", RenderWindowPtr->WindowDimensions.PixelWidth, RenderWindowPtr->WindowDimensions.PixelHeight);
 }
 
-Render::OWindow::OWindow()
+FWindow::FWindow()
     : HasBeenResized{false}
     , WindowDimensions{0, 0, 0, 0}
     , WindowName{"unnamed"}
@@ -24,12 +24,12 @@ Render::OWindow::OWindow()
 {
 }
 
-Render::OWindow::~OWindow()
+FWindow::~FWindow()
 {
     ASSERT(WindowHandle == nullptr, "window was not destroyed");
 }
 
-void Render::OWindow::CreateWindow(int32 Width, int32 Height, FString<SS60> InWindowName, const bool bFullScreen)
+void FWindow::CreateWindow(int32 Width, int32 Height, FString<SS60> InWindowName, const bool bFullScreen)
 {
     WindowDimensions.CoordinateWidth = Width;
     WindowDimensions.CoordinateHeight = Height;
@@ -67,7 +67,7 @@ void Render::OWindow::CreateWindow(int32 Width, int32 Height, FString<SS60> InWi
     LOG(LogGLFW, "created window with width: {} height: {} fullscreen: {}", WindowDimensions.CoordinateWidth, WindowDimensions.CoordinateHeight, Math::ChooseVar<const char8*>(bFullScreen, "true", "false"));
 }
 
-void Render::OWindow::CloseWindow()
+void FWindow::CloseWindow()
 {
     if(WindowHandle)
     {
@@ -80,17 +80,17 @@ void Render::OWindow::CloseWindow()
     glfwTerminate();
 }
 
-bool Render::OWindow::ShouldClose() const
+bool FWindow::ShouldClose() const
 {
     return glfwWindowShouldClose(WindowHandle);
 }
 
-bool Render::OWindow::IsMinimized() const
+bool FWindow::IsMinimized() const
 {
     return WindowDimensions.PixelWidth == 0 || WindowDimensions.PixelHeight == 0;
 }
 
-void Render::OWindow::UpdateWindowDimensions()
+void FWindow::UpdateWindowDimensions()
 {
     glfwGetWindowSize(WindowHandle, &WindowDimensions.CoordinateWidth, &WindowDimensions.CoordinateHeight);
     glfwGetFramebufferSize(WindowHandle, &WindowDimensions.PixelWidth, &WindowDimensions.PixelHeight);

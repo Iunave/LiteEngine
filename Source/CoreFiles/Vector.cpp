@@ -56,12 +56,12 @@ float64 FVector::DotProduct(FVector Other) const
 
 FVector FVector::CrossProduct(FVector Other) const
 {
-    const float64_4 ThisPositionReversed{Simd::Shuffle<1, 2, 0, 3>(this->Vector)};
-    const float64_4 OtherPositionReversed{Simd::Shuffle<1, 2, 0, 3>(Other.Vector)};
+    const float64_4 ThisPositionReversed{Simd::ShuffleCrossLane<1, 2, 0, 3>(this->Vector)};
+    const float64_4 OtherPositionReversed{Simd::ShuffleCrossLane<1, 2, 0, 3>(Other.Vector)};
 
     const float64_4 Result{Simd::FusedMultiplySubtract(this->Vector, OtherPositionReversed, Other.Vector * ThisPositionReversed)};
 
-    return FVector{Simd::Shuffle<1, 2, 0, 3>(Result)};
+    return FVector{Simd::ShuffleCrossLane<1, 2, 0, 3>(Result)};
 }
 
 float64 FVector::AngleBetween(FVector Other) const

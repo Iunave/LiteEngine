@@ -33,7 +33,7 @@ void ORunnable::WaitForCompletion() const
 {
     while(TaskProgress != Completed)
     {
-        pthread_yield();
+        Thread::Yield();
     }
 }
 

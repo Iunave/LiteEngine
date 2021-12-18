@@ -104,18 +104,6 @@ namespace Thread
     const int64 NumRealThreads{???}; //todo
     #endif
 
-    bool IsInMainThread()
-    {
-        ASSERT(MainThreadID != 0, "main thread ID is not initialized");
-        return pthread_self() == MainThreadID;
-    }
-
-    bool IsInAudioThread()
-    {
-        ASSERT(AudioThreadID != 0, "audio thread ID is not initialized");
-        return pthread_self() == AudioThreadID;
-    }
-
     FMutex::FAttributeWrapper::FAttributeWrapper()
     {
         pthread_mutexattr_init(&MutexAttribute);
@@ -365,5 +353,22 @@ namespace Thread
     void FThread::Cancel()
     {
         pthread_cancel(ThreadHandle);
+    }
+
+    bool IsInMainThread()
+    {
+        ASSERT(MainThreadID != 0, "main thread ID is not initialized");
+        return pthread_self() == MainThreadID;
+    }
+
+    bool IsInAudioThread()
+    {
+        ASSERT(AudioThreadID != 0, "audio thread ID is not initialized");
+        return pthread_self() == AudioThreadID;
+    }
+
+    void Yield()
+    {
+        sched_yield();
     }
 }

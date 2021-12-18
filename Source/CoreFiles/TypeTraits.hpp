@@ -243,6 +243,12 @@ namespace TypeTrait
         static_cast<To>(Source);
     };
 
+    template<typename T, typename... VarArgs>
+    concept IsConstructibleFrom = requires(VarArgs&&... Args)
+    {
+        T{Args...};
+    };
+
     template<typename T>
     concept IsMoveConstructible = std::is_move_constructible_v<T>;
 

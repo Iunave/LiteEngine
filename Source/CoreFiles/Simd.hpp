@@ -608,7 +608,7 @@ namespace Simd
 
         //shuffle elements in Source across lanes using Index
         template<int32... Index, typename T> requires(sizeof(T) == 4 && sizeof...(Index) == 4)
-        INLINE constexpr Vector16<T> Shuffle(Vector16<T> Source) MIN_VECTOR_WIDTH(128)
+        INLINE constexpr Vector16<T> ShuffleCrossLane(Vector16<T> Source) MIN_VECTOR_WIDTH(128)
         {
             if constexpr(TypeTrait::IsFloatingPoint<T>)
             {
@@ -625,7 +625,7 @@ namespace Simd
 
     //shuffle elements in Source across lanes using Index
     template<int32... Index, typename T> requires(sizeof(T) == 8 && sizeof...(Index) == 4)
-    INLINE constexpr Vector32<T> Shuffle(Vector32<T> Source) MIN_VECTOR_WIDTH(256)
+    INLINE constexpr Vector32<T> ShuffleCrossLane(Vector32<T> Source) MIN_VECTOR_WIDTH(256)
     {
         if constexpr(TypeTrait::IsFloatingPoint<T>)
         {
@@ -635,6 +635,14 @@ namespace Simd
         {
             return BUILTIN(permdi256)(Source, MakePermuteMask<Index...>());
         }
+    }
+
+    ///shuffle elements in Source within lanes using Control
+    ///\param I0:I3 example 1, 1, 0, 1
+    template<int32 I0, int32 I1, int32 I2, int32 I3, typename T> requires(sizeof(T) == 8)
+    INLINE constexpr Vector32<T> ShuffleInLane(Vector32<T> Source) MIN_VECTOR_WIDTH(256)
+    {
+        return BUILTIN(vpermilpd256)(Source, (I0 << 0) | (I1 << 1) | (I2 << 2) | (I3 << 3));
     }
 
 #endif //AVX256
@@ -1299,6 +1307,135 @@ namespace Simd
     }
 
 #endif //AVX512
+
+    template<int32... I>
+    concept ValidSelectElementsChoice = requires()
+    {
+        (((I | 1) == 1) && ...);
+    };
+
+#ifdef AVX128
+
+    ///
+    /// \tparam Control a 0 at index N means that the N element of SourceOne will be used, a 1 at index N means that the N element of SourceTwo will be used. eg: 0b1010
+    /// \param SourceOne
+    /// \param SourceTwo
+    /// \return the combined vector
+    template<int32 Control, typename T> requires(sizeof(T) >= 2)
+    INLINE constexpr Vector16<T> SelectElements(Vector16<T> SourceOne, Vector16<T> SourceTwo)
+    {
+        if constexpr(sizeof(T) == 2)
+        {
+            return BUILTIN(pblendw128)(SourceOne, SourceTwo, Control);
+        }
+        else if constexpr(sizeof(T) == 4)
+        {
+            return BUILTIN(blendps)(SourceOne, SourceTwo, Control);
+        }
+        else if constexpr(sizeof(T) == 8)
+        {
+            return BUILTIN(blendpd)(SourceOne, SourceTwo, Control);
+        }
+    }
+
+#endif
+#ifdef AVX256
+
+    ///
+    /// \tparam IO a 0 at index N means that the N element of SourceOne will be used, a 1 at index N means that the N element of SourceTwo will be used
+    /// \param SourceOne
+    /// \param SourceTwo
+    /// \return the combined vector
+    template<int32 I0, int32 I1, int32 I2, int32 I3, typename T> requires(sizeof(T) == 8 && ValidSelectElementsChoice<I0, I1, I2, I3>)
+    INLINE constexpr Vector32<T> SelectElements(Vector32<T> SourceOne, Vector32<T> SourceTwo)
+    {
+        return BUILTIN(blendpd256)(SourceOne, SourceTwo, (I0 << 0) | (I1 << 1) | (I2 << 2) | (I3 << 3));
+    }
+
+    ///
+    /// \tparam Control a 0 at index N means that the N element of SourceOne will be used, a 1 at index N means that the N element of SourceTwo will be used. eg: 0b1010
+    /// \param SourceOne
+    /// \param SourceTwo
+    /// \return the combined vector
+    template<int32 I0, int32 I1, int32 I2, int32 I3, int32 I4, int32 I5, int32 I6, int32 I7, typename T> requires(sizeof(T) == 4 && ValidSelectElementsChoice<I0, I1, I2, I3, I4, I5, I6, I7>)
+    INLINE constexpr Vector32<T> SelectElements(Vector32<T> SourceOne, Vector32<T> SourceTwo)
+    {
+        return BUILTIN(blendps256)(SourceOne, SourceTwo, (I0 << 0) | (I1 << 1) | (I2 << 2) | (I3 << 3) | (I4 << 4) | (I5 << 5) | (I6 << 6) | (I7 << 7));
+    }
+
+    ///
+    /// \tparam Control a 0 at index N means that the N element of SourceOne will be used, a 1 at index N means that the N element of SourceTwo will be used. eg: 0b1010
+    /// \param SourceOne
+    /// \param SourceTwo
+    /// \return the combined vector
+    template<int32 I0, int32 I1, int32 I2, int32 I3, int32 I4, int32 I5, int32 I6, int32 I7, int32 I8, int32 I9, int32 I10, int32 I11, int32 I12, int32 I13, int32 I14, int32 I15, typename T> requires(sizeof(T) == 2 && ValidSelectElementsChoice<I0, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14>)
+    INLINE constexpr Vector32<T> SelectElements(Vector32<T> SourceOne, Vector32<T> SourceTwo)
+    {
+        return BUILTIN(blendw256)(SourceOne, SourceTwo, (I0 << 0) | (I1 << 1) | (I2 << 2) | (I3 << 3) | (I4 << 4) | (I5 << 5) | (I6 << 6) | (I7 << 7) | (I8 << 8) | (I9 << 9) | (I10 << 10) | (I11 << 11) | (I12 << 12) | (I13 << 13) | (I14 << 14) | (I15 << 15));
+    }
+
+    template<int32 OffsetScale = 1> requires(OffsetScale == 1 || OffsetScale == 2 || OffsetScale == 4 || OffsetScale == 8)
+    INLINE constexpr int64_4 Gather(const void* BaseAddress, int32_4 Offsets, int64_4 ConditionalLoadMask = {-1, -1, -1, -1}, int64_4 SourceIfMaskNotSet = BUILTIN(undef256)())
+    {
+        return BUILTIN(gatherd_q256)(SourceIfMaskNotSet, static_cast<const int64*>(BaseAddress), Offsets, ConditionalLoadMask, OffsetScale);
+    }
+
+#endif
+#ifdef AVX512
+
+    ///
+    /// \tparam Control a 0 at index N means that the N element of SourceOne will be used, a 1 at index N means that the N element of SourceTwo will be used. eg: 0b1010
+    /// \param SourceOne
+    /// \param SourceTwo
+    /// \return the combined vector
+    template<auto Control, typename T>
+    INLINE Vector64<T> SelectElements(Vector64<T> SourceOne, Vector64<T> SourceTwo)
+    {
+        if constexpr(TypeTrait::IsInteger<T>)
+        {
+            if constexpr(sizeof(T) == 1)
+            {
+                return BUILTIN(selectb_512)(Control, SourceOne, SourceTwo);
+            }
+            else if constexpr(sizeof(T) == 2)
+            {
+                return BUILTIN(selectw_512)(Control, SourceOne, SourceTwo);
+            }
+            else if constexpr(sizeof(T) == 4)
+            {
+                return BUILTIN(selectd_512)(Control, SourceOne, SourceTwo);
+            }
+            else if constexpr(sizeof(T) == 8)
+            {
+                return BUILTIN(selectq_512)(Control, SourceOne, SourceTwo);
+            }
+        }
+        else if constexpr(TypeTrait::IsFloatingPoint<T>)
+        {
+            if constexpr(sizeof(T) == 4)
+            {
+                return BUILTIN(selectps_512)(Control, SourceOne, SourceTwo);
+            }
+            else if constexpr(sizeof(T) == 8)
+            {
+                return BUILTIN(selectpd_512)(Control, SourceOne, SourceTwo);
+            }
+        }
+    }
+
+#endif
+
+    INLINE int64_4 NextAlignedAddress(int64_4 Addresses, int64_4 Align)
+    {
+        Align -= 1;
+        return (Addresses + Align) & ~Align;
+    }
+
+    INLINE int64_8 NextAlignedAddress(int64_8 Addresses, int64_8 Align)
+    {
+        Align -= 1;
+        return (Addresses + Align) & ~Align;
+    }
 
     /*
      * copies and moves the elements  in the Source by ShuffleAmount to the left

@@ -71,6 +71,7 @@ set(InterfaceFilesSrc
 )
 
 set(RenderFilesSrc
+    Source/Rendering/VulkanLibrary.cpp
     Source/Rendering/VulkanRenderer.cpp
     Source/Rendering/RenderSettings.cpp
     Source/Rendering/RenderWindow.cpp
@@ -92,8 +93,9 @@ set(GeneralCompilerFlags
     -ffast-math
     -funroll-loops
     -funsafe-math-optimizations
-    #-fno-rtti
+    -fno-rtti
     -fno-exceptions
+    #-flto=full
     -mlong-double-128
     -Wall
     -Wextra
@@ -120,21 +122,6 @@ target_compile_definitions(${LauncherExecutableName} PRIVATE SOURCE_DIRECTORY="$
 target_compile_options(${LauncherExecutableName} PRIVATE ${GeneralCompilerFlags} -march=skylake)
 target_link_libraries(${LauncherExecutableName} PUBLIC fmt)
 target_link_libraries(${LauncherExecutableName} PUBLIC pthread)
-
-#movie target
-add_executable(Movies.out ${CoreFilesSrc} ${ObjectFilesSrc} ${ThreadFilesSrc})
-
-target_compile_definitions(Movies.out PRIVATE DEBUG=false)
-target_compile_definitions(Movies.out PRIVATE PROJECT_NAME="${CMAKE_PROJECT_NAME}")
-target_compile_definitions(Movies.out PRIVATE ENGINE_NAME="${CMAKE_ENGINE_NAME}")
-target_compile_definitions(Movies.out PRIVATE ENGINE_VERSION=${CMAKE_ENGINE_VERSION})
-target_compile_definitions(Movies.out PRIVATE SOURCE_DIRECTORY="${CMAKE_CURRENT_SOURCE_DIR}")
-
-target_compile_options(Movies.out PRIVATE ${GeneralCompilerFlags} -march=skylake)
-target_link_libraries(Movies.out PUBLIC fmt)
-target_link_libraries(Movies.out PUBLIC pthread)
-
-#movie target
 
 add_custom_command(
         TARGET ${LauncherExecutableName}

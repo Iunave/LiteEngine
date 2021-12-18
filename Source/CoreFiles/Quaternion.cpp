@@ -34,10 +34,10 @@ FQuaternion FQuaternion::operator*(FQuaternion Other) const
     float64_4 VectorZ{Simd::SetAll<float64_4>(Z())};
     float64_4 VectorW{Simd::SetAll<float64_4>(W())};
 
-    const float64_4 ShuffledOtherX{Simd::Shuffle<3, 2, 1, 0>(Other.Quaternion)};
-    const float64_4 ShuffledOtherY{Simd::Shuffle<2, 3, 0, 1>(Other.Quaternion)};
-    const float64_4 ShuffledOtherZ{Simd::Shuffle<1, 0, 3, 2>(Other.Quaternion)};
-    const float64_4 ShuffledOtherW{Simd::Shuffle<0, 1, 2, 3>(Other.Quaternion)};
+    const float64_4 ShuffledOtherX{Simd::ShuffleCrossLane<3, 2, 1, 0>(Other.Quaternion)};
+    const float64_4 ShuffledOtherY{Simd::ShuffleCrossLane<2, 3, 0, 1>(Other.Quaternion)};
+    const float64_4 ShuffledOtherZ{Simd::ShuffleCrossLane<1, 0, 3, 2>(Other.Quaternion)};
+    const float64_4 ShuffledOtherW{Simd::ShuffleCrossLane<0, 1, 2, 3>(Other.Quaternion)};
 
     VectorX *= ShuffledOtherX;
     VectorY *= ShuffledOtherY;

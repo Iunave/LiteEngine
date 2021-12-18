@@ -1,14 +1,6 @@
 #pragma once
-
-namespace vk
-{
-}
+namespace vk{}
 namespace Vk = vk;
-
-namespace SoLoud
-{
-}
-namespace Sld = SoLoud;
 
 using char8 = char;
 using char16 = char16_t;

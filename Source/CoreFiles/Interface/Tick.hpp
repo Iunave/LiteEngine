@@ -94,7 +94,7 @@ private:
 
 public:
 
-    CONSTRUCTOR(50) static inline FTimerManager& Instance()
+    static inline FTimerManager& Instance()
     {
         static FTimerManager Instance{};
         return Instance;

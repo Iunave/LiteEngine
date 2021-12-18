@@ -2,11 +2,15 @@
 
 #include "CoreFiles/Definitions.hpp"
 #include "CoreFiles/String.hpp"
-#include "CoreFiles/Object/Object.hpp"
 
 #include <vulkan/vulkan.hpp>
 
 struct GLFWwindow;
+
+namespace vk
+{
+    class Extent2D;
+}
 
 struct FWindowDimensions
 {
@@ -16,16 +20,16 @@ struct FWindowDimensions
     int32 PixelHeight;
 };
 
-OBJECT_CLASS_NAMESPACED(Render, OWindow)
-class Render::OWindow
+class FWindow
 {
-    OBJECT_BASES()
-public:
+private:
 
     static void FrameBufferResizeCallback(GLFWwindow* Window, int32 Width, int32 Height);
 
-    OWindow();
-    ~OWindow();
+public:
+
+    FWindow();
+    ~FWindow();
 
     void CreateWindow(int32 Width, int32 Height, FString<SS60> InWindowName, const bool bFullScreen = false);
 
@@ -62,8 +66,6 @@ public:
 protected:
 
     FWindowDimensions WindowDimensions;
-
     FString<SS60> WindowName;
-
     GLFWwindow* WindowHandle;
 };

@@ -38,9 +38,10 @@ enum class EActiveArray : bool
  * if the characters exceed InStackSize in size, it will switch over to heap allocation
  * not trivially copyable
  * now with constexpr, yay!
+ * todo clion does not like the PACKED, remember to uncomment it when done working with the class
  */
 template<EStackSize InStackSize = SS60>
-class PACKED alignas(8) FString final //todo clion does not like the PACKED, remember to uncomment it when done working with the class
+class PACKED alignas(8) FString final
 {
 private:
 
@@ -77,7 +78,7 @@ private:
             : Heap{nullptr}
         {
         }
-        */ //cant do this becouse c++ is broken by design
+        */ //cant do this becouse clang has a bug
 
         //do this instead
         constexpr UCharacterArray()
@@ -744,6 +745,13 @@ namespace StrPri
 
 template<uint64 NumChars>
 FString(const char8(&)[NumChars])->FString<StrPri::LeastNeededStackSize<NumChars>()>;
+
+using FString0 = FString<SS0>;
+using FString28 = FString<SS28>;
+using FString60 = FString<SS60>;
+using FString124 = FString<SS124>;
+using FString252 = FString<SS252>;
+using FString508 = FString<SS508>;
 
 /*
  * a string that fits 32 characters built using SIMD instructions

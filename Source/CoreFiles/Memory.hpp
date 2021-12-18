@@ -283,14 +283,15 @@ namespace Memory
     template<typename Type>
     INLINE Type* NextAlignedAddress(const void* Address, uint64 Align = alignof(Type))
     {
+        --Align;
         const uint64 AddressAsInt{reinterpret_cast<uint64>(Address)};
-        return reinterpret_cast<Type*>(AddressAsInt + (AddressAsInt % Align));
+        return reinterpret_cast<Type*>((AddressAsInt + Align) & ~Align);
     }
 
     template<typename Type>
     INLINE Type* PrevAlignedAddress(const void* Address, uint64 Align = alignof(Type))
     {
-        const uint64 AddressAsInt{reinterpret_cast<uint64>(Address)};
+        const uint64 AddressAsInt{reinterpret_cast<uint64>(Address)}; //todo
         return reinterpret_cast<Type*>(AddressAsInt - (AddressAsInt % Align));
     }
 
